@@ -1,251 +1,871 @@
 import { GoogleGenAI } from "@google/genai";
+
 import {
   ResumeSchema,
   type ResumeData,
 } from "@/lib/ai/resume-schema";
-import {
-  ATSResultSchema,
-  type ATSResult,
-} from "@/lib/ai/ats-schema";
 
-const models = [
-  "gemini-3.6-flash",
+import type { ATSResult } from "@/lib/ai/ats-schema";
+
+const PRIMARY_MODEL = "gemini-3.6-flash";
+
+const FALLBACK_MODELS = [
   "gemini-3.5-flash",
   "gemini-3.1-flash-lite",
 ];
+
+const MAX_ATTEMPTS = 3;
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `
-You are HirePro AI Resume Optimization Engine.
+/**
+ * Remove markdown fences and other accidental text
+ * around Gemini JSON responses.
+ */
+function cleanJsonResponse(raw: string): string {
+  let cleaned = raw.trim();
 
-Your task is to improve an existing candidate resume using an ATS analysis
-and, when available, a target job description.
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+  }
 
-Your goal is to improve:
-- ATS compatibility
-- keyword alignment
-- clarity
-- professional wording
-- relevance
-- achievement-oriented language
-- readability
-- recruiter friendliness
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
 
-IMPORTANT TRUTHFULNESS RULES:
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
 
-1. NEVER invent experience.
-2. NEVER invent employment.
-3. NEVER invent companies.
-4. NEVER invent job titles.
-5. NEVER invent education.
-6. NEVER invent certifications.
-7. NEVER invent projects.
-8. NEVER invent technologies.
-9. NEVER invent achievements.
-10. NEVER invent metrics, percentages, revenue, users, performance numbers,
-    or business results.
-11. NEVER change dates.
-12. NEVER change contact information.
-13. NEVER claim the candidate used a technology unless the original resume
-    supports that technology.
-14. NEVER add a missing skill merely because it appears in the job description.
-15. A missing keyword may only be added when the existing resume provides
-    legitimate evidence that the candidate has that skill or experience.
-16. Preserve the candidate's actual career history.
-17. If a recommendation cannot be safely implemented without inventing
-    information, do not implement it.
-18. You may improve grammar, wording, organization and clarity while preserving
-    the original meaning.
-19. You may naturally incorporate supported keywords into existing statements.
-20. Keep the resume professional and concise.
-
-OPTIMIZATION PRINCIPLES:
-
-- Prioritize high-priority ATS recommendations.
-- Then address medium-priority recommendations.
-- Apply low-priority recommendations only when useful.
-- Improve the professional summary when supported by the resume.
-- Improve experience descriptions without changing facts.
-- Improve project descriptions without changing facts.
-- Improve skills organization.
-- Preserve all genuine skills.
-- Preserve all genuine projects.
-- Preserve all genuine education.
-- Preserve all genuine certifications.
-- Preserve all genuine achievements.
-- Preserve all genuine languages.
-- Preserve all URLs.
-- Preserve personal information exactly.
-
-KEYWORD RULE:
-
-If the job description contains a keyword such as:
-"REST API"
-
-you may include it only if the original resume contains evidence such as:
-- REST API
-- API development
-- API integration
-- backend API work
-- a project clearly involving APIs
-
-Do NOT add REST API merely because it appears in the job description.
-
-OUTPUT:
-
-Return ONLY valid JSON matching the provided ResumeSchema.
-
-Do not return markdown.
-Do not return explanations.
-Do not return comments.
-`;
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return cleaned;
 }
 
-function extractJson(text: string) {
-  const cleaned = text
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
+/**
+ * Convert unknown values into safe strings.
+ */
+function safeString(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
 
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value);
+}
+
+/**
+ * Convert an unknown value into an array of strings.
+ */
+function safeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => safeString(item).trim())
+    .filter(Boolean);
+}
+
+/**
+ * Normalize a skills section.
+ */
+function normalizeSkills(value: unknown): ResumeData["skills"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        category: safeString(obj.category),
+        items: safeStringArray(obj.items),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        category: string;
+        items: string[];
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize experience.
+ */
+function normalizeExperience(
+  value: unknown
+): ResumeData["experience"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        company: safeString(obj.company),
+        role: safeString(obj.role),
+        location: safeString(obj.location),
+        startDate: safeString(obj.startDate),
+        endDate: safeString(obj.endDate),
+        responsibilities: safeStringArray(obj.responsibilities),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        company: string;
+        role: string;
+        location: string;
+        startDate: string;
+        endDate: string;
+        responsibilities: string[];
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize education.
+ */
+function normalizeEducation(
+  value: unknown
+): ResumeData["education"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        institution: safeString(obj.institution),
+        degree: safeString(obj.degree),
+        field: safeString(obj.field),
+        startDate: safeString(obj.startDate),
+        endDate: safeString(obj.endDate),
+        details: safeStringArray(obj.details),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        institution: string;
+        degree: string;
+        field: string;
+        startDate: string;
+        endDate: string;
+        details: string[];
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize projects.
+ */
+function normalizeProjects(
+  value: unknown
+): ResumeData["projects"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        name: safeString(obj.name),
+        description: safeString(obj.description),
+        technologies: safeStringArray(obj.technologies),
+        url: safeString(obj.url),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        name: string;
+        description: string;
+        technologies: string[];
+        url: string;
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize certifications.
+ */
+function normalizeCertifications(
+  value: unknown
+): ResumeData["certifications"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        name: safeString(obj.name),
+        issuer: safeString(obj.issuer),
+        date: safeString(obj.date),
+        url: safeString(obj.url),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        name: string;
+        issuer: string;
+        date: string;
+        url: string;
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize additional sections.
+ */
+function normalizeAdditionalSections(
+  value: unknown
+): ResumeData["additionalSections"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const obj = item as Record<string, unknown>;
+
+      return {
+        title: safeString(obj.title),
+        items: safeStringArray(obj.items),
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        title: string;
+        items: string[];
+      } => item !== null
+    );
+}
+
+/**
+ * Normalize Gemini's output into the exact ResumeSchema shape.
+ *
+ * This is intentionally conservative.
+ * Missing information becomes an empty string/array.
+ * We never invent information.
+ */
+function normalizeResume(value: unknown): unknown {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  const personal =
+    obj.personal && typeof obj.personal === "object"
+      ? (obj.personal as Record<string, unknown>)
+      : {};
+
+  return {
+    personal: {
+      name: safeString(personal.name),
+      email: safeString(personal.email),
+      phone: safeString(personal.phone),
+      location: safeString(personal.location),
+      linkedin: safeString(personal.linkedin),
+      github: safeString(personal.github),
+      website: safeString(personal.website),
+    },
+
+    professionalSummary: safeString(
+      obj.professionalSummary
+    ),
+
+    skills: normalizeSkills(obj.skills),
+
+    experience: normalizeExperience(obj.experience),
+
+    education: normalizeEducation(obj.education),
+
+    projects: normalizeProjects(obj.projects),
+
+    certifications: normalizeCertifications(
+      obj.certifications
+    ),
+
+    achievements: safeStringArray(obj.achievements),
+
+    languages: safeStringArray(obj.languages),
+
+    additionalSections: normalizeAdditionalSections(
+      obj.additionalSections
+    ),
+  };
+}
+
+/**
+ * Parse and validate Gemini output.
+ */
+function parseResumeResponse(
+  raw: string
+): {
+  success: true;
+  resume: ResumeData;
+} | {
+  success: false;
+  raw: string;
+  error: string;
+} {
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
+    const cleaned = cleanJsonResponse(raw);
 
-    if (
-      start === -1 ||
-      end === -1 ||
-      end <= start
-    ) {
-      throw new Error("AI returned invalid JSON.");
+    const parsed = JSON.parse(cleaned);
+
+    const normalized = normalizeResume(parsed);
+
+    const validation = ResumeSchema.safeParse(
+      normalized
+    );
+
+    if (!validation.success) {
+      console.error(
+        "[ATS OPTIMIZER] Resume validation failed:",
+        validation.error.flatten()
+      );
+
+      return {
+        success: false,
+        raw,
+        error: JSON.stringify(
+          validation.error.flatten()
+        ),
+      };
     }
 
-    return JSON.parse(
-      cleaned.slice(start, end + 1)
+    return {
+      success: true,
+      resume: validation.data,
+    };
+  } catch (error) {
+    console.error(
+      "[ATS OPTIMIZER] JSON parsing failed:",
+      error
     );
+
+    return {
+      success: false,
+      raw,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Invalid JSON",
+    };
   }
 }
 
-async function optimizeWithModel(
-  model: string,
+/**
+ * Build the main optimization prompt.
+ */
+function buildOptimizationPrompt(
   resumeText: string,
-  jobDescription: string,
-  atsResult: ATSResult
-): Promise<ResumeData> {
-  const jobSection = jobDescription.trim()
-    ? `
-TARGET JOB DESCRIPTION:
+  atsResult: ATSResult,
+  jobDescription: string
+): string {
+  return `
+You are an expert ATS resume optimization system.
 
-${jobDescription}
+Your job is to improve the candidate's resume for ATS compatibility and recruiter readability.
 
-Use this job description to improve relevance and keyword alignment.
-`
-    : `
-NO TARGET JOB DESCRIPTION WAS PROVIDED.
+CRITICAL RULE:
 
-Perform general ATS-focused resume optimization.
-`;
+You MUST NOT invent information.
 
-  const response = await ai.models.generateContent({
-    model,
+You are allowed to:
+- rewrite wording
+- improve grammar
+- improve clarity
+- improve professional phrasing
+- reorganize existing information
+- improve bullet points
+- emphasize existing relevant skills
+- improve keyword placement when the keyword is genuinely supported by the original resume
+- improve the professional summary using existing facts
+- make responsibilities clearer
+- improve project descriptions using only information already present
+- remove unnecessary repetition
 
-    contents: `
-${SYSTEM_PROMPT}
+You MUST NOT:
+- invent companies
+- invent job titles
+- invent dates
+- invent degrees
+- invent universities
+- invent certifications
+- invent skills
+- invent technologies
+- invent achievements
+- invent metrics
+- invent responsibilities
+- invent projects
+- invent employment
+- invent links
+- invent experience
+- claim that the candidate used a technology unless the original resume supports it
 
-ORIGINAL RESUME:
+If information is not present in the original resume, leave the corresponding field empty.
+
+The original resume is the only source of truth.
+
+--------------------------------------------------
+ORIGINAL RESUME
+--------------------------------------------------
 
 ${resumeText}
 
-${jobSection}
+--------------------------------------------------
+ATS ANALYSIS
+--------------------------------------------------
 
-CURRENT ATS ANALYSIS:
+Overall Score:
+${atsResult.overallScore}
 
-${JSON.stringify(atsResult, null, 2)}
+Summary:
+${atsResult.summary}
 
-OPTIMIZATION TASK:
+Keyword Score:
+${atsResult.keywordMatch.score}
 
-Improve the existing resume according to the ATS analysis.
+Matched Keywords:
+${JSON.stringify(
+  atsResult.keywordMatch.matchedKeywords
+)}
 
-Pay particular attention to:
+Missing Keywords:
+${JSON.stringify(
+  atsResult.keywordMatch.missingKeywords
+)}
 
-HIGH PRIORITY RECOMMENDATIONS:
-${atsResult.recommendations
-  .filter((item) => item.priority === "high")
-  .map((item) => `- ${item.recommendation}`)
-  .join("\n") || "None"}
+Formatting Score:
+${atsResult.formatting.score}
 
-MEDIUM PRIORITY RECOMMENDATIONS:
-${atsResult.recommendations
-  .filter((item) => item.priority === "medium")
-  .map((item) => `- ${item.recommendation}`)
-  .join("\n") || "None"}
+Formatting Issues:
+${JSON.stringify(
+  atsResult.formatting.issues
+)}
 
-LOW PRIORITY RECOMMENDATIONS:
-${atsResult.recommendations
-  .filter((item) => item.priority === "low")
-  .map((item) => `- ${item.recommendation}`)
-  .join("\n") || "None"}
+Experience Score:
+${atsResult.experience.score}
 
-MISSING KEYWORDS:
-${atsResult.keywordMatch.missingKeywords.join(", ") || "None"}
+Experience Strengths:
+${JSON.stringify(
+  atsResult.experience.strengths
+)}
 
-MISSING SKILLS:
-${atsResult.skills.missingSkills.join(", ") || "None"}
+Experience Weaknesses:
+${JSON.stringify(
+  atsResult.experience.weaknesses
+)}
 
-FORMATTING ISSUES:
-${atsResult.formatting.issues.join("\n") || "None"}
+Skills Score:
+${atsResult.skills.score}
 
-EXPERIENCE WEAKNESSES:
-${atsResult.experience.weaknesses.join("\n") || "None"}
+Matched Skills:
+${JSON.stringify(
+  atsResult.skills.matchedSkills
+)}
 
-Create an optimized ResumeData object.
+Missing Skills:
+${JSON.stringify(
+  atsResult.skills.missingSkills
+)}
 
-The optimized resume must remain truthful to the original resume.
+Recommendations:
+${JSON.stringify(
+  atsResult.recommendations
+)}
 
-Return the complete ResumeData JSON now.
-`,
+--------------------------------------------------
+JOB DESCRIPTION
+--------------------------------------------------
 
-    config: {
-      temperature: 0.2,
-      responseMimeType: "application/json",
-    },
-  });
-
-  const text = response.text;
-
-  if (!text) {
-    throw new Error("AI returned an empty response.");
-  }
-
-  const json = extractJson(text);
-
-  const validation = ResumeSchema.safeParse(json);
-
-  if (!validation.success) {
-    console.error(
-      "ATS optimizer schema validation error:",
-      validation.error.flatten()
-    );
-
-    throw new Error(
-      "AI returned an invalid optimized resume structure."
-    );
-  }
-
-  return validation.data;
+${
+  jobDescription
+    ? jobDescription
+    : "No job description was provided. Optimize for general ATS compatibility."
 }
 
+--------------------------------------------------
+OUTPUT REQUIREMENTS
+--------------------------------------------------
+
+Return ONLY ONE valid JSON object.
+
+The JSON MUST follow this EXACT structure:
+
+{
+  "personal": {
+    "name": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "linkedin": "",
+    "github": "",
+    "website": ""
+  },
+
+  "professionalSummary": "",
+
+  "skills": [
+    {
+      "category": "",
+      "items": []
+    }
+  ],
+
+  "experience": [
+    {
+      "company": "",
+      "role": "",
+      "location": "",
+      "startDate": "",
+      "endDate": "",
+      "responsibilities": []
+    }
+  ],
+
+  "education": [
+    {
+      "institution": "",
+      "degree": "",
+      "field": "",
+      "startDate": "",
+      "endDate": "",
+      "details": []
+    }
+  ],
+
+  "projects": [
+    {
+      "name": "",
+      "description": "",
+      "technologies": [],
+      "url": ""
+    }
+  ],
+
+  "certifications": [
+    {
+      "name": "",
+      "issuer": "",
+      "date": "",
+      "url": ""
+    }
+  ],
+
+  "achievements": [],
+
+  "languages": [],
+
+  "additionalSections": [
+    {
+      "title": "",
+      "items": []
+    }
+  ]
+}
+
+IMPORTANT:
+
+Every field must exist.
+
+Use empty strings for unavailable text.
+
+Use empty arrays for unavailable lists.
+
+Do not use null.
+
+Do not use undefined.
+
+Do not add extra top-level fields.
+
+Do not return markdown.
+
+Do not return explanations.
+
+Return ONLY valid JSON.
+`;
+}
+
+/**
+ * Ask Gemini to repair malformed resume JSON.
+ */
+async function repairResumeResponse(
+  rawResponse: string,
+  validationError: string,
+  model: string
+): Promise<ResumeData | null> {
+  const repairPrompt = `
+You are a JSON repair system.
+
+The AI generated an invalid resume object.
+
+Your task is to repair it so it exactly matches the required ResumeSchema.
+
+DO NOT change factual information.
+
+DO NOT invent anything.
+
+Only:
+- fix JSON syntax
+- add missing fields using empty strings or empty arrays
+- convert null values into empty strings/arrays
+- convert invalid primitive fields into valid strings
+- convert invalid list fields into arrays
+- remove unsupported extra fields
+
+Required structure:
+
+{
+  "personal": {
+    "name": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "linkedin": "",
+    "github": "",
+    "website": ""
+  },
+  "professionalSummary": "",
+  "skills": [
+    {
+      "category": "",
+      "items": []
+    }
+  ],
+  "experience": [
+    {
+      "company": "",
+      "role": "",
+      "location": "",
+      "startDate": "",
+      "endDate": "",
+      "responsibilities": []
+    }
+  ],
+  "education": [
+    {
+      "institution": "",
+      "degree": "",
+      "field": "",
+      "startDate": "",
+      "endDate": "",
+      "details": []
+    }
+  ],
+  "projects": [
+    {
+      "name": "",
+      "description": "",
+      "technologies": [],
+      "url": ""
+    }
+  ],
+  "certifications": [
+    {
+      "name": "",
+      "issuer": "",
+      "date": "",
+      "url": ""
+    }
+  ],
+  "achievements": [],
+  "languages": [],
+  "additionalSections": [
+    {
+      "title": "",
+      "items": []
+    }
+  ]
+}
+
+Validation error:
+
+${validationError}
+
+Invalid AI response:
+
+${rawResponse}
+
+Return ONLY corrected JSON.
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: repairPrompt,
+      config: {
+        temperature: 0,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const raw = response.text ?? "";
+
+    const parsed = parseResumeResponse(raw);
+
+    if (parsed.success) {
+      return parsed.resume;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(
+      "[ATS OPTIMIZER] Repair failed:",
+      error
+    );
+
+    return null;
+  }
+}
+
+/**
+ * Run Gemini with retry logic.
+ */
+async function generateWithModel(
+  model: string,
+  prompt: string
+): Promise<ResumeData> {
+  let lastRawResponse = "";
+  let lastValidationError = "";
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      console.log(
+        `[ATS OPTIMIZER] ${model} attempt ${attempt}/${MAX_ATTEMPTS}`
+      );
+
+      const response =
+        await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          },
+        });
+
+      const raw = response.text ?? "";
+
+      lastRawResponse = raw;
+
+      console.log(
+        `[ATS OPTIMIZER] ${model} response length: ${raw.length}`
+      );
+
+      const parsed = parseResumeResponse(raw);
+
+      if (parsed.success) {
+        console.log(
+          `[ATS OPTIMIZER] ${model} returned valid resume`
+        );
+
+        return parsed.resume;
+      }
+
+      lastValidationError = parsed.error;
+
+      console.error(
+        `[ATS OPTIMIZER] Invalid structure from ${model}:`,
+        parsed.error
+      );
+
+      /**
+       * Give Gemini one chance to repair its own output.
+       */
+      const repaired = await repairResumeResponse(
+        raw,
+        parsed.error,
+        model
+      );
+
+      if (repaired) {
+        console.log(
+          `[ATS OPTIMIZER] ${model} successfully repaired resume`
+        );
+
+        return repaired;
+      }
+    } catch (error) {
+      console.error(
+        `[ATS OPTIMIZER] ${model} attempt ${attempt} failed:`,
+        error
+      );
+
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1500)
+        );
+      }
+    }
+  }
+
+  throw new Error(
+    `AI returned an invalid optimized resume structure. ${lastValidationError || ""}`
+  );
+}
+
+/**
+ * Main exported optimizer.
+ */
 export async function optimizeResumeForATS(
   resumeText: string,
   atsResult: ATSResult,
-  jobDescription = ""
+  jobDescription: string
 ): Promise<ResumeData> {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error(
@@ -255,52 +875,42 @@ export async function optimizeResumeForATS(
 
   if (!resumeText.trim()) {
     throw new Error(
-      "Resume text cannot be empty."
+      "Resume text is empty."
     );
   }
 
-  const atsValidation =
-    ATSResultSchema.safeParse(atsResult);
+  const prompt = buildOptimizationPrompt(
+    resumeText,
+    atsResult,
+    jobDescription
+  );
 
-  if (!atsValidation.success) {
-    throw new Error(
-      "Invalid ATS analysis provided."
-    );
-  }
+  const models = [
+    PRIMARY_MODEL,
+    ...FALLBACK_MODELS,
+  ];
 
   let lastError: unknown = null;
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        return await optimizeWithModel(
-          model,
-          resumeText,
-          jobDescription,
-          atsValidation.data
-        );
-      } catch (error) {
-        lastError = error;
+    try {
+      return await generateWithModel(
+        model,
+        prompt
+      );
+    } catch (error) {
+      lastError = error;
 
-        console.error(
-          `ATS resume optimization failed with ${model}, attempt ${
-            attempt + 1
-          }:`,
-          error
-        );
-
-        if (attempt < 2) {
-          await sleep(
-            1000 * Math.pow(2, attempt)
-          );
-        }
-      }
+      console.error(
+        `[ATS OPTIMIZER] Model ${model} failed:`,
+        error
+      );
     }
   }
 
   throw new Error(
     lastError instanceof Error
       ? lastError.message
-      : "Unable to optimize resume."
+      : "Failed to optimize resume with AI."
   );
 }
