@@ -23,13 +23,6 @@ const services = [
     icon: "◎",
     href: "/dashboard/ats",
   },
-  {
-    title: "AI Job Matching",
-    description:
-      "Find jobs that match your skills, experience, education and career goals.",
-    icon: "⌕",
-    href: "/dashboard/jobs",
-  },
 ];
 
 export default async function DashboardPage() {
@@ -65,10 +58,7 @@ export default async function DashboardPage() {
       {/* NAVBAR */}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
-          <a
-            href="/"
-            className="text-xl font-bold tracking-tight"
-          >
+          <a href="/" className="text-xl font-bold tracking-tight">
             Career<span className="text-blue-600">AI</span>
           </a>
 
@@ -115,14 +105,14 @@ export default async function DashboardPage() {
           </h1>
 
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-            Everything you need to build your professional presence,
-            optimize your resume and discover your next opportunity.
+            Everything you need to build your professional presence and create
+            a stronger, more career-ready profile.
           </p>
         </section>
 
         {/* SERVICES */}
         <section className="mt-12">
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => (
               <a
                 key={service.title}
@@ -157,11 +147,9 @@ export default async function DashboardPage() {
 
         {/* QUICK OVERVIEW */}
         <section className="mt-12">
-          <h2 className="text-xl font-bold">
-            Your career overview
-          </h2>
+          <h2 className="text-xl font-bold">Your career overview</h2>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <p className="text-sm text-slate-500">Portfolios</p>
               <p className="mt-2 text-3xl font-bold">0</p>
@@ -174,11 +162,6 @@ export default async function DashboardPage() {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <p className="text-sm text-slate-500">ATS Checks</p>
-              <p className="mt-2 text-3xl font-bold">0</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <p className="text-sm text-slate-500">Job Matches</p>
               <p className="mt-2 text-3xl font-bold">0</p>
             </div>
           </div>
