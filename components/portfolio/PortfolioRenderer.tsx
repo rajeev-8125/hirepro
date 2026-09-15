@@ -1,708 +1,929 @@
 "use client";
 
-import type { ReactNode } from "react";
 import type { PortfolioData } from "@/lib/ai/portfolio-schema";
+import type { PortfolioDesign } from "@/lib/ai/portfolio-design-schema";
 
 type PortfolioRendererProps = {
   data: PortfolioData;
+  design?: PortfolioDesign | null;
+  profileImageUrl?: string | null;
+  resumeUrl?: string | null;
 };
-
-function safeUrl(value?: string) {
-  if (!value) return null;
-
-  try {
-    const normalized = /^https?:\/\//i.test(value)
-      ? value
-      : `https://${value}`;
-
-    const url = new URL(normalized);
-
-    if (!["http:", "https:"].includes(url.protocol)) {
-      return null;
-    }
-
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function SectionTitle({
-  eyebrow,
-  title,
-}: {
-  eyebrow: string;
-  title: string;
-}) {
-  return (
-    <div className="mb-8">
-      <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-blue-600">
-        {eyebrow}
-      </p>
-
-      <h2 className="text-2xl font-extrabold tracking-tight text-slate-950 md:text-3xl">
-        {title}
-      </h2>
-
-      <div className="mt-4 h-1 w-12 rounded-full bg-blue-600" />
-    </div>
-  );
-}
-
-function Card({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
 
 export default function PortfolioRenderer({
   data,
+  design,
+  profileImageUrl,
+  resumeUrl,
 }: PortfolioRendererProps) {
-  const linkedin = safeUrl(data.personal.linkedin);
-  const github = safeUrl(data.personal.github);
-  const website = safeUrl(data.personal.website);
+  /*
+   * Safe defaults.
+   * These are only used if an older portfolio does not have
+   * an AI-generated design configuration.
+   */
+  const colors = design?.colors ?? {
+    background: "#020617",
+    surface: "#0f172a",
+    text: "#ffffff",
+    mutedText: "#94a3b8",
+    primary: "#2563eb",
+    secondary: "#1d4ed8",
+  };
 
-  const initials =
-    data.personal.name
-      ?.split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((word) => word[0]?.toUpperCase())
-      .join("") || "P";
+  const typography = design?.typography ?? {
+    heading: "Inter",
+    body: "Inter",
+  };
+
+  const hero = design?.hero ?? {
+    layout: "left" as const,
+    photoPosition: "right" as const,
+    photoShape: "circle" as const,
+    photoSize: "medium" as const,
+  };
+
+  const navigation = design?.navigation ?? {
+    style: "simple" as const,
+  };
+
+  const cards = design?.cards ?? {
+    style: "soft" as const,
+    radius: "medium" as const,
+    shadow: "soft" as const,
+  };
+
+  const animations = design?.animations ?? {
+    enabled: true,
+    style: "subtle" as const,
+  };
+
+  const resumeButton = design?.resumeButton ?? {
+    enabled: true,
+    label: "Download Resume",
+    style: "filled" as const,
+  };
+
+  const sections =
+    design?.sections ?? [
+      "about",
+      "skills",
+      "experience",
+      "projects",
+      "education",
+      "certifications",
+      "achievements",
+      "languages",
+      "contact",
+    ];
+
+  const name =
+    data.personal.name?.trim() || "Your Name";
+
+  const headline =
+    data.personal.headline?.trim() ||
+    "Professional Portfolio";
+
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("");
+
+  function radiusClass() {
+    switch (cards.radius) {
+      case "none":
+        return "rounded-none";
+      case "small":
+        return "rounded-lg";
+      case "large":
+        return "rounded-3xl";
+      default:
+        return "rounded-2xl";
+    }
+  }
+
+  function shadowClass() {
+    switch (cards.shadow) {
+      case "none":
+        return "";
+      case "medium":
+        return "shadow-xl";
+      default:
+        return "shadow-md";
+    }
+  }
+
+  function photoClass() {
+    if (hero.photoShape === "circle") {
+      return "rounded-full";
+    }
+
+    if (hero.photoShape === "square") {
+      return "rounded-none";
+    }
+
+    if (hero.photoShape === "rounded") {
+      return "rounded-3xl";
+    }
+
+    return "rounded-full";
+  }
+
+  function photoSizeClass() {
+    switch (hero.photoSize) {
+      case "small":
+        return "h-32 w-32 md:h-40 md:w-40";
+
+      case "large":
+        return "h-56 w-56 md:h-72 md:w-72";
+
+      default:
+        return "h-44 w-44 md:h-56 md:w-56";
+    }
+  }
+
+  function animationClass() {
+    if (!animations.enabled) {
+      return "";
+    }
+
+    if (animations.style === "dynamic") {
+      return "transition-all duration-500 hover:-translate-y-2";
+    }
+
+    if (animations.style === "smooth") {
+      return "transition-all duration-500 hover:-translate-y-1";
+    }
+
+    return "transition-all duration-300";
+  }
+
+  function cardStyle(): React.CSSProperties {
+    if (cards.style === "glass") {
+      return {
+        backgroundColor: `${colors.surface}cc`,
+        borderColor: `${colors.primary}33`,
+        backdropFilter: "blur(16px)",
+      };
+    }
+
+    if (cards.style === "bordered") {
+      return {
+        backgroundColor: colors.surface,
+        borderColor: `${colors.primary}55`,
+      };
+    }
+
+    if (cards.style === "elevated") {
+      return {
+        backgroundColor: colors.surface,
+      };
+    }
+
+    if (cards.style === "flat") {
+      return {
+        backgroundColor: colors.surface,
+        borderColor: "transparent",
+      };
+    }
+
+    return {
+      backgroundColor: colors.surface,
+      borderColor: `${colors.primary}22`,
+    };
+  }
+
+  const heroPhoto =
+    profileImageUrl && hero.photoShape !== "none";
+
+  const heroContainerClass =
+    hero.layout === "center"
+      ? "flex flex-col items-center text-center"
+      : hero.layout === "right"
+        ? "flex flex-col items-end text-right"
+        : hero.layout === "split"
+          ? "grid grid-cols-1 items-center gap-12 md:grid-cols-2"
+          : "flex flex-col items-start text-left";
+
+  const photoOrder =
+    hero.photoPosition === "left"
+      ? "md:order-first"
+      : hero.photoPosition === "right"
+        ? "md:order-last"
+        : "";
 
   return (
-    <div className="min-h-screen overflow-hidden bg-slate-50 text-slate-800">
+    <main
+      className="min-h-screen"
+      style={{
+        backgroundColor: colors.background,
+        color: colors.text,
+        fontFamily: typography.body,
+      }}
+    >
+      {/* Navigation */}
+      <nav
+        className="sticky top-0 z-50 border-b backdrop-blur-xl"
+        style={{
+          backgroundColor: `${colors.background}ee`,
+          borderColor: `${colors.primary}22`,
+        }}
+      >
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <a
+            href="#home"
+            className="text-xl font-bold"
+            style={{
+              color: colors.primary,
+              fontFamily: typography.heading,
+            }}
+          >
+            {name}
+          </a>
 
-      {/* =====================================================
-          TOP ACCENT
-      ====================================================== */}
+          <div
+            className={
+              navigation.style === "centered"
+                ? "hidden items-center gap-6 md:flex"
+                : "hidden items-center gap-6 md:flex"
+            }
+          >
+            <a href="#about" className="text-sm hover:opacity-70">
+              About
+            </a>
 
-      <div className="h-1.5 bg-blue-600" />
+            <a href="#skills" className="text-sm hover:opacity-70">
+              Skills
+            </a>
 
-      {/* =====================================================
-          HERO
-      ====================================================== */}
+            <a href="#experience" className="text-sm hover:opacity-70">
+              Experience
+            </a>
 
-      <header className="relative overflow-hidden bg-slate-950 text-white">
+            <a href="#projects" className="text-sm hover:opacity-70">
+              Projects
+            </a>
 
-        {/* Decorative background */}
+            <a href="#contact" className="text-sm hover:opacity-70">
+              Contact
+            </a>
+          </div>
+        </div>
+      </nav>
 
-        <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl" />
+      {/* Hero */}
+      <section
+        id="home"
+        className="mx-auto max-w-6xl px-6 py-20 md:py-28"
+      >
+        <div className={heroContainerClass}>
+          <div
+            className={
+              hero.layout === "split"
+                ? `${photoOrder} flex flex-col items-start text-left`
+                : "w-full"
+            }
+          >
+            <p
+              className="mb-4 text-sm font-semibold uppercase tracking-[0.25em]"
+              style={{ color: colors.primary }}
+            >
+              Portfolio
+            </p>
 
-        <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-indigo-600/20 blur-3xl" />
+            <h1
+              className="max-w-4xl text-5xl font-black leading-tight md:text-7xl"
+              style={{
+                color: colors.text,
+                fontFamily: typography.heading,
+              }}
+            >
+              {name}
+            </h1>
 
-        <div className="relative mx-auto max-w-6xl px-6 py-16 md:px-10 md:py-24">
+            <p
+              className="mt-6 max-w-2xl text-xl md:text-2xl"
+              style={{ color: colors.primary }}
+            >
+              {headline}
+            </p>
 
-          <div className="flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
+            {data.summary && (
+              <p
+                className="mt-6 max-w-2xl text-base leading-8 md:text-lg"
+                style={{ color: colors.mutedText }}
+              >
+                {data.summary}
+              </p>
+            )}
 
-            {/* PROFILE */}
-
-            <div className="flex flex-col gap-7 sm:flex-row sm:items-center">
-
-              {/* Avatar */}
-
-              <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border border-white/10 bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-extrabold shadow-2xl shadow-blue-900/40">
-                {initials}
-              </div>
-
-              {/* Name */}
-
-              <div>
-
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-blue-400">
-                  Professional Portfolio
-                </p>
-
-                <h1 className="text-4xl font-black tracking-tight md:text-6xl">
-                  {data.personal.name || "Your Name"}
-                </h1>
-
-                <p className="mt-4 max-w-2xl text-lg font-medium leading-8 text-slate-300">
-                  {data.personal.headline || "Professional"}
-                </p>
-
-                {/* Contact */}
-
-                <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-400">
-
-                  {data.personal.email && (
-                    <span>
-                      {data.personal.email}
-                    </span>
-                  )}
-
-                  {data.personal.phone && (
-                    <span>
-                      {data.personal.phone}
-                    </span>
-                  )}
-
-                  {data.personal.location && (
-                    <span>
-                      {data.personal.location}
-                    </span>
-                  )}
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* SOCIAL LINKS */}
-
-            <div className="flex flex-wrap gap-3">
-
-              {linkedin && (
+            <div className="mt-8 flex flex-wrap gap-4">
+              {resumeButton.enabled && resumeUrl && (
                 <a
-                  href={linkedin}
+                  href={resumeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+                  download
+                  className={`inline-flex items-center justify-center px-6 py-3 font-semibold ${animationClass()}`}
+                  style={{
+                    borderRadius:
+                      cards.radius === "none"
+                        ? "0"
+                        : cards.radius === "small"
+                          ? "8px"
+                          : cards.radius === "large"
+                            ? "24px"
+                            : "14px",
+                    backgroundColor:
+                      resumeButton.style === "filled"
+                        ? colors.primary
+                        : "transparent",
+                    color:
+                      resumeButton.style === "filled"
+                        ? colors.background
+                        : colors.primary,
+                    border:
+                      resumeButton.style === "filled"
+                        ? "none"
+                        : `1px solid ${colors.primary}`,
+                  }}
+                >
+                  {resumeButton.label || "Download Resume"}
+                </a>
+              )}
+
+              {data.personal.linkedin && (
+                <a
+                  href={data.personal.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-xl border px-6 py-3 font-semibold transition hover:opacity-75"
+                  style={{
+                    borderColor: `${colors.primary}55`,
+                    color: colors.text,
+                  }}
                 >
                   LinkedIn
                 </a>
               )}
 
-              {github && (
+              {data.personal.github && (
                 <a
-                  href={github}
+                  href={data.personal.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+                  className="inline-flex items-center justify-center rounded-xl border px-6 py-3 font-semibold transition hover:opacity-75"
+                  style={{
+                    borderColor: `${colors.primary}55`,
+                    color: colors.text,
+                  }}
                 >
                   GitHub
                 </a>
               )}
-
-              {website && (
-                <a
-                  href={website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500"
-                >
-                  Website
-                </a>
-              )}
-
             </div>
-
           </div>
 
-        </div>
-      </header>
-
-      {/* =====================================================
-          MAIN
-      ====================================================== */}
-
-      <main className="mx-auto max-w-6xl px-6 py-14 md:px-10 md:py-20">
-
-        {/* ===================================================
-            ABOUT
-        ==================================================== */}
-
-        {data.summary && (
-          <section className="mb-20">
-
-            <SectionTitle
-              eyebrow="01"
-              title="About Me"
-            />
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm md:p-10">
-
-              <p className="max-w-5xl whitespace-pre-line text-base leading-8 text-slate-600 md:text-lg md:leading-9">
-                {data.summary}
-              </p>
-
+          {heroPhoto && (
+            <div
+              className={`flex ${
+                hero.photoPosition === "left"
+                  ? "justify-start"
+                  : hero.photoPosition === "right"
+                    ? "justify-end"
+                    : "justify-center"
+              } ${hero.layout === "split" ? "" : "mt-12"} ${photoOrder}`}
+            >
+              <img
+                src={profileImageUrl}
+                alt={`${name} profile`}
+                className={`${photoSizeClass()} ${photoClass()} object-cover object-center shadow-2xl`}
+                style={{
+                  border: `4px solid ${colors.primary}`,
+                }}
+              />
             </div>
+          )}
 
-          </section>
-        )}
-
-        {/* ===================================================
-            SKILLS
-        ==================================================== */}
-
-        {data.skills?.length > 0 && (
-          <section className="mb-20">
-
-            <SectionTitle
-              eyebrow="02"
-              title="Skills & Expertise"
-            />
-
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-
-              {data.skills.map((skill, index) => (
+          {!heroPhoto &&
+            hero.photoShape !== "none" && (
+              <div
+                className={`flex ${
+                  hero.photoPosition === "left"
+                    ? "justify-start"
+                    : hero.photoPosition === "right"
+                      ? "justify-end"
+                      : "justify-center"
+                } ${hero.layout === "split" ? "" : "mt-12"} ${photoOrder}`}
+              >
                 <div
-                  key={`${skill}-${index}`}
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg"
+                  className={`${photoSizeClass()} ${photoClass()} flex items-center justify-center text-5xl font-bold`}
+                  style={{
+                    backgroundColor: colors.surface,
+                    color: colors.primary,
+                    border: `4px solid ${colors.primary}`,
+                  }}
                 >
-
-                  <div className="flex items-center gap-4">
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-sm font-bold text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white">
-                      {String(index + 1).padStart(2, "0")}
-                    </div>
-
-                    <span className="font-semibold text-slate-800">
-                      {skill}
-                    </span>
-
-                  </div>
-
+                  {initials || "P"}
                 </div>
+              </div>
+            )}
+        </div>
+      </section>
+
+      {/* About */}
+      {sections.includes("about") && data.summary && (
+        <section
+          id="about"
+          className="mx-auto max-w-6xl px-6 py-16"
+        >
+          <SectionTitle
+            title="About"
+            primary={colors.primary}
+            headingFont={typography.heading}
+          />
+
+          <div
+            className={`mt-8 border p-8 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+            style={cardStyle()}
+          >
+            <p
+              className="leading-8"
+              style={{ color: colors.mutedText }}
+            >
+              {data.summary}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* Skills */}
+      {sections.includes("skills") &&
+        data.skills.length > 0 && (
+          <section
+            id="skills"
+            className="mx-auto max-w-6xl px-6 py-16"
+          >
+            <SectionTitle
+              title="Skills"
+              primary={colors.primary}
+              headingFont={typography.heading}
+            />
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              {data.skills.map((skill, index) => (
+                <span
+                  key={`${skill}-${index}`}
+                  className={`border px-4 py-2 text-sm font-medium ${radiusClass()}`}
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: `${colors.primary}44`,
+                    color: colors.text,
+                  }}
+                >
+                  {skill}
+                </span>
               ))}
-
             </div>
-
           </section>
         )}
 
-        {/* ===================================================
-            EXPERIENCE
-        ==================================================== */}
-
-        {data.experience?.length > 0 && (
-          <section className="mb-20">
-
+      {/* Experience */}
+      {sections.includes("experience") &&
+        data.experience.length > 0 && (
+          <section
+            id="experience"
+            className="mx-auto max-w-6xl px-6 py-16"
+          >
             <SectionTitle
-              eyebrow="03"
               title="Experience"
+              primary={colors.primary}
+              headingFont={typography.heading}
             />
 
-            <div className="relative space-y-6">
-
-              <div className="absolute bottom-5 left-[11px] top-5 hidden w-px bg-slate-200 md:block" />
-
+            <div className="mt-8 space-y-6">
               {data.experience.map((item, index) => (
                 <div
                   key={`${item.company}-${index}`}
-                  className="relative md:pl-10"
+                  className={`border p-7 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                  style={cardStyle()}
                 >
-
-                  {/* Timeline dot */}
-
-                  <div className="absolute left-0 top-7 hidden h-6 w-6 items-center justify-center rounded-full border-4 border-slate-50 bg-blue-600 md:flex" />
-
-                  <Card>
-
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-
-                      <div>
-
-                        <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-                          {item.company || "Company"}
-                        </p>
-
-                        <h3 className="mt-2 text-xl font-extrabold text-slate-950">
-                          {item.role || "Role"}
-                        </h3>
-
-                        {item.location && (
-                          <p className="mt-1 text-sm text-slate-500">
-                            {item.location}
-                          </p>
-                        )}
-
-                      </div>
-
-                      {(item.startDate ||
-                        item.endDate) && (
-                        <span className="w-fit rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                          {item.startDate}
-                          {item.startDate ||
-                          item.endDate
-                            ? " — "
-                            : ""}
-                          {item.endDate}
-                        </span>
-                      )}
-
-                    </div>
-
-                    {item.description && (
-                      <p className="mt-6 whitespace-pre-line border-t border-slate-100 pt-6 leading-8 text-slate-600">
-                        {item.description}
-                      </p>
-                    )}
-
-                  </Card>
-
-                </div>
-              ))}
-
-            </div>
-
-          </section>
-        )}
-
-        {/* ===================================================
-            PROJECTS
-        ==================================================== */}
-
-        {data.projects?.length > 0 && (
-          <section className="mb-20">
-
-            <SectionTitle
-              eyebrow="04"
-              title="Featured Projects"
-            />
-
-            <div className="grid gap-6 md:grid-cols-2">
-
-              {data.projects.map((project, index) => {
-
-                const projectUrl =
-                  safeUrl(project.url);
-
-                return (
-                  <Card
-                    key={`${project.name}-${index}`}
-                    className="group relative overflow-hidden"
-                  >
-
-                    {/* Number */}
-
-                    <div className="absolute right-6 top-5 text-5xl font-black text-slate-100 transition group-hover:text-blue-50">
-                      {String(index + 1).padStart(2, "0")}
-                    </div>
-
-                    <div className="relative">
-
-                      <div className="mb-5 flex items-center justify-between">
-
-                        <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-600">
-                          Project
-                        </span>
-
-                        {projectUrl && (
-                          <a
-                            href={projectUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-bold text-blue-600 hover:underline"
-                          >
-                            View Project →
-                          </a>
-                        )}
-
-                      </div>
-
-                      <h3 className="text-xl font-extrabold text-slate-950">
-                        {project.name ||
-                          "Project"}
+                  <div className="flex flex-col justify-between gap-3 md:flex-row">
+                    <div>
+                      <h3
+                        className="text-xl font-bold"
+                        style={{
+                          color: colors.text,
+                          fontFamily: typography.heading,
+                        }}
+                      >
+                        {item.role}
                       </h3>
 
-                      {project.description && (
-                        <p className="mt-4 leading-7 text-slate-600">
-                          {project.description}
-                        </p>
-                      )}
-
-                      {project.technologies
-                        ?.length > 0 && (
-                        <div className="mt-6 flex flex-wrap gap-2">
-
-                          {project.technologies.map(
-                            (
-                              technology,
-                              techIndex
-                            ) => (
-                              <span
-                                key={`${technology}-${techIndex}`}
-                                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600"
-                              >
-                                {technology}
-                              </span>
-                            )
-                          )}
-
-                        </div>
-                      )}
-
+                      <p
+                        className="mt-1 font-semibold"
+                        style={{ color: colors.primary }}
+                      >
+                        {item.company}
+                      </p>
                     </div>
 
-                  </Card>
-                );
-              })}
+                    <p
+                      className="text-sm"
+                      style={{ color: colors.mutedText }}
+                    >
+                      {item.startDate}
+                      {item.startDate || item.endDate
+                        ? " — "
+                        : ""}
+                      {item.endDate}
+                    </p>
+                  </div>
 
+                  {item.location && (
+                    <p
+                      className="mt-3 text-sm"
+                      style={{ color: colors.mutedText }}
+                    >
+                      {item.location}
+                    </p>
+                  )}
+
+                  {item.description && (
+                    <p
+                      className="mt-5 whitespace-pre-line leading-7"
+                      style={{ color: colors.mutedText }}
+                    >
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-
           </section>
         )}
 
-        {/* ===================================================
-            EDUCATION
-        ==================================================== */}
-
-        {data.education?.length > 0 && (
-          <section className="mb-20">
-
+      {/* Projects */}
+      {sections.includes("projects") &&
+        data.projects.length > 0 && (
+          <section
+            id="projects"
+            className="mx-auto max-w-6xl px-6 py-16"
+          >
             <SectionTitle
-              eyebrow="05"
-              title="Education"
+              title="Projects"
+              primary={colors.primary}
+              headingFont={typography.heading}
             />
 
-            <div className="grid gap-6 md:grid-cols-2">
-
-              {data.education.map(
-                (item, index) => (
-                  <Card
-                    key={`${item.institution}-${index}`}
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {data.projects.map((project, index) => (
+                <div
+                  key={`${project.name}-${index}`}
+                  className={`border p-7 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                  style={cardStyle()}
+                >
+                  <h3
+                    className="text-xl font-bold"
+                    style={{
+                      color: colors.text,
+                      fontFamily: typography.heading,
+                    }}
                   >
+                    {project.name}
+                  </h3>
 
-                    <div className="flex items-start justify-between gap-5">
+                  {project.description && (
+                    <p
+                      className="mt-4 leading-7"
+                      style={{ color: colors.mutedText }}
+                    >
+                      {project.description}
+                    </p>
+                  )}
 
-                      <div>
-
-                        <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                          Education
-                        </p>
-
-                        <h3 className="mt-3 text-xl font-extrabold text-slate-950">
-                          {item.degree ||
-                            "Degree"}
-                        </h3>
-
-                        {item.field && (
-                          <p className="mt-1 font-medium text-slate-600">
-                            {item.field}
-                          </p>
-                        )}
-
-                        <p className="mt-3 font-semibold text-blue-600">
-                          {item.institution}
-                        </p>
-
-                      </div>
-
-                      {(item.startDate ||
-                        item.endDate) && (
-                        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
-                          {item.startDate}
-                          {item.startDate ||
-                          item.endDate
-                            ? " — "
-                            : ""}
-                          {item.endDate}
-                        </span>
+                  {project.technologies.length > 0 && (
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {project.technologies.map(
+                        (technology, technologyIndex) => (
+                          <span
+                            key={`${technology}-${technologyIndex}`}
+                            className="rounded-lg px-3 py-1 text-xs font-medium"
+                            style={{
+                              backgroundColor: `${colors.primary}18`,
+                              color: colors.primary,
+                            }}
+                          >
+                            {technology}
+                          </span>
+                        )
                       )}
-
                     </div>
+                  )}
 
-                    {item.description && (
-                      <p className="mt-5 border-t border-slate-100 pt-5 leading-7 text-slate-600">
-                        {item.description}
+                  {project.url && (
+                    <a
+                      href={project.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-6 inline-block font-semibold hover:underline"
+                      style={{ color: colors.primary }}
+                    >
+                      View Project →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      {/* Education */}
+      {sections.includes("education") &&
+        data.education.length > 0 && (
+          <section
+            id="education"
+            className="mx-auto max-w-6xl px-6 py-16"
+          >
+            <SectionTitle
+              title="Education"
+              primary={colors.primary}
+              headingFont={typography.heading}
+            />
+
+            <div className="mt-8 space-y-6">
+              {data.education.map((item, index) => (
+                <div
+                  key={`${item.institution}-${index}`}
+                  className={`border p-7 ${radiusClass()} ${shadowClass()}`}
+                  style={cardStyle()}
+                >
+                  <h3
+                    className="text-xl font-bold"
+                    style={{
+                      color: colors.text,
+                      fontFamily: typography.heading,
+                    }}
+                  >
+                    {item.degree}
+                    {item.field ? ` — ${item.field}` : ""}
+                  </h3>
+
+                  <p
+                    className="mt-2 font-semibold"
+                    style={{ color: colors.primary }}
+                  >
+                    {item.institution}
+                  </p>
+
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: colors.mutedText }}
+                  >
+                    {item.startDate}
+                    {item.startDate || item.endDate
+                      ? " — "
+                      : ""}
+                    {item.endDate}
+                  </p>
+
+                  {item.description && (
+                    <p
+                      className="mt-4 leading-7"
+                      style={{ color: colors.mutedText }}
+                    >
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      {/* Certifications */}
+      {sections.includes("certifications") &&
+        data.certifications.length > 0 && (
+          <section className="mx-auto max-w-6xl px-6 py-16">
+            <SectionTitle
+              title="Certifications"
+              primary={colors.primary}
+              headingFont={typography.heading}
+            />
+
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {data.certifications.map(
+                (certificate, index) => (
+                  <div
+                    key={`${certificate.name}-${index}`}
+                    className={`border p-7 ${radiusClass()} ${shadowClass()}`}
+                    style={cardStyle()}
+                  >
+                    <h3
+                      className="text-lg font-bold"
+                      style={{
+                        color: colors.text,
+                        fontFamily: typography.heading,
+                      }}
+                    >
+                      {certificate.name}
+                    </h3>
+
+                    {certificate.issuer && (
+                      <p
+                        className="mt-2"
+                        style={{ color: colors.primary }}
+                      >
+                        {certificate.issuer}
                       </p>
                     )}
 
-                  </Card>
-                )
-              )}
+                    {certificate.date && (
+                      <p
+                        className="mt-2 text-sm"
+                        style={{ color: colors.mutedText }}
+                      >
+                        {certificate.date}
+                      </p>
+                    )}
 
-            </div>
-
-          </section>
-        )}
-
-        {/* ===================================================
-            CERTIFICATIONS
-        ==================================================== */}
-
-        {data.certifications?.length > 0 && (
-          <section className="mb-20">
-
-            <SectionTitle
-              eyebrow="06"
-              title="Certifications"
-            />
-
-            <div className="grid gap-5 md:grid-cols-2">
-
-              {data.certifications.map(
-                (item, index) => {
-
-                  const certificationUrl =
-                    safeUrl(item.url);
-
-                  return (
-                    <Card
-                      key={`${item.name}-${index}`}
-                    >
-
-                      <div className="flex gap-5">
-
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl">
-                          ✓
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-
-                            <h3 className="font-bold text-slate-950">
-                              {item.name ||
-                                "Certification"}
-                            </h3>
-
-                            {item.date && (
-                              <span className="text-xs font-semibold text-slate-400">
-                                {item.date}
-                              </span>
-                            )}
-
-                          </div>
-
-                          {item.issuer && (
-                            <p className="mt-1 text-sm font-medium text-blue-600">
-                              {item.issuer}
-                            </p>
-                          )}
-
-                          {certificationUrl && (
-                            <a
-                              href={
-                                certificationUrl
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-4 inline-block text-sm font-bold text-blue-600 hover:underline"
-                            >
-                              View Certificate →
-                            </a>
-                          )}
-
-                        </div>
-
-                      </div>
-
-                    </Card>
-                  );
-                }
-              )}
-
-            </div>
-
-          </section>
-        )}
-
-        {/* ===================================================
-            ACHIEVEMENTS
-        ==================================================== */}
-
-        {data.achievements?.length > 0 && (
-          <section className="mb-20">
-
-            <SectionTitle
-              eyebrow="07"
-              title="Achievements"
-            />
-
-            <div className="grid gap-4">
-
-              {data.achievements.map(
-                (achievement, index) => (
-                  <div
-                    key={`${achievement}-${index}`}
-                    className="flex gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-                  >
-
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 font-bold text-white">
-                      {index + 1}
-                    </div>
-
-                    <p className="leading-7 text-slate-600">
-                      {achievement}
-                    </p>
-
+                    {certificate.url && (
+                      <a
+                        href={certificate.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 inline-block font-semibold"
+                        style={{ color: colors.primary }}
+                      >
+                        View Certificate →
+                      </a>
+                    )}
                   </div>
                 )
               )}
-
             </div>
-
           </section>
         )}
 
-        {/* ===================================================
-            LANGUAGES
-        ==================================================== */}
-
-        {data.languages?.length > 0 && (
-          <section className="mb-10">
-
+      {/* Achievements */}
+      {sections.includes("achievements") &&
+        data.achievements.length > 0 && (
+          <section className="mx-auto max-w-6xl px-6 py-16">
             <SectionTitle
-              eyebrow="08"
-              title="Languages"
+              title="Achievements"
+              primary={colors.primary}
+              headingFont={typography.heading}
             />
 
-            <div className="flex flex-wrap gap-3">
+            <div
+              className={`mt-8 border p-7 ${radiusClass()} ${shadowClass()}`}
+              style={cardStyle()}
+            >
+              <ul className="space-y-4">
+                {data.achievements.map(
+                  (achievement, index) => (
+                    <li
+                      key={`${achievement}-${index}`}
+                      className="flex gap-3 leading-7"
+                      style={{ color: colors.mutedText }}
+                    >
+                      <span style={{ color: colors.primary }}>
+                        •
+                      </span>
 
+                      <span>{achievement}</span>
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
+          </section>
+        )}
+
+      {/* Languages */}
+      {sections.includes("languages") &&
+        data.languages.length > 0 && (
+          <section className="mx-auto max-w-6xl px-6 py-16">
+            <SectionTitle
+              title="Languages"
+              primary={colors.primary}
+              headingFont={typography.heading}
+            />
+
+            <div className="mt-8 flex flex-wrap gap-3">
               {data.languages.map(
                 (language, index) => (
                   <span
                     key={`${language}-${index}`}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm"
+                    className={`border px-4 py-2 ${radiusClass()}`}
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: `${colors.primary}44`,
+                      color: colors.text,
+                    }}
                   >
                     {language}
                   </span>
                 )
               )}
-
             </div>
-
           </section>
         )}
 
-      </main>
+      {/* Contact */}
+      {sections.includes("contact") && (
+        <section
+          id="contact"
+          className="mx-auto max-w-6xl px-6 py-20"
+        >
+          <SectionTitle
+            title="Contact"
+            primary={colors.primary}
+            headingFont={typography.heading}
+          />
 
-      {/* =====================================================
-          FOOTER
-      ====================================================== */}
+          <div
+            className={`mt-8 border p-8 ${radiusClass()} ${shadowClass()}`}
+            style={cardStyle()}
+          >
+            <div className="space-y-4">
+              {data.personal.email && (
+                <a
+                  href={`mailto:${data.personal.email}`}
+                  className="block font-medium hover:underline"
+                  style={{ color: colors.primary }}
+                >
+                  {data.personal.email}
+                </a>
+              )}
 
-      <footer className="bg-slate-950 text-white">
+              {data.personal.phone && (
+                <p style={{ color: colors.mutedText }}>
+                  {data.personal.phone}
+                </p>
+              )}
 
-        <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
+              {data.personal.location && (
+                <p style={{ color: colors.mutedText }}>
+                  {data.personal.location}
+                </p>
+              )}
 
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-
-            <div>
-
-              <p className="text-lg font-bold">
-                {data.personal.name ||
-                  "Professional Portfolio"}
-              </p>
-
-              <p className="mt-1 text-sm text-slate-400">
-                Built with AI-powered career technology.
-              </p>
-
+              {data.personal.website && (
+                <a
+                  href={data.personal.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block font-medium hover:underline"
+                  style={{ color: colors.primary }}
+                >
+                  Personal Website
+                </a>
+              )}
             </div>
-
-            <div className="text-sm text-slate-500">
-              Professional Portfolio
-            </div>
-
           </div>
+        </section>
+      )}
 
-        </div>
-
+      {/* Footer */}
+      <footer
+        className="border-t px-6 py-10 text-center"
+        style={{
+          borderColor: `${colors.primary}22`,
+          color: colors.mutedText,
+        }}
+      >
+        <p>
+          © {new Date().getFullYear()} {name}. All rights reserved.
+        </p>
       </footer>
+    </main>
+  );
+}
 
+function SectionTitle({
+  title,
+  primary,
+  headingFont,
+}: {
+  title: string;
+  primary: string;
+  headingFont: string;
+}) {
+  return (
+    <div>
+      <p
+        className="text-sm font-bold uppercase tracking-[0.25em]"
+        style={{ color: primary }}
+      >
+        {title}
+      </p>
+
+      <div
+        className="mt-3 h-1 w-16 rounded-full"
+        style={{ backgroundColor: primary }}
+      />
     </div>
   );
 }

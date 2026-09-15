@@ -1,28 +1,23 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import PortfolioEditor from "@/components/portfolio/PortfolioEditor";
+import PortfolioRenderer from "@/components/portfolio/PortfolioRenderer";
+import type { PortfolioData } from "@/lib/ai/portfolio-schema";
+import type { PortfolioDesign } from "@/lib/ai/portfolio-design-schema";
 
 type PageProps = {
-  params: Promise<{ id: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 };
 
-export default async function PortfolioPage({ params }: PageProps) {
-  const { id } = await params;
+export default async function PublicPortfolioPage({
+  params,
+}: PageProps) {
+  const { slug } = await params;
 
   const supabase = await createClient();
 
-  // Check logged-in user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect(
-      `/login?next=${encodeURIComponent(`/dashboard/portfolio/${id}`)}`
-    );
-  }
-
-  // Load portfolio
+  // Only published portfolios can be viewed publicly.
   const { data: portfolio, error } = await supabase
     .from("portfolios")
     .select(`
@@ -32,21 +27,20 @@ export default async function PortfolioPage({ params }: PageProps) {
       design_config,
       resume_file_path,
       profile_image_path,
-      slug,
       is_published
     `)
-    .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("slug", slug)
+    .eq("is_published", true)
     .single();
 
   if (error || !portfolio) {
-    console.error("Portfolio loading error:", error);
     notFound();
   }
 
-  // Create temporary signed URL for resume
   let resumeUrl: string | null = null;
+  let profileImageUrl: string | null = null;
 
+  // Generate a temporary signed URL for the private resume.
   if (portfolio.resume_file_path) {
     const { data, error: resumeError } = await supabase.storage
       .from("resumes")
@@ -57,7 +51,7 @@ export default async function PortfolioPage({ params }: PageProps) {
 
     if (resumeError) {
       console.error(
-        "Resume signed URL error:",
+        "Public resume URL error:",
         resumeError
       );
     } else {
@@ -65,9 +59,7 @@ export default async function PortfolioPage({ params }: PageProps) {
     }
   }
 
-  // Create temporary signed URL for profile image
-  let profileImageUrl: string | null = null;
-
+  // Generate a temporary signed URL for the private profile image.
   if (portfolio.profile_image_path) {
     const { data, error: imageError } = await supabase.storage
       .from("profile-images")
@@ -78,7 +70,7 @@ export default async function PortfolioPage({ params }: PageProps) {
 
     if (imageError) {
       console.error(
-        "Profile image signed URL error:",
+        "Public profile image URL error:",
         imageError
       );
     } else {
@@ -87,19 +79,15 @@ export default async function PortfolioPage({ params }: PageProps) {
   }
 
   return (
-    <PortfolioEditor
-      portfolio={{
-        id: portfolio.id,
-        title: portfolio.title,
-        generated_data: portfolio.generated_data,
-        design_config: portfolio.design_config,
-
-        profile_image_url: profileImageUrl,
-        resume_url: resumeUrl,
-
-        slug: portfolio.slug,
-        is_published: portfolio.is_published,
-      }}
-    />
+    <main className="min-h-screen">
+      <PortfolioRenderer
+        data={portfolio.generated_data as PortfolioData}
+        design={
+          portfolio.design_config as PortfolioDesign | null
+        }
+        profileImageUrl={profileImageUrl}
+        resumeUrl={resumeUrl}
+      />
+    </main>
   );
 }

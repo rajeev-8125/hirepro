@@ -1,24 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import PortfolioRenderer from "./PortfolioRenderer";
 import type { PortfolioData } from "@/lib/ai/portfolio-schema";
+import type { PortfolioDesign } from "@/lib/ai/portfolio-design-schema";
 
 type Portfolio = {
   id: string;
   title?: string | null;
-  theme?: string | null;
   generated_data: PortfolioData;
+  design_config?: PortfolioDesign | null;
+  profile_image_url?: string | null;
+  resume_url?: string | null;
+  slug?: string | null;
+  is_published?: boolean | null;
 };
 
-type Props = {
+type PortfolioEditorProps = {
   portfolio: Portfolio;
 };
 
-type Section =
-  | "profile"
-  | "about"
+type SectionName =
+  | "personal"
+  | "summary"
   | "skills"
   | "experience"
   | "projects"
@@ -27,361 +31,74 @@ type Section =
   | "achievements"
   | "languages";
 
-export default function PortfolioEditor({ portfolio }: Props) {
-  const router = useRouter();
+const emptyExperience: PortfolioData["experience"][number] = {
+  company: "",
+  role: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  description: "",
+};
 
+const emptyProject: PortfolioData["projects"][number] = {
+  name: "",
+  description: "",
+  technologies: [],
+  url: "",
+};
+
+const emptyEducation: PortfolioData["education"][number] = {
+  institution: "",
+  degree: "",
+  field: "",
+  startDate: "",
+  endDate: "",
+  description: "",
+};
+
+const emptyCertification: PortfolioData["certifications"][number] = {
+  name: "",
+  issuer: "",
+  date: "",
+  url: "",
+};
+
+export default function PortfolioEditor({
+  portfolio,
+}: PortfolioEditorProps) {
   const [data, setData] = useState<PortfolioData>(
     portfolio.generated_data
   );
 
-  const [activeSection, setActiveSection] =
-    useState<Section>("profile");
+  const [openSection, setOpenSection] = useState<SectionName | null>("personal");
 
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
-  // --------------------------------------------------
-  // PROFILE
-  // --------------------------------------------------
+  const [published, setPublished] = useState(
+    portfolio.is_published ?? false
+  );
 
-  function updatePersonal(
-    field: keyof PortfolioData["personal"],
-    value: string
-  ) {
-    setData({
-      ...data,
-      personal: {
-        ...data.personal,
-        [field]: value,
-      },
-    });
+  const [slug, setSlug] = useState(
+    portfolio.slug ?? null
+  );
+
+  const [message, setMessage] = useState("");
+
+  function toggleSection(section: SectionName) {
+    setOpenSection((current) =>
+      current === section ? null : section
+    );
   }
 
-  // --------------------------------------------------
-  // SUMMARY
-  // --------------------------------------------------
-
-  function updateSummary(value: string) {
-    setData({
-      ...data,
-      summary: value,
-    });
-  }
-
-  // --------------------------------------------------
-  // SKILLS
-  // --------------------------------------------------
-
-  function updateSkill(index: number, value: string) {
-    const skills = [...data.skills];
-    skills[index] = value;
-
-    setData({
-      ...data,
-      skills,
-    });
-  }
-
-  function addSkill() {
-    setData({
-      ...data,
-      skills: [...data.skills, ""],
-    });
-  }
-
-  function removeSkill(index: number) {
-    setData({
-      ...data,
-      skills: data.skills.filter((_, i) => i !== index),
-    });
-  }
-
-  // --------------------------------------------------
-  // EXPERIENCE
-  // --------------------------------------------------
-
-  function updateExperience(
-    index: number,
-    field: keyof PortfolioData["experience"][number],
-    value: string
-  ) {
-    const experience = [...data.experience];
-
-    experience[index] = {
-      ...experience[index],
-      [field]: value,
-    };
-
-    setData({
-      ...data,
-      experience,
-    });
-  }
-
-  function addExperience() {
-    setData({
-      ...data,
-      experience: [
-        ...data.experience,
-        {
-          company: "",
-          role: "",
-          location: "",
-          startDate: "",
-          endDate: "",
-          description: "",
-        },
-      ],
-    });
-  }
-
-  function removeExperience(index: number) {
-    setData({
-      ...data,
-      experience: data.experience.filter((_, i) => i !== index),
-    });
-  }
-
-  // --------------------------------------------------
-  // PROJECTS
-  // --------------------------------------------------
-
-  function updateProject(
-    index: number,
-    field: keyof PortfolioData["projects"][number],
-    value: string
-  ) {
-    const projects = [...data.projects];
-
-    projects[index] = {
-      ...projects[index],
-      [field]: value,
-    };
-
-    setData({
-      ...data,
-      projects,
-    });
-  }
-
-  function updateProjectTechnologies(
-    index: number,
-    value: string
-  ) {
-    const projects = [...data.projects];
-
-    projects[index] = {
-      ...projects[index],
-      technologies: value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-    };
-
-    setData({
-      ...data,
-      projects,
-    });
-  }
-
-  function addProject() {
-    setData({
-      ...data,
-      projects: [
-        ...data.projects,
-        {
-          name: "",
-          description: "",
-          technologies: [],
-          url: "",
-        },
-      ],
-    });
-  }
-
-  function removeProject(index: number) {
-    setData({
-      ...data,
-      projects: data.projects.filter((_, i) => i !== index),
-    });
-  }
-
-  // --------------------------------------------------
-  // EDUCATION
-  // --------------------------------------------------
-
-  function updateEducation(
-    index: number,
-    field: keyof PortfolioData["education"][number],
-    value: string
-  ) {
-    const education = [...data.education];
-
-    education[index] = {
-      ...education[index],
-      [field]: value,
-    };
-
-    setData({
-      ...data,
-      education,
-    });
-  }
-
-  function addEducation() {
-    setData({
-      ...data,
-      education: [
-        ...data.education,
-        {
-          institution: "",
-          degree: "",
-          field: "",
-          startDate: "",
-          endDate: "",
-          description: "",
-        },
-      ],
-    });
-  }
-
-  function removeEducation(index: number) {
-    setData({
-      ...data,
-      education: data.education.filter((_, i) => i !== index),
-    });
-  }
-
-  // --------------------------------------------------
-  // CERTIFICATIONS
-  // --------------------------------------------------
-
-  function updateCertification(
-    index: number,
-    field: keyof PortfolioData["certifications"][number],
-    value: string
-  ) {
-    const certifications = [...data.certifications];
-
-    certifications[index] = {
-      ...certifications[index],
-      [field]: value,
-    };
-
-    setData({
-      ...data,
-      certifications,
-    });
-  }
-
-  function addCertification() {
-    setData({
-      ...data,
-      certifications: [
-        ...data.certifications,
-        {
-          name: "",
-          issuer: "",
-          date: "",
-          url: "",
-        },
-      ],
-    });
-  }
-
-  function removeCertification(index: number) {
-    setData({
-      ...data,
-      certifications: data.certifications.filter(
-        (_, i) => i !== index
-      ),
-    });
-  }
-
-  // --------------------------------------------------
-  // ACHIEVEMENTS
-  // --------------------------------------------------
-
-  function updateAchievement(
-    index: number,
-    value: string
-  ) {
-    const achievements = [...data.achievements];
-
-    achievements[index] = value;
-
-    setData({
-      ...data,
-      achievements,
-    });
-  }
-
-  function addAchievement() {
-    setData({
-      ...data,
-      achievements: [
-        ...data.achievements,
-        "",
-      ],
-    });
-  }
-
-  function removeAchievement(index: number) {
-    setData({
-      ...data,
-      achievements: data.achievements.filter(
-        (_, i) => i !== index
-      ),
-    });
-  }
-
-  // --------------------------------------------------
-  // LANGUAGES
-  // --------------------------------------------------
-
-  function updateLanguage(
-    index: number,
-    value: string
-  ) {
-    const languages = [...data.languages];
-
-    languages[index] = value;
-
-    setData({
-      ...data,
-      languages,
-    });
-  }
-
-  function addLanguage() {
-    setData({
-      ...data,
-      languages: [
-        ...data.languages,
-        "",
-      ],
-    });
-  }
-
-  function removeLanguage(index: number) {
-    setData({
-      ...data,
-      languages: data.languages.filter(
-        (_, i) => i !== index
-      ),
-    });
-  }
-
-  // --------------------------------------------------
-  // SAVE
-  // --------------------------------------------------
+  /* =========================================================
+     SAVE
+  ========================================================= */
 
   async function savePortfolio() {
     try {
-      setSaving(true);
-      setSaveMessage("");
-      setErrorMessage("");
+      setIsSaving(true);
+      setMessage("");
 
       const response = await fetch(
         `/api/portfolio/${portfolio.id}`,
@@ -392,11 +109,6 @@ export default function PortfolioEditor({ portfolio }: Props) {
           },
           body: JSON.stringify({
             generated_data: data,
-            theme: "professional",
-            title:
-              portfolio.title ||
-              data.personal.name ||
-              "My Portfolio",
           }),
         }
       );
@@ -409,1236 +121,1667 @@ export default function PortfolioEditor({ portfolio }: Props) {
         );
       }
 
-      setSaveMessage("Saved successfully");
-
-      setTimeout(() => {
-        setSaveMessage("");
-      }, 3000);
+      setMessage("Portfolio saved successfully.");
     } catch (error) {
       console.error(error);
 
-      setErrorMessage(
+      setMessage(
         error instanceof Error
           ? error.message
           : "Failed to save portfolio"
       );
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   }
 
-  // --------------------------------------------------
-  // SECTION LIST
-  // --------------------------------------------------
+  /* =========================================================
+     PUBLISH
+  ========================================================= */
 
-  const sections: {
-    id: Section;
-    label: string;
-  }[] = [
-    {
-      id: "profile",
-      label: "Profile",
-    },
-    {
-      id: "about",
-      label: "About",
-    },
-    {
-      id: "skills",
-      label: "Skills",
-    },
-    {
-      id: "experience",
-      label: "Experience",
-    },
-    {
-      id: "projects",
-      label: "Projects",
-    },
-    {
-      id: "education",
-      label: "Education",
-    },
-    {
-      id: "certifications",
-      label: "Certifications",
-    },
-    {
-      id: "achievements",
-      label: "Achievements",
-    },
-    {
-      id: "languages",
-      label: "Languages",
-    },
-  ];
+  async function publishPortfolio() {
+    try {
+      setIsPublishing(true);
+      setMessage("");
 
-  // --------------------------------------------------
-  // INPUT CLASS
-  // --------------------------------------------------
-
-  const inputClass =
-    "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-
-  const textareaClass =
-    "mt-1 min-h-[120px] w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-
-  const labelClass =
-    "text-sm font-semibold text-slate-700";
-
-  // --------------------------------------------------
-  // EDITOR CONTENT
-  // --------------------------------------------------
-
-  function renderEditor() {
-    // PROFILE
-    if (activeSection === "profile") {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              Profile
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Update your basic professional information.
-            </p>
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Full Name
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.name}
-              onChange={(e) =>
-                updatePersonal(
-                  "name",
-                  e.target.value
-                )
-              }
-              placeholder="Your full name"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Professional Headline
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.headline}
-              onChange={(e) =>
-                updatePersonal(
-                  "headline",
-                  e.target.value
-                )
-              }
-              placeholder="Software Engineer | Full Stack Developer"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Email
-            </label>
-
-            <input
-              type="email"
-              className={inputClass}
-              value={data.personal.email}
-              onChange={(e) =>
-                updatePersonal(
-                  "email",
-                  e.target.value
-                )
-              }
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Phone
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.phone}
-              onChange={(e) =>
-                updatePersonal(
-                  "phone",
-                  e.target.value
-                )
-              }
-              placeholder="+91 XXXXX XXXXX"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Location
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.location}
-              onChange={(e) =>
-                updatePersonal(
-                  "location",
-                  e.target.value
-                )
-              }
-              placeholder="Hyderabad, India"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              Website
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.website}
-              onChange={(e) =>
-                updatePersonal(
-                  "website",
-                  e.target.value
-                )
-              }
-              placeholder="https://yourwebsite.com"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              LinkedIn
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.linkedin}
-              onChange={(e) =>
-                updatePersonal(
-                  "linkedin",
-                  e.target.value
-                )
-              }
-              placeholder="https://linkedin.com/in/username"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>
-              GitHub
-            </label>
-
-            <input
-              className={inputClass}
-              value={data.personal.github}
-              onChange={(e) =>
-                updatePersonal(
-                  "github",
-                  e.target.value
-                )
-              }
-              placeholder="https://github.com/username"
-            />
-          </div>
-        </div>
+      // Save latest changes first.
+      const saveResponse = await fetch(
+        `/api/portfolio/${portfolio.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            generated_data: data,
+          }),
+        }
       );
-    }
 
-    // ABOUT
-    if (activeSection === "about") {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              About
-            </h2>
+      const saveResult = await saveResponse.json();
 
-            <p className="mt-1 text-sm text-slate-500">
-              Write a professional summary about yourself.
-            </p>
-          </div>
+      if (!saveResponse.ok) {
+        throw new Error(
+          saveResult.error ||
+            "Failed to save portfolio before publishing"
+        );
+      }
 
-          <div>
-            <label className={labelClass}>
-              Professional Summary
-            </label>
-
-            <textarea
-              className={textareaClass}
-              value={data.summary}
-              onChange={(e) =>
-                updateSummary(e.target.value)
-              }
-              placeholder="Write your professional summary..."
-            />
-          </div>
-        </div>
+      const response = await fetch(
+        `/api/portfolio/${portfolio.id}/publish`,
+        {
+          method: "POST",
+        }
       );
-    }
 
-    // SKILLS
-    if (activeSection === "skills") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Skills
-              </h2>
+      const result = await response.json();
 
-              <p className="mt-1 text-sm text-slate-500">
-                Add your technical and professional skills.
-              </p>
-            </div>
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to publish portfolio"
+        );
+      }
 
-            <button
-              onClick={addSkill}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
+      setPublished(true);
+      setSlug(result.slug);
 
-          <div className="space-y-3">
-            {data.skills.map(
-              (skill, index) => (
-                <div
-                  key={index}
-                  className="flex gap-2"
-                >
-                  <input
-                    className={inputClass}
-                    value={skill}
-                    onChange={(e) =>
-                      updateSkill(
-                        index,
-                        e.target.value
-                      )
-                    }
-                    placeholder="e.g. Python"
-                  />
-
-                  <button
-                    onClick={() =>
-                      removeSkill(index)
-                    }
-                    className="mt-1 shrink-0 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )
-            )}
-
-            {data.skills.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No skills added yet.
-              </p>
-            )}
-          </div>
-        </div>
+      setMessage(
+        "🎉 Your portfolio is now live!"
       );
-    }
+    } catch (error) {
+      console.error(error);
 
-    // EXPERIENCE
-    if (activeSection === "experience") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Experience
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Add your professional experience.
-              </p>
-            </div>
-
-            <button
-              onClick={addExperience}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {data.experience.map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-slate-200 p-5"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900">
-                      Experience {index + 1}
-                    </h3>
-
-                    <button
-                      onClick={() =>
-                        removeExperience(index)
-                      }
-                      className="text-sm font-semibold text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>
-                        Company
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.company}
-                        onChange={(e) =>
-                          updateExperience(
-                            index,
-                            "company",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Company name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Role
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.role}
-                        onChange={(e) =>
-                          updateExperience(
-                            index,
-                            "role",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Software Engineer"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Location
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.location}
-                        onChange={(e) =>
-                          updateExperience(
-                            index,
-                            "location",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Hyderabad, India"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={labelClass}>
-                          Start Date
-                        </label>
-
-                        <input
-                          className={inputClass}
-                          value={item.startDate}
-                          onChange={(e) =>
-                            updateExperience(
-                              index,
-                              "startDate",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Jan 2025"
-                        />
-                      </div>
-
-                      <div>
-                        <label className={labelClass}>
-                          End Date
-                        </label>
-
-                        <input
-                          className={inputClass}
-                          value={item.endDate}
-                          onChange={(e) =>
-                            updateExperience(
-                              index,
-                              "endDate",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Present"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Description
-                      </label>
-
-                      <textarea
-                        className={textareaClass}
-                        value={item.description}
-                        onChange={(e) =>
-                          updateExperience(
-                            index,
-                            "description",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Describe your responsibilities and work..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-
-            {data.experience.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No experience added yet.
-              </p>
-            )}
-          </div>
-        </div>
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to publish portfolio"
       );
+    } finally {
+      setIsPublishing(false);
     }
-
-    // PROJECTS
-    if (activeSection === "projects") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Projects
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Showcase your best projects.
-              </p>
-            </div>
-
-            <button
-              onClick={addProject}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {data.projects.map(
-              (project, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-slate-200 p-5"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900">
-                      Project {index + 1}
-                    </h3>
-
-                    <button
-                      onClick={() =>
-                        removeProject(index)
-                      }
-                      className="text-sm font-semibold text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>
-                        Project Name
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={project.name}
-                        onChange={(e) =>
-                          updateProject(
-                            index,
-                            "name",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Project name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Description
-                      </label>
-
-                      <textarea
-                        className={textareaClass}
-                        value={project.description}
-                        onChange={(e) =>
-                          updateProject(
-                            index,
-                            "description",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Describe your project..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Technologies
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={project.technologies.join(
-                          ", "
-                        )}
-                        onChange={(e) =>
-                          updateProjectTechnologies(
-                            index,
-                            e.target.value
-                          )
-                        }
-                        placeholder="React, Node.js, PostgreSQL"
-                      />
-
-                      <p className="mt-1 text-xs text-slate-400">
-                        Separate technologies with commas.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Project URL
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={project.url}
-                        onChange={(e) =>
-                          updateProject(
-                            index,
-                            "url",
-                            e.target.value
-                          )
-                        }
-                        placeholder="https://github.com/..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-
-            {data.projects.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No projects added yet.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // EDUCATION
-    if (activeSection === "education") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Education
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Add your academic background.
-              </p>
-            </div>
-
-            <button
-              onClick={addEducation}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {data.education.map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-slate-200 p-5"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900">
-                      Education {index + 1}
-                    </h3>
-
-                    <button
-                      onClick={() =>
-                        removeEducation(index)
-                      }
-                      className="text-sm font-semibold text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>
-                        Institution
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.institution}
-                        onChange={(e) =>
-                          updateEducation(
-                            index,
-                            "institution",
-                            e.target.value
-                          )
-                        }
-                        placeholder="University / College"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Degree
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.degree}
-                        onChange={(e) =>
-                          updateEducation(
-                            index,
-                            "degree",
-                            e.target.value
-                          )
-                        }
-                        placeholder="B.Tech"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Field of Study
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.field}
-                        onChange={(e) =>
-                          updateEducation(
-                            index,
-                            "field",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Computer Science"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={labelClass}>
-                          Start Date
-                        </label>
-
-                        <input
-                          className={inputClass}
-                          value={item.startDate}
-                          onChange={(e) =>
-                            updateEducation(
-                              index,
-                              "startDate",
-                              e.target.value
-                            )
-                          }
-                          placeholder="2021"
-                        />
-                      </div>
-
-                      <div>
-                        <label className={labelClass}>
-                          End Date
-                        </label>
-
-                        <input
-                          className={inputClass}
-                          value={item.endDate}
-                          onChange={(e) =>
-                            updateEducation(
-                              index,
-                              "endDate",
-                              e.target.value
-                            )
-                          }
-                          placeholder="2025"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Description
-                      </label>
-
-                      <textarea
-                        className={textareaClass}
-                        value={item.description}
-                        onChange={(e) =>
-                          updateEducation(
-                            index,
-                            "description",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Additional information..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-
-            {data.education.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No education added yet.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // CERTIFICATIONS
-    if (activeSection === "certifications") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Certifications
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Add professional certifications.
-              </p>
-            </div>
-
-            <button
-              onClick={addCertification}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {data.certifications.map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-slate-200 p-5"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900">
-                      Certification {index + 1}
-                    </h3>
-
-                    <button
-                      onClick={() =>
-                        removeCertification(index)
-                      }
-                      className="text-sm font-semibold text-red-600 hover:underline"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className={labelClass}>
-                        Certification Name
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.name}
-                        onChange={(e) =>
-                          updateCertification(
-                            index,
-                            "name",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Certification name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Issuer
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.issuer}
-                        onChange={(e) =>
-                          updateCertification(
-                            index,
-                            "issuer",
-                            e.target.value
-                          )
-                        }
-                        placeholder="Issuing organization"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Date
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.date}
-                        onChange={(e) =>
-                          updateCertification(
-                            index,
-                            "date",
-                            e.target.value
-                          )
-                        }
-                        placeholder="2026"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        Certificate URL
-                      </label>
-
-                      <input
-                        className={inputClass}
-                        value={item.url}
-                        onChange={(e) =>
-                          updateCertification(
-                            index,
-                            "url",
-                            e.target.value
-                          )
-                        }
-                        placeholder="https://..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-
-            {data.certifications.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No certifications added yet.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ACHIEVEMENTS
-    if (activeSection === "achievements") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Achievements
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Add awards, accomplishments and achievements.
-              </p>
-            </div>
-
-            <button
-              onClick={addAchievement}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {data.achievements.map(
-              (achievement, index) => (
-                <div
-                  key={index}
-                  className="flex gap-2"
-                >
-                  <textarea
-                    className="min-h-[90px] flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    value={achievement}
-                    onChange={(e) =>
-                      updateAchievement(
-                        index,
-                        e.target.value
-                      )
-                    }
-                    placeholder="Describe your achievement..."
-                  />
-
-                  <button
-                    onClick={() =>
-                      removeAchievement(index)
-                    }
-                    className="h-fit rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )
-            )}
-
-            {data.achievements.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No achievements added yet.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // LANGUAGES
-    if (activeSection === "languages") {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Languages
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Add languages you can communicate in.
-              </p>
-            </div>
-
-            <button
-              onClick={addLanguage}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              + Add
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {data.languages.map(
-              (language, index) => (
-                <div
-                  key={index}
-                  className="flex gap-2"
-                >
-                  <input
-                    className={inputClass}
-                    value={language}
-                    onChange={(e) =>
-                      updateLanguage(
-                        index,
-                        e.target.value
-                      )
-                    }
-                    placeholder="English"
-                  />
-
-                  <button
-                    onClick={() =>
-                      removeLanguage(index)
-                    }
-                    className="mt-1 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )
-            )}
-
-            {data.languages.length === 0 && (
-              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                No languages added yet.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    return null;
   }
 
-  // --------------------------------------------------
-  // PAGE
-  // --------------------------------------------------
+  /* =========================================================
+     UNPUBLISH
+  ========================================================= */
+
+  async function unpublishPortfolio() {
+    try {
+      setIsPublishing(true);
+      setMessage("");
+
+      const response = await fetch(
+        `/api/portfolio/${portfolio.id}/publish`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to unpublish portfolio"
+        );
+      }
+
+      setPublished(false);
+
+      setMessage(
+        "Portfolio has been unpublished."
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to unpublish portfolio"
+      );
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
+  /* =========================================================
+     PERSONAL
+  ========================================================= */
+
+  function updatePersonal(
+    field: keyof PortfolioData["personal"],
+    value: string
+  ) {
+    setData((current) => ({
+      ...current,
+      personal: {
+        ...current.personal,
+        [field]: value,
+      },
+    }));
+  }
+
+  /* =========================================================
+     SKILLS
+  ========================================================= */
+
+  function addSkill() {
+    setData((current) => ({
+      ...current,
+      skills: [...current.skills, ""],
+    }));
+  }
+
+  function updateSkill(
+    index: number,
+    value: string
+  ) {
+    setData((current) => {
+      const skills = [...current.skills];
+      skills[index] = value;
+
+      return {
+        ...current,
+        skills,
+      };
+    });
+  }
+
+  function deleteSkill(index: number) {
+    setData((current) => ({
+      ...current,
+      skills: current.skills.filter(
+        (_, i) => i !== index
+      ),
+    }));
+  }
+
+  /* =========================================================
+     EXPERIENCE
+  ========================================================= */
+
+  function addExperience() {
+    setData((current) => ({
+      ...current,
+      experience: [
+        ...current.experience,
+        { ...emptyExperience },
+      ],
+    }));
+  }
+
+  function updateExperience(
+    index: number,
+    field: keyof PortfolioData["experience"][number],
+    value: string
+  ) {
+    setData((current) => {
+      const experience = [...current.experience];
+
+      experience[index] = {
+        ...experience[index],
+        [field]: value,
+      };
+
+      return {
+        ...current,
+        experience,
+      };
+    });
+  }
+
+  function deleteExperience(index: number) {
+    setData((current) => ({
+      ...current,
+      experience: current.experience.filter(
+        (_, i) => i !== index
+      ),
+    }));
+  }
+
+  /* =========================================================
+     PROJECTS
+  ========================================================= */
+
+  function addProject() {
+    setData((current) => ({
+      ...current,
+      projects: [
+        ...current.projects,
+        {
+          ...emptyProject,
+          technologies: [],
+        },
+      ],
+    }));
+  }
+
+  function updateProject(
+    index: number,
+    field: keyof PortfolioData["projects"][number],
+    value: string | string[]
+  ) {
+    setData((current) => {
+      const projects = [...current.projects];
+
+      projects[index] = {
+        ...projects[index],
+        [field]: value,
+      };
+
+      return {
+        ...current,
+        projects,
+      };
+    });
+  }
+
+  function deleteProject(index: number) {
+    setData((current) => ({
+      ...current,
+      projects: current.projects.filter(
+        (_, i) => i !== index
+      ),
+    }));
+  }
+
+  /* =========================================================
+     EDUCATION
+  ========================================================= */
+
+  function addEducation() {
+    setData((current) => ({
+      ...current,
+      education: [
+        ...current.education,
+        { ...emptyEducation },
+      ],
+    }));
+  }
+
+  function updateEducation(
+    index: number,
+    field: keyof PortfolioData["education"][number],
+    value: string
+  ) {
+    setData((current) => {
+      const education = [...current.education];
+
+      education[index] = {
+        ...education[index],
+        [field]: value,
+      };
+
+      return {
+        ...current,
+        education,
+      };
+    });
+  }
+
+  function deleteEducation(index: number) {
+    setData((current) => ({
+      ...current,
+      education: current.education.filter(
+        (_, i) => i !== index
+      ),
+    }));
+  }
+
+  /* =========================================================
+     CERTIFICATIONS
+  ========================================================= */
+
+  function addCertification() {
+    setData((current) => ({
+      ...current,
+      certifications: [
+        ...current.certifications,
+        { ...emptyCertification },
+      ],
+    }));
+  }
+
+  function updateCertification(
+    index: number,
+    field: keyof PortfolioData["certifications"][number],
+    value: string
+  ) {
+    setData((current) => {
+      const certifications = [
+        ...current.certifications,
+      ];
+
+      certifications[index] = {
+        ...certifications[index],
+        [field]: value,
+      };
+
+      return {
+        ...current,
+        certifications,
+      };
+    });
+  }
+
+  function deleteCertification(index: number) {
+    setData((current) => ({
+      ...current,
+      certifications:
+        current.certifications.filter(
+          (_, i) => i !== index
+        ),
+    }));
+  }
+
+  /* =========================================================
+     ACHIEVEMENTS
+  ========================================================= */
+
+  function addAchievement() {
+    setData((current) => ({
+      ...current,
+      achievements: [
+        ...current.achievements,
+        "",
+      ],
+    }));
+  }
+
+  function updateAchievement(
+    index: number,
+    value: string
+  ) {
+    setData((current) => {
+      const achievements = [
+        ...current.achievements,
+      ];
+
+      achievements[index] = value;
+
+      return {
+        ...current,
+        achievements,
+      };
+    });
+  }
+
+  function deleteAchievement(index: number) {
+    setData((current) => ({
+      ...current,
+      achievements:
+        current.achievements.filter(
+          (_, i) => i !== index
+        ),
+    }));
+  }
+
+  /* =========================================================
+     LANGUAGES
+  ========================================================= */
+
+  function addLanguage() {
+    setData((current) => ({
+      ...current,
+      languages: [
+        ...current.languages,
+        "",
+      ],
+    }));
+  }
+
+  function updateLanguage(
+    index: number,
+    value: string
+  ) {
+    setData((current) => {
+      const languages = [
+        ...current.languages,
+      ];
+
+      languages[index] = value;
+
+      return {
+        ...current,
+        languages,
+      };
+    });
+  }
+
+  function deleteLanguage(index: number) {
+    setData((current) => ({
+      ...current,
+      languages:
+        current.languages.filter(
+          (_, i) => i !== index
+        ),
+    }));
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
+    <div className="min-h-screen bg-slate-100">
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
-      {/* ==========================================
-          LEFT SIDEBAR
-      ========================================== */}
-
-      <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
-
-        {/* HEADER */}
-
-        <div className="border-b border-slate-200 px-5 py-5">
-          <button
-            onClick={() =>
-              router.push("/dashboard/portfolio")
-            }
-            className="text-sm font-medium text-slate-500 hover:text-blue-600"
-          >
-            ← Back
-          </button>
-
-          <h1 className="mt-4 text-lg font-bold text-slate-900">
-            Portfolio Editor
-          </h1>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Build your professional portfolio
-          </p>
-        </div>
-
-        {/* SECTIONS */}
-
-        <nav className="flex-1 overflow-y-auto p-3">
-          {sections.map((section) => {
-            const active =
-              activeSection === section.id;
-
-            return (
-              <button
-                key={section.id}
-                onClick={() =>
-                  setActiveSection(section.id)
-                }
-                className={`mb-1 flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
-                  active
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                {section.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* SAVE */}
-
-        <div className="border-t border-slate-200 p-4">
-
-          {saveMessage && (
-            <p className="mb-3 text-center text-xs font-medium text-green-600">
-              {saveMessage}
-            </p>
-          )}
-
-          {errorMessage && (
-            <p className="mb-3 rounded-lg bg-red-50 p-2 text-center text-xs font-medium text-red-600">
-              {errorMessage}
-            </p>
-          )}
-
-          <button
-            onClick={savePortfolio}
-            disabled={saving}
-            className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving
-              ? "Saving..."
-              : "Save Portfolio"}
-          </button>
-        </div>
-      </aside>
-
-      {/* ==========================================
-          EDITOR PANEL
-      ========================================== */}
-
-      <section className="w-[420px] shrink-0 overflow-y-auto border-r border-slate-200 bg-white">
-
-        <div className="p-6">
-          {renderEditor()}
-        </div>
-
-      </section>
-
-      {/* ==========================================
-          LIVE PREVIEW
-      ========================================== */}
-
-      <main className="min-w-0 flex-1 overflow-y-auto bg-slate-100 p-6">
-
-        <div className="mb-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 md:px-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Live Preview
-            </p>
+            <h1 className="text-lg font-bold text-slate-900">
+              Portfolio Editor
+            </h1>
 
-            <h2 className="text-sm font-semibold text-slate-700">
-              Your portfolio
-            </h2>
+            <p className="text-xs text-slate-500">
+              {published
+                ? "Your portfolio is public"
+                : "Your portfolio is private"}
+            </p>
           </div>
 
-          <button
-            onClick={savePortfolio}
-            disabled={saving}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={savePortfolio}
+              disabled={
+                isSaving ||
+                isPublishing
+              }
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving
+                ? "Saving..."
+                : "Save"}
+            </button>
+
+            {published ? (
+              <>
+                {slug && (
+                  <a
+                    href={`/p/${slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    View Live
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  onClick={
+                    unpublishPortfolio
+                  }
+                  disabled={isPublishing}
+                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isPublishing
+                    ? "Unpublishing..."
+                    : "Unpublish"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={
+                  publishPortfolio
+                }
+                disabled={isPublishing}
+                className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPublishing
+                  ? "Publishing..."
+                  : "🚀 Publish Portfolio"}
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <PortfolioRenderer data={data} />
-        </div>
+        {message && (
+          <div className="border-t bg-slate-50 px-4 py-2 text-center text-sm text-slate-700">
+            {message}
+          </div>
+        )}
+      </header>
 
-      </main>
+      {/* =====================================================
+          MAIN
+      ====================================================== */}
+
+      <div className="mx-auto grid max-w-[1800px] grid-cols-1 gap-6 p-4 md:p-6 xl:grid-cols-[440px_1fr]">
+        {/* ===================================================
+            EDITOR
+        ==================================================== */}
+
+        <aside className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+          <div className="border-b px-5 py-4">
+            <h2 className="font-bold text-slate-900">
+              Edit Portfolio
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Open a section to edit, add or remove content.
+            </p>
+          </div>
+
+          <div className="divide-y">
+            {/* =================================================
+                PERSONAL
+            ================================================== */}
+
+            <Accordion
+              title="Personal Information"
+              icon="👤"
+              open={
+                openSection ===
+                "personal"
+              }
+              onClick={() =>
+                toggleSection(
+                  "personal"
+                )
+              }
+            >
+              <Field
+                label="Name"
+                value={
+                  data.personal.name
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "name",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="Headline"
+                value={
+                  data.personal.headline
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "headline",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="Email"
+                value={
+                  data.personal.email
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "email",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="Phone"
+                value={
+                  data.personal.phone
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "phone",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="Location"
+                value={
+                  data.personal.location
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "location",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="Website"
+                value={
+                  data.personal.website
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "website",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="LinkedIn"
+                value={
+                  data.personal.linkedin
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "linkedin",
+                    value
+                  )
+                }
+              />
+
+              <Field
+                label="GitHub"
+                value={
+                  data.personal.github
+                }
+                onChange={(value) =>
+                  updatePersonal(
+                    "github",
+                    value
+                  )
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                SUMMARY
+            ================================================== */}
+
+            <Accordion
+              title="Professional Summary"
+              icon="📝"
+              open={
+                openSection ===
+                "summary"
+              }
+              onClick={() =>
+                toggleSection(
+                  "summary"
+                )
+              }
+            >
+              <Textarea
+                label="Summary"
+                value={
+                  data.summary
+                }
+                rows={8}
+                onChange={(value) =>
+                  setData(
+                    (current) => ({
+                      ...current,
+                      summary: value,
+                    })
+                  )
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                SKILLS
+            ================================================== */}
+
+            <Accordion
+              title={`Skills (${data.skills.length})`}
+              icon="🛠️"
+              open={
+                openSection ===
+                "skills"
+              }
+              onClick={() =>
+                toggleSection(
+                  "skills"
+                )
+              }
+            >
+              {data.skills.length ===
+                0 && (
+                <EmptyState text="No skills added yet." />
+              )}
+
+              {data.skills.map(
+                (skill, index) => (
+                  <div
+                    key={index}
+                    className="flex gap-2"
+                  >
+                    <input
+                      value={skill}
+                      onChange={(event) =>
+                        updateSkill(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Enter skill"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    />
+
+                    <DeleteButton
+                      onClick={() =>
+                        deleteSkill(
+                          index
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Skill"
+                onClick={
+                  addSkill
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                EXPERIENCE
+            ================================================== */}
+
+            <Accordion
+              title={`Experience (${data.experience.length})`}
+              icon="💼"
+              open={
+                openSection ===
+                "experience"
+              }
+              onClick={() =>
+                toggleSection(
+                  "experience"
+                )
+              }
+            >
+              {data.experience.length ===
+                0 && (
+                <EmptyState text="No experience added yet." />
+              )}
+
+              {data.experience.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">
+                        Experience{" "}
+                        {index + 1}
+                      </p>
+
+                      <DeleteButton
+                        onClick={() =>
+                          deleteExperience(
+                            index
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Field
+                      label="Company"
+                      value={
+                        item.company
+                      }
+                      onChange={(value) =>
+                        updateExperience(
+                          index,
+                          "company",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Role"
+                      value={
+                        item.role
+                      }
+                      onChange={(value) =>
+                        updateExperience(
+                          index,
+                          "role",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Location"
+                      value={
+                        item.location
+                      }
+                      onChange={(value) =>
+                        updateExperience(
+                          index,
+                          "location",
+                          value
+                        )
+                      }
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label="Start Date"
+                        value={
+                          item.startDate
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateExperience(
+                            index,
+                            "startDate",
+                            value
+                          )
+                        }
+                      />
+
+                      <Field
+                        label="End Date"
+                        value={
+                          item.endDate
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateExperience(
+                            index,
+                            "endDate",
+                            value
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Textarea
+                      label="Description"
+                      value={
+                        item.description
+                      }
+                      rows={6}
+                      onChange={(value) =>
+                        updateExperience(
+                          index,
+                          "description",
+                          value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Experience"
+                onClick={
+                  addExperience
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                PROJECTS
+            ================================================== */}
+
+            <Accordion
+              title={`Projects (${data.projects.length})`}
+              icon="🚀"
+              open={
+                openSection ===
+                "projects"
+              }
+              onClick={() =>
+                toggleSection(
+                  "projects"
+                )
+              }
+            >
+              {data.projects.length ===
+                0 && (
+                <EmptyState text="No projects added yet." />
+              )}
+
+              {data.projects.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">
+                        Project{" "}
+                        {index + 1}
+                      </p>
+
+                      <DeleteButton
+                        onClick={() =>
+                          deleteProject(
+                            index
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Field
+                      label="Project Name"
+                      value={
+                        item.name
+                      }
+                      onChange={(value) =>
+                        updateProject(
+                          index,
+                          "name",
+                          value
+                        )
+                      }
+                    />
+
+                    <Textarea
+                      label="Description"
+                      value={
+                        item.description
+                      }
+                      rows={6}
+                      onChange={(value) =>
+                        updateProject(
+                          index,
+                          "description",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Technologies"
+                      value={item.technologies.join(
+                        ", "
+                      )}
+                      placeholder="React, Node.js, MySQL"
+                      onChange={(value) =>
+                        updateProject(
+                          index,
+                          "technologies",
+                          value
+                            .split(",")
+                            .map(
+                              (
+                                tech
+                              ) =>
+                                tech.trim()
+                            )
+                            .filter(
+                              Boolean
+                            )
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Project URL"
+                      value={
+                        item.url
+                      }
+                      onChange={(value) =>
+                        updateProject(
+                          index,
+                          "url",
+                          value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Project"
+                onClick={
+                  addProject
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                EDUCATION
+            ================================================== */}
+
+            <Accordion
+              title={`Education (${data.education.length})`}
+              icon="🎓"
+              open={
+                openSection ===
+                "education"
+              }
+              onClick={() =>
+                toggleSection(
+                  "education"
+                )
+              }
+            >
+              {data.education.length ===
+                0 && (
+                <EmptyState text="No education added yet." />
+              )}
+
+              {data.education.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">
+                        Education{" "}
+                        {index + 1}
+                      </p>
+
+                      <DeleteButton
+                        onClick={() =>
+                          deleteEducation(
+                            index
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Field
+                      label="Institution"
+                      value={
+                        item.institution
+                      }
+                      onChange={(value) =>
+                        updateEducation(
+                          index,
+                          "institution",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Degree"
+                      value={
+                        item.degree
+                      }
+                      onChange={(value) =>
+                        updateEducation(
+                          index,
+                          "degree",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Field"
+                      value={
+                        item.field
+                      }
+                      onChange={(value) =>
+                        updateEducation(
+                          index,
+                          "field",
+                          value
+                        )
+                      }
+                    />
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field
+                        label="Start Date"
+                        value={
+                          item.startDate
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateEducation(
+                            index,
+                            "startDate",
+                            value
+                          )
+                        }
+                      />
+
+                      <Field
+                        label="End Date"
+                        value={
+                          item.endDate
+                        }
+                        onChange={(
+                          value
+                        ) =>
+                          updateEducation(
+                            index,
+                            "endDate",
+                            value
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Textarea
+                      label="Description"
+                      value={
+                        item.description
+                      }
+                      rows={5}
+                      onChange={(value) =>
+                        updateEducation(
+                          index,
+                          "description",
+                          value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Education"
+                onClick={
+                  addEducation
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                CERTIFICATIONS
+            ================================================== */}
+
+            <Accordion
+              title={`Certifications (${data.certifications.length})`}
+              icon="📜"
+              open={
+                openSection ===
+                "certifications"
+              }
+              onClick={() =>
+                toggleSection(
+                  "certifications"
+                )
+              }
+            >
+              {data.certifications.length ===
+                0 && (
+                <EmptyState text="No certifications added yet." />
+              )}
+
+              {data.certifications.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">
+                        Certification{" "}
+                        {index + 1}
+                      </p>
+
+                      <DeleteButton
+                        onClick={() =>
+                          deleteCertification(
+                            index
+                          )
+                        }
+                      />
+                    </div>
+
+                    <Field
+                      label="Certification Name"
+                      value={
+                        item.name
+                      }
+                      onChange={(value) =>
+                        updateCertification(
+                          index,
+                          "name",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Issuer"
+                      value={
+                        item.issuer
+                      }
+                      onChange={(value) =>
+                        updateCertification(
+                          index,
+                          "issuer",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="Date"
+                      value={
+                        item.date
+                      }
+                      onChange={(value) =>
+                        updateCertification(
+                          index,
+                          "date",
+                          value
+                        )
+                      }
+                    />
+
+                    <Field
+                      label="URL"
+                      value={
+                        item.url
+                      }
+                      onChange={(value) =>
+                        updateCertification(
+                          index,
+                          "url",
+                          value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Certification"
+                onClick={
+                  addCertification
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                ACHIEVEMENTS
+            ================================================== */}
+
+            <Accordion
+              title={`Achievements (${data.achievements.length})`}
+              icon="🏆"
+              open={
+                openSection ===
+                "achievements"
+              }
+              onClick={() =>
+                toggleSection(
+                  "achievements"
+                )
+              }
+            >
+              {data.achievements.length ===
+                0 && (
+                <EmptyState text="No achievements added yet." />
+              )}
+
+              {data.achievements.map(
+                (achievement, index) => (
+                  <div
+                    key={index}
+                    className="flex gap-2"
+                  >
+                    <textarea
+                      value={
+                        achievement
+                      }
+                      rows={3}
+                      placeholder="Enter achievement"
+                      onChange={(
+                        event
+                      ) =>
+                        updateAchievement(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                      className="min-w-0 flex-1 resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    />
+
+                    <DeleteButton
+                      onClick={() =>
+                        deleteAchievement(
+                          index
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Achievement"
+                onClick={
+                  addAchievement
+                }
+              />
+            </Accordion>
+
+            {/* =================================================
+                LANGUAGES
+            ================================================== */}
+
+            <Accordion
+              title={`Languages (${data.languages.length})`}
+              icon="🌐"
+              open={
+                openSection ===
+                "languages"
+              }
+              onClick={() =>
+                toggleSection(
+                  "languages"
+                )
+              }
+            >
+              {data.languages.length ===
+                0 && (
+                <EmptyState text="No languages added yet." />
+              )}
+
+              {data.languages.map(
+                (language, index) => (
+                  <div
+                    key={index}
+                    className="flex gap-2"
+                  >
+                    <input
+                      value={language}
+                      onChange={(event) =>
+                        updateLanguage(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Enter language"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                    />
+
+                    <DeleteButton
+                      onClick={() =>
+                        deleteLanguage(
+                          index
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+
+              <AddButton
+                label="Add Language"
+                onClick={
+                  addLanguage
+                }
+              />
+            </Accordion>
+          </div>
+
+          {/* SAVE */}
+          <div className="border-t p-5">
+            <button
+              type="button"
+              onClick={savePortfolio}
+              disabled={
+                isSaving ||
+                isPublishing
+              }
+              className="w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving
+                ? "Saving..."
+                : "Save Changes"}
+            </button>
+          </div>
+        </aside>
+
+        {/* ===================================================
+            LIVE PREVIEW
+        ==================================================== */}
+
+        <section className="min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm">
+          <div className="border-b bg-slate-50 px-5 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="font-semibold text-slate-900">
+                  Live Preview
+                </h2>
+
+                <p className="text-xs text-slate-500">
+                  Changes appear here immediately.
+                </p>
+              </div>
+
+              {published &&
+                slug && (
+                  <a
+                    href={`/p/${slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-green-600 hover:underline"
+                  >
+                    Open public page →
+                  </a>
+                )}
+            </div>
+          </div>
+
+          <div className="min-h-[700px] overflow-auto">
+            <PortfolioRenderer
+              data={data}
+              design={
+                portfolio.design_config
+              }
+              profileImageUrl={
+                portfolio.profile_image_url
+              }
+              resumeUrl={
+                portfolio.resume_url
+              }
+            />
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ACCORDION
+============================================================ */
+
+function Accordion({
+  title,
+  icon,
+  open,
+  onClick,
+  children,
+}: {
+  title: string;
+  icon: string;
+  open: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-slate-50"
+      >
+        <span className="flex items-center gap-3">
+          <span className="text-lg">
+            {icon}
+          </span>
+
+          <span className="text-sm font-semibold text-slate-800">
+            {title}
+          </span>
+        </span>
+
+        <span
+          className={`text-sm text-slate-400 transition-transform ${
+            open
+              ? "rotate-180"
+              : ""
+          }`}
+        >
+          ▼
+        </span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t bg-white px-5 py-5">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   FIELD
+============================================================ */
+
+function Field({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+        {label}
+      </label>
+
+      <input
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
+      />
+    </div>
+  );
+}
+
+/* ============================================================
+   TEXTAREA
+============================================================ */
+
+function Textarea({
+  label,
+  value,
+  rows = 5,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  rows?: number;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+        {label}
+      </label>
+
+      <textarea
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
+        className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
+      />
+    </div>
+  );
+}
+
+/* ============================================================
+   ADD BUTTON
+============================================================ */
+
+function AddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-green-400 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+    >
+      <span className="text-lg">
+        +
+      </span>
+
+      {label}
+    </button>
+  );
+}
+
+/* ============================================================
+   DELETE BUTTON
+============================================================ */
+
+function DeleteButton({
+  onClick,
+}: {
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Delete"
+      className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+    >
+      🗑️
+    </button>
+  );
+}
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
+
+function EmptyState({
+  text,
+}: {
+  text: string;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed bg-slate-50 p-5 text-center text-sm text-slate-500">
+      {text}
     </div>
   );
 }
