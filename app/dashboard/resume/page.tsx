@@ -2,36 +2,34 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type ReactNode,
 } from "react";
 
 import {
+  Award,
+  BriefcaseBusiness,
+  Check,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Download,
-  Eye,
   FileText,
+  FolderKanban,
+  GraduationCap,
   Image as ImageIcon,
+  Languages,
+  LayoutTemplate,
   Loader2,
   Plus,
+  RotateCcw,
   Sparkles,
   Trash2,
+  User,
   Wand2,
   X,
-  Check,
-  BriefcaseBusiness,
-  GraduationCap,
-  FolderKanban,
-  Award,
-  Languages,
-  User,
   AlignLeft,
-  Palette,
-  LayoutTemplate,
-  RotateCcw,
 } from "lucide-react";
 
 import type { ResumeData } from "@/lib/ai/resume-schema";
@@ -99,7 +97,7 @@ function createEmptyResume(): ResumeData {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
+/* Normalization                                                              */
 /* -------------------------------------------------------------------------- */
 
 function normalizeResumeData(data: any): ResumeData {
@@ -112,7 +110,9 @@ function normalizeResumeData(data: any): ResumeData {
     },
 
     professionalSummary:
-      data?.professionalSummary ?? "",
+      typeof data?.professionalSummary === "string"
+        ? data.professionalSummary
+        : "",
 
     skills: Array.isArray(data?.skills)
       ? data.skills.map((item: any) => ({
@@ -226,9 +226,6 @@ export default function ResumeGeneratorPage() {
   const [openSection, setOpenSection] =
     useState<SectionName | null>("personal");
 
-  const [mobileView, setMobileView] =
-    useState<"editor" | "preview">("editor");
-
   const [isGenerating, setIsGenerating] =
     useState(false);
 
@@ -245,7 +242,7 @@ export default function ResumeGeneratorPage() {
     useRef<HTMLInputElement | null>(null);
 
   /* ---------------------------------------------------------------------- */
-  /* Load latest generated resume                                           */
+  /* Load latest resume                                                     */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -258,7 +255,9 @@ export default function ResumeGeneratorPage() {
           }
         );
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          return;
+        }
 
         const data = await response.json();
 
@@ -282,7 +281,7 @@ export default function ResumeGeneratorPage() {
           );
         }
       } catch {
-        // No latest resume is okay.
+        // A missing latest resume is not an error.
       }
     }
 
@@ -290,7 +289,7 @@ export default function ResumeGeneratorPage() {
   }, []);
 
   /* ---------------------------------------------------------------------- */
-  /* Resume updates                                                         */
+  /* Resume state helpers                                                   */
   /* ---------------------------------------------------------------------- */
 
   function updateResume<K extends keyof ResumeData>(
@@ -327,14 +326,16 @@ export default function ResumeGeneratorPage() {
   /* ---------------------------------------------------------------------- */
 
   function handlePhotoChange(
-    event: React.ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.");
+      setError("Please select a valid image file.");
       return;
     }
 
@@ -346,17 +347,14 @@ export default function ResumeGeneratorPage() {
     }
 
     setError(null);
-
     setProfilePhotoFile(file);
 
     const reader = new FileReader();
 
     reader.onload = () => {
-      setProfilePhoto(
-        typeof reader.result === "string"
-          ? reader.result
-          : null
-      );
+      if (typeof reader.result === "string") {
+        setProfilePhoto(reader.result);
+      }
     };
 
     reader.readAsDataURL(file);
@@ -371,24 +369,12 @@ export default function ResumeGeneratorPage() {
     }
   }
 
-  function getPhotoDimensions() {
-    if (photoSettings.size === "small") {
-      return 72;
-    }
-
-    if (photoSettings.size === "large") {
-      return 128;
-    }
-
-    return 96;
-  }
-
   function getObjectPosition() {
     return `${photoSettings.horizontal} ${photoSettings.vertical}`;
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Add / remove                                                           */
+  /* Add / Remove                                                           */
   /* ---------------------------------------------------------------------- */
 
   function addSkill() {
@@ -531,6 +517,109 @@ export default function ResumeGeneratorPage() {
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Build AI input                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  function buildUserInformation() {
+    const lines: string[] = [];
+
+    lines.push(`Name: ${resume.personal.name}`);
+    lines.push(`Email: ${resume.personal.email}`);
+    lines.push(`Phone: ${resume.personal.phone}`);
+    lines.push(
+      `Location: ${resume.personal.location}`
+    );
+    lines.push(
+      `LinkedIn: ${resume.personal.linkedin}`
+    );
+    lines.push(
+      `GitHub: ${resume.personal.github}`
+    );
+    lines.push(
+      `Website: ${resume.personal.website}`
+    );
+
+    lines.push(
+      `Professional Summary: ${resume.professionalSummary}`
+    );
+
+    if (resume.skills.length > 0) {
+      lines.push(
+        "Skills:",
+        JSON.stringify(resume.skills)
+      );
+    }
+
+    if (resume.experience.length > 0) {
+      lines.push(
+        "Experience:",
+        JSON.stringify(resume.experience)
+      );
+    }
+
+    if (resume.education.length > 0) {
+      lines.push(
+        "Education:",
+        JSON.stringify(resume.education)
+      );
+    }
+
+    if (resume.projects.length > 0) {
+      lines.push(
+        "Projects:",
+        JSON.stringify(resume.projects)
+      );
+    }
+
+    if (resume.certifications.length > 0) {
+      lines.push(
+        "Certifications:",
+        JSON.stringify(
+          resume.certifications
+        )
+      );
+    }
+
+    if (resume.achievements.length > 0) {
+      lines.push(
+        "Achievements:",
+        JSON.stringify(
+          resume.achievements
+        )
+      );
+    }
+
+    if (resume.languages.length > 0) {
+      lines.push(
+        "Languages:",
+        JSON.stringify(resume.languages)
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  async function fileToBase64(file: File) {
+    return new Promise<string>(
+      (resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          resolve(
+            typeof reader.result === "string"
+              ? reader.result
+              : ""
+          );
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsDataURL(file);
+      }
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* AI Generation                                                          */
   /* ---------------------------------------------------------------------- */
 
@@ -540,7 +629,8 @@ export default function ResumeGeneratorPage() {
     setMessage(null);
 
     try {
-      const userInformation = buildUserInformation();
+      const userInformation =
+        buildUserInformation();
 
       if (
         !userInformation.trim() &&
@@ -563,7 +653,9 @@ export default function ResumeGeneratorPage() {
             template,
             resumeDesignDescription,
             profilePhoto: profilePhotoFile
-              ? await fileToBase64(profilePhotoFile)
+              ? await fileToBase64(
+                  profilePhotoFile
+                )
               : null,
             profilePhotoName:
               profilePhotoFile?.name ?? null,
@@ -582,13 +674,13 @@ export default function ResumeGeneratorPage() {
         );
       }
 
-      if (data.resume) {
+      if (data?.resume) {
         setResume(
           normalizeResumeData(data.resume)
         );
       }
 
-      if (data.design) {
+      if (data?.design) {
         setDesign(data.design);
       }
 
@@ -608,114 +700,8 @@ export default function ResumeGeneratorPage() {
     }
   }
 
-  function buildUserInformation() {
-    const lines: string[] = [];
-
-    lines.push(
-      `Name: ${resume.personal.name}`
-    );
-    lines.push(
-      `Email: ${resume.personal.email}`
-    );
-    lines.push(
-      `Phone: ${resume.personal.phone}`
-    );
-    lines.push(
-      `Location: ${resume.personal.location}`
-    );
-    lines.push(
-      `LinkedIn: ${resume.personal.linkedin}`
-    );
-    lines.push(
-      `GitHub: ${resume.personal.github}`
-    );
-    lines.push(
-      `Website: ${resume.personal.website}`
-    );
-
-    lines.push(
-      `Professional Summary: ${resume.professionalSummary}`
-    );
-
-    if (resume.skills.length) {
-      lines.push(
-        "Skills:",
-        JSON.stringify(resume.skills)
-      );
-    }
-
-    if (resume.experience.length) {
-      lines.push(
-        "Experience:",
-        JSON.stringify(resume.experience)
-      );
-    }
-
-    if (resume.education.length) {
-      lines.push(
-        "Education:",
-        JSON.stringify(resume.education)
-      );
-    }
-
-    if (resume.projects.length) {
-      lines.push(
-        "Projects:",
-        JSON.stringify(resume.projects)
-      );
-    }
-
-    if (resume.certifications.length) {
-      lines.push(
-        "Certifications:",
-        JSON.stringify(
-          resume.certifications
-        )
-      );
-    }
-
-    if (resume.achievements.length) {
-      lines.push(
-        "Achievements:",
-        JSON.stringify(
-          resume.achievements
-        )
-      );
-    }
-
-    if (resume.languages.length) {
-      lines.push(
-        "Languages:",
-        JSON.stringify(resume.languages)
-      );
-    }
-
-    return lines.join("\n");
-  }
-
-  async function fileToBase64(file: File) {
-    return new Promise<string>(
-      (resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => {
-          const result =
-            typeof reader.result === "string"
-              ? reader.result
-              : "";
-
-          resolve(result);
-        };
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(file);
-      }
-    );
-  }
-
   /* ---------------------------------------------------------------------- */
-  /* PDF Download                                                           */
+  /* PDF                                                                    */
   /* ---------------------------------------------------------------------- */
 
   async function downloadPDF() {
@@ -814,7 +800,9 @@ export default function ResumeGeneratorPage() {
         "Are you sure you want to clear the current resume?"
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setResume(createEmptyResume());
     setDesign(null);
@@ -831,58 +819,96 @@ export default function ResumeGeneratorPage() {
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Template description                                                    */
+  /* Template                                                               */
   /* ---------------------------------------------------------------------- */
 
-  const templateInfo = useMemo(() => {
-    const data = {
-      ats: {
-        name: "ATS Standard",
-        description:
-          "Clean, highly ATS-friendly layout designed for automated screening.",
-      },
-      professional: {
-        name: "Professional",
-        description:
-          "Elegant corporate layout with strong hierarchy and optional photo.",
-      },
-      modern: {
-        name: "Modern",
-        description:
-          "Contemporary design with a refined visual structure.",
-      },
-      executive: {
-        name: "Executive",
-        description:
-          "Premium leadership-focused resume presentation.",
-      },
-    };
+  const templateInfo: Record<
+    TemplateType,
+    {
+      name: string;
+      description: string;
+      accent: string;
+    }
+  > = {
+    ats: {
+      name: "ATS Standard",
+      description:
+        "Optimized for automated resume screening.",
+      accent: "slate",
+    },
+    professional: {
+      name: "Professional",
+      description:
+        "Elegant corporate presentation with refined hierarchy.",
+      accent: "purple",
+    },
+    modern: {
+      name: "Modern",
+      description:
+        "Contemporary layout with a polished visual structure.",
+      accent: "blue",
+    },
+    executive: {
+      name: "Executive",
+      description:
+        "Premium leadership-focused presentation.",
+      accent: "amber",
+    },
+  };
 
-    return data[template];
-  }, [template]);
+  const currentTemplate =
+    templateInfo[template];
+
+  const completionItems = [
+    Boolean(resume.personal.name),
+    Boolean(resume.personal.email),
+    Boolean(
+      resume.professionalSummary
+    ),
+    resume.skills.length > 0,
+    resume.education.length > 0,
+    resume.projects.length > 0,
+  ];
+
+  const completionCount =
+    completionItems.filter(Boolean).length;
+
+  const completionPercent = Math.round(
+    (completionCount /
+      completionItems.length) *
+      100
+  );
 
   /* ---------------------------------------------------------------------- */
   /* Render                                                                 */
   /* ---------------------------------------------------------------------- */
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      {/* Header */}
+    <main className="min-h-screen bg-[#f7f8fc] text-slate-900">
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                             */}
+      {/* ------------------------------------------------------------------ */}
 
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[72px] max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-lg shadow-slate-950/10">
               <FileText size={19} />
             </div>
 
             <div>
-              <h1 className="text-base font-semibold tracking-tight">
-                Resume Generator
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[15px] font-bold tracking-tight text-slate-950">
+                  Resume Builder
+                </h1>
 
-              <p className="hidden text-xs text-slate-500 sm:block">
-                Build a polished, ATS-ready resume with AI
+                <span className="hidden rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-purple-600 sm:inline-flex">
+                  AI Powered
+                </span>
+              </div>
+
+              <p className="hidden text-xs text-slate-400 sm:block">
+                Create a polished professional resume
               </p>
             </div>
           </div>
@@ -891,9 +917,9 @@ export default function ResumeGeneratorPage() {
             <button
               type="button"
               onClick={resetResume}
-              className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex"
+              className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex"
             >
-              <RotateCcw size={15} />
+              <RotateCcw size={14} />
               Reset
             </button>
 
@@ -903,7 +929,7 @@ export default function ResumeGeneratorPage() {
               disabled={
                 isDownloading || !design
               }
-              className="flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isDownloading ? (
                 <Loader2
@@ -914,62 +940,33 @@ export default function ResumeGeneratorPage() {
                 <Download size={15} />
               )}
 
-              <span className="hidden sm:inline">
-                Download PDF
-              </span>
-
-              <span className="sm:hidden">
-                PDF
+              <span>
+                {isDownloading
+                  ? "Preparing..."
+                  : "Download PDF"}
               </span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile switcher */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Page                                                               */}
+      {/* ------------------------------------------------------------------ */}
 
-      <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-        <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() =>
-              setMobileView("editor")
-            }
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              mobileView === "editor"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500"
-            }`}
-          >
-            Editor
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setMobileView("preview")
-            }
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              mobileView === "preview"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500"
-            }`}
-          >
-            Preview
-          </button>
-        </div>
-      </div>
-
-      {/* Main */}
-
-      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         {/* Notifications */}
 
         {message && (
-          <div className="mb-5 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <div className="mb-5 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
             <div className="flex items-center gap-2">
-              <Check size={16} />
-              {message}
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
+                <Check size={14} />
+              </div>
+
+              <span className="font-medium">
+                {message}
+              </span>
             </div>
 
             <button
@@ -977,78 +974,168 @@ export default function ResumeGeneratorPage() {
               onClick={() =>
                 setMessage(null)
               }
+              className="rounded-lg p-1 hover:bg-emerald-100"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         )}
 
         {error && (
-          <div className="mb-5 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <span>{error}</span>
+          <div className="mb-5 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100">
+                <X size={14} />
+              </div>
+
+              <span className="font-medium">
+                {error}
+              </span>
+            </div>
 
             <button
               type="button"
               onClick={() =>
                 setError(null)
               }
+              className="rounded-lg p-1 hover:bg-red-100"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_520px]">
-          {/* ---------------------------------------------------------------- */}
-          {/* Left Sidebar                                                     */}
-          {/* ---------------------------------------------------------------- */}
+        {/* ---------------------------------------------------------------- */}
+        {/* Hero                                                             */}
+        {/* ---------------------------------------------------------------- */}
 
-          <aside
-            className={`${
-              mobileView === "preview"
-                ? "hidden"
-                : "block"
-            } lg:block`}
-          >
-            <div className="sticky top-[88px] space-y-5">
-              {/* Section navigation */}
+        <section className="relative mb-6 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-purple-100/60 blur-3xl" />
 
+          <div className="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-blue-100/40 blur-3xl" />
+
+          <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_330px] lg:p-10">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-purple-700">
+                <Sparkles size={13} />
+                AI Resume Studio
+              </div>
+
+              <h2 className="max-w-3xl text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+                Build a resume that
+                <span className="text-purple-600">
+                  {" "}
+                  represents you.
+                </span>
+              </h2>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 sm:text-[15px]">
+                Add your professional information,
+                describe the visual style you want,
+                and let AI transform your content
+                into a refined resume.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                <StatusPill
+                  icon={<Sparkles size={13} />}
+                  label="AI content generation"
+                />
+
+                <StatusPill
+                  icon={<LayoutTemplate size={13} />}
+                  label="Custom design"
+                />
+
+                <StatusPill
+                  icon={<Download size={13} />}
+                  label="PDF export"
+                />
+              </div>
+            </div>
+
+            {/* Completion card */}
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                    Resume progress
+                  </p>
+
+                  <p className="mt-1 text-2xl font-bold text-slate-950">
+                    {completionPercent}%
+                  </p>
+                </div>
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                  <Check size={18} />
+                </div>
+              </div>
+
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-purple-600 transition-all duration-500"
+                  style={{
+                    width: `${completionPercent}%`,
+                  }}
+                />
+              </div>
+
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Complete your key sections before
+                generating for the strongest result.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Workspace                                                        */}
+        {/* ---------------------------------------------------------------- */}
+
+        <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
+          {/* Sidebar */}
+
+          <aside>
+            <div className="sticky top-[92px] space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="px-3 pb-3 pt-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                    Resume Sections
+                  <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-slate-400">
+                    Build your resume
                   </p>
                 </div>
 
                 <SectionNavButton
                   icon={<User size={16} />}
-                  label="Personal Information"
+                  label="Personal"
+                  description="Contact & identity"
                   active={
                     openSection === "personal"
                   }
                   onClick={() =>
-                    toggleSection(
-                      "personal"
-                    )
+                    toggleSection("personal")
                   }
                 />
 
                 <SectionNavButton
-                  icon={<AlignLeft size={16} />}
-                  label="Professional Summary"
+                  icon={
+                    <AlignLeft size={16} />
+                  }
+                  label="Summary"
+                  description="Professional profile"
                   active={
                     openSection === "summary"
                   }
                   onClick={() =>
-                    toggleSection(
-                      "summary"
-                    )
+                    toggleSection("summary")
                   }
                 />
 
                 <SectionNavButton
                   icon={<Sparkles size={16} />}
                   label="Skills"
+                  description="Core capabilities"
                   active={
                     openSection === "skills"
                   }
@@ -1064,9 +1151,9 @@ export default function ResumeGeneratorPage() {
                     />
                   }
                   label="Experience"
+                  description="Work history"
                   active={
-                    openSection ===
-                    "experience"
+                    openSection === "experience"
                   }
                   onClick={() =>
                     toggleSection(
@@ -1082,9 +1169,9 @@ export default function ResumeGeneratorPage() {
                     />
                   }
                   label="Education"
+                  description="Academic background"
                   active={
-                    openSection ===
-                    "education"
+                    openSection === "education"
                   }
                   onClick={() =>
                     toggleSection(
@@ -1100,9 +1187,9 @@ export default function ResumeGeneratorPage() {
                     />
                   }
                   label="Projects"
+                  description="Work you've built"
                   active={
-                    openSection ===
-                    "projects"
+                    openSection === "projects"
                   }
                   onClick={() =>
                     toggleSection(
@@ -1114,6 +1201,7 @@ export default function ResumeGeneratorPage() {
                 <SectionNavButton
                   icon={<Award size={16} />}
                   label="Certifications"
+                  description="Credentials"
                   active={
                     openSection ===
                     "certifications"
@@ -1128,6 +1216,7 @@ export default function ResumeGeneratorPage() {
                 <SectionNavButton
                   icon={<Award size={16} />}
                   label="Achievements"
+                  description="Highlights"
                   active={
                     openSection ===
                     "achievements"
@@ -1141,11 +1230,10 @@ export default function ResumeGeneratorPage() {
 
                 <SectionNavButton
                   icon={
-                    <Languages
-                      size={16}
-                    />
+                    <Languages size={16} />
                   }
                   label="Languages"
+                  description="Communication"
                   active={
                     openSection ===
                     "languages"
@@ -1158,47 +1246,46 @@ export default function ResumeGeneratorPage() {
                 />
               </div>
 
-              {/* Template */}
+              {/* Template card */}
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center gap-2">
-                  <LayoutTemplate
-                    size={16}
-                    className="text-slate-500"
-                  />
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                    <LayoutTemplate
+                      size={16}
+                    />
+                  </div>
 
                   <div>
-                    <p className="text-sm font-semibold">
-                      Template
+                    <p className="text-sm font-bold text-slate-900">
+                      Resume style
                     </p>
 
-                    <p className="text-xs text-slate-500">
-                      Choose your foundation
+                    <p className="text-[11px] text-slate-400">
+                      Choose a foundation
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <TemplateButton
-                    value="ats"
                     selected={
                       template === "ats"
                     }
                     title="ATS Standard"
-                    description="Maximum ATS compatibility"
+                    description="Screening optimized"
                     onClick={() =>
                       setTemplate("ats")
                     }
                   />
 
                   <TemplateButton
-                    value="professional"
                     selected={
                       template ===
                       "professional"
                     }
                     title="Professional"
-                    description="Elegant corporate style"
+                    description="Elegant corporate"
                     onClick={() =>
                       setTemplate(
                         "professional"
@@ -1207,25 +1294,22 @@ export default function ResumeGeneratorPage() {
                   />
 
                   <TemplateButton
-                    value="modern"
                     selected={
                       template === "modern"
                     }
                     title="Modern"
-                    description="Contemporary visual layout"
+                    description="Contemporary"
                     onClick={() =>
                       setTemplate("modern")
                     }
                   />
 
                   <TemplateButton
-                    value="executive"
                     selected={
-                      template ===
-                      "executive"
+                      template === "executive"
                     }
                     title="Executive"
-                    description="Premium leadership style"
+                    description="Premium leadership"
                     onClick={() =>
                       setTemplate(
                         "executive"
@@ -1237,228 +1321,196 @@ export default function ResumeGeneratorPage() {
             </div>
           </aside>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* Editor                                                           */}
-          {/* ---------------------------------------------------------------- */}
+          {/* Main editor */}
 
-          <section
-            className={`${
-              mobileView === "preview"
-                ? "hidden"
-                : "block"
-            } lg:block`}
-          >
-            <div className="space-y-4">
-              {/* Page intro */}
+          <section className="min-w-0 space-y-5">
+            {/* AI design panel */}
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                  <div>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                      <Sparkles
-                        size={13}
-                      />
-                      AI Resume Studio
-                    </div>
-
-                    <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
-                      Create your professional resume
-                    </h2>
-
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                      Enter your information, describe the
-                      design you want, and let AI transform
-                      it into a polished resume.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:min-w-[190px]">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Selected template
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {templateInfo.name}
-                    </p>
-
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {templateInfo.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Design Description - ALWAYS OPEN */}
-
-              <div className="rounded-2xl border border-indigo-200 bg-white shadow-sm">
-                <div className="border-b border-indigo-100 bg-indigo-50/60 px-5 py-4 sm:px-6">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white">
-                      <Wand2 size={17} />
+            <div className="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-sm">
+              <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-white px-5 py-5 sm:px-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-lg shadow-purple-600/20">
+                      <Wand2 size={18} />
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">
-                        AI Design Description
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple-600">
+                        AI Design Direction
+                      </p>
+
+                      <h3 className="mt-1 text-base font-bold text-slate-950">
+                        Describe your ideal resume
                       </h3>
 
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Describe how you want your resume to
-                        look. AI will translate your description
-                        into a professional layout.
+                      <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                        Tell AI about the visual
+                        personality you want. Mention
+                        colors, typography, spacing,
+                        photo placement or overall feel.
                       </p>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-5 sm:p-6">
-                  <textarea
-                    value={
-                      resumeDesignDescription
-                    }
-                    onChange={(event) =>
-                      setResumeDesignDescription(
-                        event.target.value
-                      )
-                    }
-                    rows={4}
-                    placeholder="Example: Create a clean professional resume with dark navy headings, subtle blue accents, strong spacing, modern typography, clear section hierarchy, and a professional profile photo on the right."
-                    className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-                  />
-
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-slate-400">
-                      You can describe colors, spacing,
-                      typography, photo placement and overall
-                      style.
+                  <div className="shrink-0 rounded-xl border border-purple-100 bg-white px-3 py-2">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Current style
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={generateResume}
-                      disabled={isGenerating}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader2
-                            size={16}
-                            className="animate-spin"
-                          />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles
-                            size={16}
-                          />
-                          Generate with AI
-                        </>
-                      )}
-                    </button>
+                    <p className="mt-0.5 text-xs font-bold text-purple-700">
+                      {currentTemplate.name}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* PERSONAL */}
+              <div className="p-5 sm:p-6">
+                <textarea
+                  value={
+                    resumeDesignDescription
+                  }
+                  onChange={(event) =>
+                    setResumeDesignDescription(
+                      event.target.value
+                    )
+                  }
+                  rows={4}
+                  placeholder="Example: Create a sophisticated professional resume with dark navy headings, subtle purple accents, generous spacing, clean typography, strong section hierarchy and a professional profile photo on the right."
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
+                />
 
-              <EditorSection
-                title="Personal Information"
-                description="Your contact and professional identity"
-                icon={<User size={17} />}
-                open={
-                  openSection === "personal"
-                }
-                onToggle={() =>
-                  toggleSection("personal")
-                }
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <InputField
-                    label="Full name"
-                    value={
-                      resume.personal.name
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "name",
-                        value
-                      )
-                    }
-                    placeholder="Your full name"
-                  />
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="max-w-xl text-[11px] leading-5 text-slate-400">
+                    The AI will use your information
+                    and this direction to generate the
+                    resume content and visual design.
+                  </p>
 
-                  <InputField
-                    label="Email"
-                    type="email"
-                    value={
-                      resume.personal.email
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "email",
-                        value
-                      )
-                    }
-                    placeholder="you@example.com"
-                  />
+                  <button
+                    type="button"
+                    onClick={generateResume}
+                    disabled={isGenerating}
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition hover:-translate-y-0.5 hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2
+                          size={16}
+                          className="animate-spin"
+                        />
+                        Generating resume...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Generate with AI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                  <InputField
-                    label="Phone"
-                    value={
-                      resume.personal.phone
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "phone",
-                        value
-                      )
-                    }
-                    placeholder="+91 XXXXX XXXXX"
-                  />
+            {/* Personal */}
 
-                  <InputField
-                    label="Location"
-                    value={
-                      resume.personal.location
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "location",
-                        value
-                      )
-                    }
-                    placeholder="City, State, Country"
-                  />
+            <EditorSection
+              title="Personal Information"
+              description="Your contact details and professional identity"
+              icon={<User size={17} />}
+              open={
+                openSection === "personal"
+              }
+              onToggle={() =>
+                toggleSection("personal")
+              }
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InputField
+                  label="Full name"
+                  value={
+                    resume.personal.name
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "name",
+                      value
+                    )
+                  }
+                  placeholder="Your full name"
+                />
 
-                  <InputField
-                    label="LinkedIn"
-                    value={
-                      resume.personal.linkedin
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "linkedin",
-                        value
-                      )
-                    }
-                    placeholder="linkedin.com/in/yourname"
-                  />
+                <InputField
+                  label="Email address"
+                  type="email"
+                  value={
+                    resume.personal.email
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "email",
+                      value
+                    )
+                  }
+                  placeholder="you@example.com"
+                />
 
-                  <InputField
-                    label="GitHub"
-                    value={
-                      resume.personal.github
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "github",
-                        value
-                      )
-                    }
-                    placeholder="github.com/username"
-                  />
+                <InputField
+                  label="Phone"
+                  value={
+                    resume.personal.phone
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "phone",
+                      value
+                    )
+                  }
+                  placeholder="+91 XXXXX XXXXX"
+                />
 
+                <InputField
+                  label="Location"
+                  value={
+                    resume.personal.location
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "location",
+                      value
+                    )
+                  }
+                  placeholder="City, State, Country"
+                />
+
+                <InputField
+                  label="LinkedIn"
+                  value={
+                    resume.personal.linkedin
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "linkedin",
+                      value
+                    )
+                  }
+                  placeholder="linkedin.com/in/yourname"
+                />
+
+                <InputField
+                  label="GitHub"
+                  value={
+                    resume.personal.github
+                  }
+                  onChange={(value) =>
+                    updatePersonal(
+                      "github",
+                      value
+                    )
+                  }
+                  placeholder="github.com/username"
+                />
+
+                <div className="sm:col-span-2">
                   <InputField
                     label="Website / Portfolio"
                     value={
@@ -1473,207 +1525,200 @@ export default function ResumeGeneratorPage() {
                     placeholder="yourwebsite.com"
                   />
                 </div>
+              </div>
 
-                {/* Photo */}
+              {/* Photo */}
 
-                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <ImageIcon
-                          size={16}
-                          className="text-slate-500"
-                        />
-
-                        <p className="text-sm font-semibold">
-                          Profile Photo
-                        </p>
-                      </div>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        Optional. Recommended for
-                        Professional, Modern and Executive
-                        templates.
-                      </p>
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                  <div className="flex gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200">
+                      <ImageIcon size={18} />
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {profilePhoto && (
-                        <div
-                          className="overflow-hidden border border-slate-200 bg-white"
-                          style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius:
-                              photoSettings.shape ===
-                              "circle"
-                                ? "9999px"
-                                : photoSettings.shape ===
-                                  "rounded"
-                                ? "12px"
-                                : "0px",
-                          }}
-                        >
-                          <img
-                            src={
-                              profilePhoto
-                            }
-                            alt="Profile"
-                            className="h-full w-full object-cover"
-                            style={{
-                              objectPosition:
-                                getObjectPosition(),
-                              transform: `scale(${
-                                photoSettings.zoom /
-                                100
-                              })`,
-                            }}
-                          />
-                        </div>
-                      )}
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        Profile photo
+                      </p>
 
-                      <input
-                        ref={
-                          photoInputRef
-                        }
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        onChange={
-                          handlePhotoChange
-                        }
-                        className="hidden"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          photoInputRef.current?.click()
-                        }
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-                      >
-                        {profilePhoto
-                          ? "Change photo"
-                          : "Upload photo"}
-                      </button>
-
-                      {profilePhoto && (
-                        <button
-                          type="button"
-                          onClick={
-                            removePhoto
-                          }
-                          className="rounded-lg border border-red-200 bg-white p-2 text-red-500 transition hover:bg-red-50"
-                        >
-                          <Trash2
-                            size={15}
-                          />
-                        </button>
-                      )}
+                      <p className="mt-1 max-w-lg text-xs leading-5 text-slate-500">
+                        Optional. Use a professional
+                        headshot for templates that
+                        support a photo.
+                      </p>
                     </div>
                   </div>
 
-                  {profilePhoto &&
-                    template !== "ats" && (
-                      <PhotoAdjuster
-                        settings={
-                          photoSettings
-                        }
-                        onChange={
-                          setPhotoSettings
-                        }
-                      />
+                  <div className="flex items-center gap-3">
+                    {profilePhoto && (
+                      <div
+                        className="h-14 w-14 overflow-hidden border-2 border-white bg-white shadow-md ring-1 ring-slate-200"
+                        style={{
+                          borderRadius:
+                            photoSettings.shape ===
+                            "circle"
+                              ? "9999px"
+                              : photoSettings.shape ===
+                                "rounded"
+                              ? "14px"
+                              : "0px",
+                        }}
+                      >
+                        <img
+                          src={profilePhoto}
+                          alt="Profile"
+                          className="h-full w-full object-cover"
+                          style={{
+                            objectPosition:
+                              getObjectPosition(),
+                            transform: `scale(${
+                              photoSettings.zoom /
+                              100
+                            })`,
+                          }}
+                        />
+                      </div>
                     )}
+
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={
+                        handlePhotoChange
+                      }
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        photoInputRef.current?.click()
+                      }
+                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      {profilePhoto
+                        ? "Change photo"
+                        : "Upload photo"}
+                    </button>
+
+                    {profilePhoto && (
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        className="rounded-xl border border-red-200 bg-white p-2.5 text-red-500 transition hover:bg-red-50"
+                        aria-label="Remove photo"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </EditorSection>
 
-              {/* SUMMARY */}
+                {profilePhoto &&
+                  template !== "ats" && (
+                    <PhotoAdjuster
+                      settings={photoSettings}
+                      onChange={
+                        setPhotoSettings
+                      }
+                    />
+                  )}
+              </div>
+            </EditorSection>
 
-              <EditorSection
-                title="Professional Summary"
-                description="A concise introduction to your professional profile"
-                icon={<AlignLeft size={17} />}
-                open={
-                  openSection === "summary"
+            {/* Summary */}
+
+            <EditorSection
+              title="Professional Summary"
+              description="A concise introduction to your professional profile"
+              icon={
+                <AlignLeft size={17} />
+              }
+              open={
+                openSection === "summary"
+              }
+              onToggle={() =>
+                toggleSection("summary")
+              }
+            >
+              <TextareaField
+                label="Professional summary"
+                value={
+                  resume.professionalSummary
                 }
-                onToggle={() =>
-                  toggleSection("summary")
+                onChange={(value) =>
+                  updateResume(
+                    "professionalSummary",
+                    value
+                  )
                 }
-              >
-                <textarea
-                  value={
-                    resume.professionalSummary
-                  }
-                  onChange={(event) =>
-                    updateResume(
-                      "professionalSummary",
-                      event.target.value
-                    )
-                  }
-                  rows={6}
-                  placeholder="Write a concise professional summary..."
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                rows={7}
+                placeholder="Write a concise summary of your background, strengths, technical expertise and career direction..."
+              />
+            </EditorSection>
+
+            {/* Skills */}
+
+            <EditorSection
+              title="Skills"
+              description="Technical and professional capabilities"
+              icon={<Sparkles size={17} />}
+              open={
+                openSection === "skills"
+              }
+              onToggle={() =>
+                toggleSection("skills")
+              }
+              action={
+                <SmallActionButton
+                  onClick={addSkill}
+                  label="Add skill group"
                 />
-              </EditorSection>
-
-              {/* SKILLS */}
-
-              <EditorSection
-                title="Skills"
-                description="Technical and professional capabilities"
-                icon={<Sparkles size={17} />}
-                open={
-                  openSection === "skills"
-                }
-                onToggle={() =>
-                  toggleSection("skills")
-                }
-                action={
-                  <SmallActionButton
-                    onClick={addSkill}
-                    label="Add skill group"
-                  />
-                }
-              >
-                {resume.skills.length === 0 ? (
-                  <EmptyState
-                    title="No skills added"
-                    description="Add a skill group to start."
-                    button={
-                      <SmallActionButton
-                        onClick={addSkill}
-                        label="Add skill group"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    {resume.skills.map(
-                      (skill, index) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-3 flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              }
+            >
+              {resume.skills.length === 0 ? (
+                <EmptyState
+                  title="No skills added yet"
+                  description="Create groups such as Programming Languages, Frameworks, Databases or Tools."
+                  button={
+                    <SmallActionButton
+                      onClick={addSkill}
+                      label="Add skill group"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-4">
+                  {resume.skills.map(
+                    (skill, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                      >
+                        <div className="mb-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
                               Skill group{" "}
                               {index + 1}
                             </p>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeSkill(
-                                  index
-                                )
-                              }
-                              className="text-red-400 transition hover:text-red-600"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
+                            <p className="mt-1 text-xs text-slate-400">
+                              Organize related skills
+                              together.
+                            </p>
                           </div>
 
+                          <IconDeleteButton
+                            onClick={() =>
+                              removeSkill(
+                                index
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
                           <InputField
                             label="Category"
                             value={
@@ -1682,14 +1727,11 @@ export default function ResumeGeneratorPage() {
                             onChange={(
                               value
                             ) => {
-                              const updated =
-                                [
-                                  ...resume.skills,
-                                ];
+                              const updated = [
+                                ...resume.skills,
+                              ];
 
-                              updated[
-                                index
-                              ] = {
+                              updated[index] = {
                                 ...updated[
                                   index
                                 ],
@@ -1705,224 +1747,200 @@ export default function ResumeGeneratorPage() {
                             placeholder="Programming Languages"
                           />
 
-                          <div className="mt-4">
-                            <InputField
-                              label="Skills"
-                              value={skill.items.join(
-                                ", "
-                              )}
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.skills,
-                                  ];
+                          <InputField
+                            label="Skills"
+                            value={skill.items.join(
+                              ", "
+                            )}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.skills,
+                              ];
 
-                                updated[
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  items:
-                                    value
-                                      .split(
-                                        ","
-                                      )
-                                      .map(
-                                        (
-                                          item
-                                        ) =>
-                                          item.trim()
-                                      )
-                                      .filter(
-                                        Boolean
-                                      ),
-                                };
+                                ],
+                                items: value
+                                  .split(",")
+                                  .map(
+                                    (item) =>
+                                      item.trim()
+                                  )
+                                  .filter(
+                                    Boolean
+                                  ),
+                              };
 
-                                updateResume(
-                                  "skills",
-                                  updated
-                                );
-                              }}
-                              placeholder="Python, Java, SQL, React"
-                            />
-                          </div>
+                              updateResume(
+                                "skills",
+                                updated
+                              );
+                            }}
+                            placeholder="Python, Java, SQL, React"
+                          />
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
 
-              {/* EXPERIENCE */}
+            {/* Experience */}
 
-              <EditorSection
-                title="Experience"
-                description="Work history and professional responsibilities"
-                icon={
-                  <BriefcaseBusiness
-                    size={17}
-                  />
-                }
-                open={
-                  openSection ===
+            <EditorSection
+              title="Experience"
+              description="Work history, internships and professional responsibilities"
+              icon={
+                <BriefcaseBusiness
+                  size={17}
+                />
+              }
+              open={
+                openSection === "experience"
+              }
+              onToggle={() =>
+                toggleSection(
                   "experience"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "experience"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={
-                      addExperience
-                    }
-                    label="Add experience"
-                  />
-                }
-              >
-                {resume.experience.length ===
-                0 ? (
-                  <EmptyState
-                    title="No experience added"
-                    description="Add internships, employment or relevant experience."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addExperience
-                        }
-                        label="Add experience"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-5">
-                    {resume.experience.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-4 flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                )
+              }
+              action={
+                <SmallActionButton
+                  onClick={addExperience}
+                  label="Add experience"
+                />
+              }
+            >
+              {resume.experience.length ===
+              0 ? (
+                <EmptyState
+                  title="No experience added"
+                  description="Add internships, employment, training or other relevant professional experience."
+                  button={
+                    <SmallActionButton
+                      onClick={
+                        addExperience
+                      }
+                      label="Add experience"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-5">
+                  {resume.experience.map(
+                    (item, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
                               Experience{" "}
                               {index + 1}
                             </p>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeExperience(
-                                  index
-                                )
-                              }
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
+                            <p className="mt-1 text-xs text-slate-400">
+                              Add measurable impact
+                              where possible.
+                            </p>
                           </div>
 
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <InputField
-                              label="Company"
-                              value={
-                                item.company
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
+                          <IconDeleteButton
+                            onClick={() =>
+                              removeExperience(
+                                index
+                              )
+                            }
+                          />
+                        </div>
 
-                                updated[
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <InputField
+                            label="Company"
+                            value={
+                              item.company
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.experience,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  company:
-                                    value,
-                                };
+                                ],
+                                company:
+                                  value,
+                              };
 
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Company name"
-                            />
+                              updateResume(
+                                "experience",
+                                updated
+                              );
+                            }}
+                            placeholder="Company name"
+                          />
 
-                            <InputField
-                              label="Role"
-                              value={
-                                item.role
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
+                          <InputField
+                            label="Role"
+                            value={item.role}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.experience,
+                              ];
 
-                                updated[
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  role: value,
-                                };
+                                ],
+                                role: value,
+                              };
 
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Software Engineer"
-                            />
+                              updateResume(
+                                "experience",
+                                updated
+                              );
+                            }}
+                            placeholder="Software Engineer"
+                          />
 
-                            <InputField
-                              label="Location"
-                              value={
-                                item.location
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
+                          <InputField
+                            label="Location"
+                            value={
+                              item.location
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.experience,
+                              ];
 
-                                updated[
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  location:
-                                    value,
-                                };
+                                ],
+                                location:
+                                  value,
+                              };
 
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Hyderabad, India"
-                            />
+                              updateResume(
+                                "experience",
+                                updated
+                              );
+                            }}
+                            placeholder="Hyderabad, India"
+                          />
 
+                          <div className="grid grid-cols-2 gap-3">
                             <InputField
                               label="Start date"
                               value={
@@ -1931,10 +1949,9 @@ export default function ResumeGeneratorPage() {
                               onChange={(
                                 value
                               ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
+                                const updated = [
+                                  ...resume.experience,
+                                ];
 
                                 updated[
                                   index
@@ -1962,10 +1979,9 @@ export default function ResumeGeneratorPage() {
                               onChange={(
                                 value
                               ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
+                                const updated = [
+                                  ...resume.experience,
+                                ];
 
                                 updated[
                                   index
@@ -1985,237 +2001,208 @@ export default function ResumeGeneratorPage() {
                               placeholder="Present"
                             />
                           </div>
-
-                          <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold text-slate-600">
-                              Responsibilities
-                            </label>
-
-                            <textarea
-                              rows={5}
-                              value={item.responsibilities.join(
-                                "\n"
-                              )}
-                              onChange={(
-                                event
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.experience,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  responsibilities:
-                                    event.target.value
-                                      .split(
-                                        "\n"
-                                      )
-                                      .filter(
-                                        (
-                                          line
-                                        ) =>
-                                          line.trim()
-                                      ),
-                                };
-
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Enter one responsibility per line..."
-                              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
-                          </div>
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
 
-              {/* EDUCATION */}
+                        <div className="mt-5">
+                          <TextareaField
+                            label="Responsibilities & achievements"
+                            value={item.responsibilities.join(
+                              "\n"
+                            )}
+                            onChange={(value) => {
+                              const updated = [
+                                ...resume.experience,
+                              ];
 
-              <EditorSection
-                title="Education"
-                description="Academic qualifications and education"
-                icon={
-                  <GraduationCap
-                    size={17}
-                  />
-                }
-                open={
-                  openSection ===
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                responsibilities:
+                                  value
+                                    .split(
+                                      "\n"
+                                    )
+                                    .filter(
+                                      (line) =>
+                                        line.trim()
+                                    ),
+                              };
+
+                              updateResume(
+                                "experience",
+                                updated
+                              );
+                            }}
+                            rows={6}
+                            placeholder="Write one responsibility or achievement per line..."
+                            hint="Use action verbs and measurable results where possible."
+                          />
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
+
+            {/* Education */}
+
+            <EditorSection
+              title="Education"
+              description="Academic qualifications and educational background"
+              icon={
+                <GraduationCap
+                  size={17}
+                />
+              }
+              open={
+                openSection === "education"
+              }
+              onToggle={() =>
+                toggleSection(
                   "education"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "education"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={addEducation}
-                    label="Add education"
-                  />
-                }
-              >
-                {resume.education.length ===
-                0 ? (
-                  <EmptyState
-                    title="No education added"
-                    description="Add your degree, college or other qualifications."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addEducation
-                        }
-                        label="Add education"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-5">
-                    {resume.education.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-4 flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Education{" "}
-                              {index + 1}
-                            </p>
+                )
+              }
+              action={
+                <SmallActionButton
+                  onClick={addEducation}
+                  label="Add education"
+                />
+              }
+            >
+              {resume.education.length ===
+              0 ? (
+                <EmptyState
+                  title="No education added"
+                  description="Add your degree, college, dates and relevant academic details."
+                  button={
+                    <SmallActionButton
+                      onClick={
+                        addEducation
+                      }
+                      label="Add education"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-5">
+                  {resume.education.map(
+                    (item, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
+                            Education{" "}
+                            {index + 1}
+                          </p>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeEducation(
+                          <IconDeleteButton
+                            onClick={() =>
+                              removeEducation(
+                                index
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <InputField
+                            label="Institution"
+                            value={
+                              item.institution
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.education,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
                                   index
-                                )
-                              }
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
-                          </div>
+                                ],
+                                institution:
+                                  value,
+                              };
 
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <InputField
-                              label="Institution"
-                              value={
-                                item.institution
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
+                              updateResume(
+                                "education",
+                                updated
+                              );
+                            }}
+                            placeholder="University / College"
+                          />
 
-                                updated[
+                          <InputField
+                            label="Degree"
+                            value={
+                              item.degree
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.education,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  institution:
-                                    value,
-                                };
+                                ],
+                                degree: value,
+                              };
 
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="University / College"
-                            />
+                              updateResume(
+                                "education",
+                                updated
+                              );
+                            }}
+                            placeholder="B.Tech"
+                          />
 
-                            <InputField
-                              label="Degree"
-                              value={
-                                item.degree
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
+                          <InputField
+                            label="Field of study"
+                            value={
+                              item.field
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.education,
+                              ];
 
-                                updated[
+                              updated[index] = {
+                                ...updated[
                                   index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  degree:
-                                    value,
-                                };
+                                ],
+                                field: value,
+                              };
 
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="B.Tech"
-                            />
+                              updateResume(
+                                "education",
+                                updated
+                              );
+                            }}
+                            placeholder="Computer Science"
+                          />
 
+                          <div className="grid grid-cols-2 gap-3">
                             <InputField
-                              label="Field"
-                              value={
-                                item.field
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  field: value,
-                                };
-
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="Computer Science"
-                            />
-
-                            <InputField
-                              label="Start date"
+                              label="Start"
                               value={
                                 item.startDate
                               }
                               onChange={(
                                 value
                               ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
+                                const updated = [
+                                  ...resume.education,
+                                ];
 
                                 updated[
                                   index
@@ -2236,17 +2223,16 @@ export default function ResumeGeneratorPage() {
                             />
 
                             <InputField
-                              label="End date"
+                              label="End"
                               value={
                                 item.endDate
                               }
                               onChange={(
                                 value
                               ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
+                                const updated = [
+                                  ...resume.education,
+                                ];
 
                                 updated[
                                   index
@@ -2266,687 +2252,583 @@ export default function ResumeGeneratorPage() {
                               placeholder="2025"
                             />
                           </div>
-
-                          <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold text-slate-600">
-                              Details
-                            </label>
-
-                            <textarea
-                              rows={4}
-                              value={item.details.join(
-                                "\n"
-                              )}
-                              onChange={(
-                                event
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.education,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  details:
-                                    event.target.value
-                                      .split(
-                                        "\n"
-                                      )
-                                      .filter(
-                                        (
-                                          line
-                                        ) =>
-                                          line.trim()
-                                      ),
-                                };
-
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="Relevant coursework, achievements, activities..."
-                              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
-                          </div>
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
 
-              {/* PROJECTS */}
+                        <div className="mt-5">
+                          <TextareaField
+                            label="Details"
+                            value={item.details.join(
+                              "\n"
+                            )}
+                            onChange={(value) => {
+                              const updated = [
+                                ...resume.education,
+                              ];
 
-              <EditorSection
-                title="Projects"
-                description="Important personal, academic and professional projects"
-                icon={
-                  <FolderKanban
-                    size={17}
-                  />
-                }
-                open={
-                  openSection ===
-                  "projects"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "projects"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={addProject}
-                    label="Add project"
-                  />
-                }
-              >
-                {resume.projects.length ===
-                0 ? (
-                  <EmptyState
-                    title="No projects added"
-                    description="Add projects that demonstrate your practical skills."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addProject
-                        }
-                        label="Add project"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-5">
-                    {resume.projects.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-4 flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Project{" "}
-                              {index + 1}
-                            </p>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeProject(
+                              updated[index] = {
+                                ...updated[
                                   index
-                                )
-                              }
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
-                          </div>
+                                ],
+                                details:
+                                  value
+                                    .split(
+                                      "\n"
+                                    )
+                                    .filter(
+                                      (line) =>
+                                        line.trim()
+                                    ),
+                              };
 
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <InputField
-                              label="Project name"
-                              value={
-                                item.name
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.projects,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  name: value,
-                                };
-
-                                updateResume(
-                                  "projects",
-                                  updated
-                                );
-                              }}
-                              placeholder="AI Portfolio Generator"
-                            />
-
-                            <InputField
-                              label="Project URL"
-                              value={
-                                item.url
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.projects,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  url: value,
-                                };
-
-                                updateResume(
-                                  "projects",
-                                  updated
-                                );
-                              }}
-                              placeholder="https://..."
-                            />
-                          </div>
-
-                          <div className="mt-4">
-                            <InputField
-                              label="Technologies"
-                              value={item.technologies.join(
-                                ", "
-                              )}
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.projects,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  technologies:
-                                    value
-                                      .split(
-                                        ","
-                                      )
-                                      .map(
-                                        (
-                                          tech
-                                        ) =>
-                                          tech.trim()
-                                      )
-                                      .filter(
-                                        Boolean
-                                      ),
-                                };
-
-                                updateResume(
-                                  "projects",
-                                  updated
-                                );
-                              }}
-                              placeholder="React, Node.js, Supabase"
-                            />
-                          </div>
-
-                          <div className="mt-4">
-                            <label className="mb-2 block text-xs font-semibold text-slate-600">
-                              Description
-                            </label>
-
-                            <textarea
-                              rows={5}
-                              value={
-                                item.description
-                              }
-                              onChange={(
-                                event
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.projects,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  description:
-                                    event.target.value,
-                                };
-
-                                updateResume(
-                                  "projects",
-                                  updated
-                                );
-                              }}
-                              placeholder="Explain what you built, how you built it and its impact..."
-                              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
-                          </div>
+                              updateResume(
+                                "education",
+                                updated
+                              );
+                            }}
+                            rows={5}
+                            placeholder="Relevant coursework, achievements, activities, GPA or academic highlights..."
+                          />
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
 
-              {/* CERTIFICATIONS */}
+            {/* Projects */}
 
-              <EditorSection
-                title="Certifications"
-                description="Professional certifications and credentials"
-                icon={<Award size={17} />}
-                open={
-                  openSection ===
+            <EditorSection
+              title="Projects"
+              description="Personal, academic and professional work that demonstrates your skills"
+              icon={
+                <FolderKanban
+                  size={17}
+                />
+              }
+              open={
+                openSection === "projects"
+              }
+              onToggle={() =>
+                toggleSection("projects")
+              }
+              action={
+                <SmallActionButton
+                  onClick={addProject}
+                  label="Add project"
+                />
+              }
+            >
+              {resume.projects.length ===
+              0 ? (
+                <EmptyState
+                  title="No projects added"
+                  description="Showcase practical work that demonstrates your technical and problem-solving abilities."
+                  button={
+                    <SmallActionButton
+                      onClick={addProject}
+                      label="Add project"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-5">
+                  {resume.projects.map(
+                    (item, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
+                            Project{" "}
+                            {index + 1}
+                          </p>
+
+                          <IconDeleteButton
+                            onClick={() =>
+                              removeProject(
+                                index
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <InputField
+                            label="Project name"
+                            value={item.name}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.projects,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                name: value,
+                              };
+
+                              updateResume(
+                                "projects",
+                                updated
+                              );
+                            }}
+                            placeholder="AI Portfolio Generator"
+                          />
+
+                          <InputField
+                            label="Project URL"
+                            value={item.url}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.projects,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                url: value,
+                              };
+
+                              updateResume(
+                                "projects",
+                                updated
+                              );
+                            }}
+                            placeholder="https://..."
+                          />
+                        </div>
+
+                        <div className="mt-5">
+                          <InputField
+                            label="Technologies"
+                            value={item.technologies.join(
+                              ", "
+                            )}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.projects,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                technologies:
+                                  value
+                                    .split(
+                                      ","
+                                    )
+                                    .map(
+                                      (tech) =>
+                                        tech.trim()
+                                    )
+                                    .filter(
+                                      Boolean
+                                    ),
+                              };
+
+                              updateResume(
+                                "projects",
+                                updated
+                              );
+                            }}
+                            placeholder="React, Node.js, Supabase"
+                          />
+                        </div>
+
+                        <div className="mt-5">
+                          <TextareaField
+                            label="Project description"
+                            value={
+                              item.description
+                            }
+                            onChange={(value) => {
+                              const updated = [
+                                ...resume.projects,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                description:
+                                  value,
+                              };
+
+                              updateResume(
+                                "projects",
+                                updated
+                              );
+                            }}
+                            rows={6}
+                            placeholder="Explain what you built, how you built it, the problem it solves and the impact..."
+                          />
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
+
+            {/* Certifications */}
+
+            <EditorSection
+              title="Certifications"
+              description="Professional certifications and credentials"
+              icon={<Award size={17} />}
+              open={
+                openSection ===
+                "certifications"
+              }
+              onToggle={() =>
+                toggleSection(
                   "certifications"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "certifications"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={
-                      addCertification
-                    }
-                    label="Add certification"
-                  />
-                }
-              >
-                {resume.certifications
-                  .length === 0 ? (
-                  <EmptyState
-                    title="No certifications added"
-                    description="Add relevant professional certifications."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addCertification
-                        }
-                        label="Add certification"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    {resume.certifications.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <div className="mb-4 flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Certification{" "}
-                              {index + 1}
-                            </p>
+                )
+              }
+              action={
+                <SmallActionButton
+                  onClick={
+                    addCertification
+                  }
+                  label="Add certification"
+                />
+              }
+            >
+              {resume.certifications.length ===
+              0 ? (
+                <EmptyState
+                  title="No certifications added"
+                  description="Add certifications that are relevant to your target role."
+                  button={
+                    <SmallActionButton
+                      onClick={
+                        addCertification
+                      }
+                      label="Add certification"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-4">
+                  {resume.certifications.map(
+                    (item, index) => (
+                      <div
+                        key={index}
+                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
+                      >
+                        <div className="mb-5 flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
+                            Certification{" "}
+                            {index + 1}
+                          </p>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeCertification(
-                                  index
-                                )
-                              }
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
-                          </div>
-
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <InputField
-                              label="Certification"
-                              value={
-                                item.name
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.certifications,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  name: value,
-                                };
-
-                                updateResume(
-                                  "certifications",
-                                  updated
-                                );
-                              }}
-                              placeholder="Certification name"
-                            />
-
-                            <InputField
-                              label="Issuer"
-                              value={
-                                item.issuer
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.certifications,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  issuer:
-                                    value,
-                                };
-
-                                updateResume(
-                                  "certifications",
-                                  updated
-                                );
-                              }}
-                              placeholder="Issuing organization"
-                            />
-
-                            <InputField
-                              label="Date"
-                              value={
-                                item.date
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.certifications,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  date: value,
-                                };
-
-                                updateResume(
-                                  "certifications",
-                                  updated
-                                );
-                              }}
-                              placeholder="2026"
-                            />
-
-                            <InputField
-                              label="Credential URL"
-                              value={
-                                item.url
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated =
-                                  [
-                                    ...resume.certifications,
-                                  ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  url: value,
-                                };
-
-                                updateResume(
-                                  "certifications",
-                                  updated
-                                );
-                              }}
-                              placeholder="https://..."
-                            />
-                          </div>
+                          <IconDeleteButton
+                            onClick={() =>
+                              removeCertification(
+                                index
+                              )
+                            }
+                          />
                         </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
 
-              {/* ACHIEVEMENTS */}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <InputField
+                            label="Certification"
+                            value={
+                              item.name
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.certifications,
+                              ];
 
-              <EditorSection
-                title="Achievements"
-                description="Awards, accomplishments and notable achievements"
-                icon={<Award size={17} />}
-                open={
-                  openSection ===
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                name: value,
+                              };
+
+                              updateResume(
+                                "certifications",
+                                updated
+                              );
+                            }}
+                            placeholder="Certification name"
+                          />
+
+                          <InputField
+                            label="Issuer"
+                            value={
+                              item.issuer
+                            }
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.certifications,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                issuer:
+                                  value,
+                              };
+
+                              updateResume(
+                                "certifications",
+                                updated
+                              );
+                            }}
+                            placeholder="Issuing organization"
+                          />
+
+                          <InputField
+                            label="Date"
+                            value={item.date}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.certifications,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                date: value,
+                              };
+
+                              updateResume(
+                                "certifications",
+                                updated
+                              );
+                            }}
+                            placeholder="2026"
+                          />
+
+                          <InputField
+                            label="Credential URL"
+                            value={item.url}
+                            onChange={(
+                              value
+                            ) => {
+                              const updated = [
+                                ...resume.certifications,
+                              ];
+
+                              updated[index] = {
+                                ...updated[
+                                  index
+                                ],
+                                url: value,
+                              };
+
+                              updateResume(
+                                "certifications",
+                                updated
+                              );
+                            }}
+                            placeholder="https://..."
+                          />
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
+
+            {/* Achievements */}
+
+            <EditorSection
+              title="Achievements"
+              description="Awards, accomplishments and notable highlights"
+              icon={<Award size={17} />}
+              open={
+                openSection ===
+                "achievements"
+              }
+              onToggle={() =>
+                toggleSection(
                   "achievements"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "achievements"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={
-                      addAchievement
-                    }
-                    label="Add achievement"
-                  />
-                }
-              >
-                {resume.achievements
-                  .length === 0 ? (
-                  <EmptyState
-                    title="No achievements added"
-                    description="Add awards, rankings or important accomplishments."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addAchievement
-                        }
-                        label="Add achievement"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {resume.achievements.map(
-                      (
-                        achievement,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="flex gap-3"
-                        >
-                          <input
-                            value={
-                              achievement
-                            }
-                            onChange={(
-                              event
-                            ) => {
-                              const updated =
-                                [
-                                  ...resume.achievements,
-                                ];
+                )
+              }
+              action={
+                <SmallActionButton
+                  onClick={addAchievement}
+                  label="Add achievement"
+                />
+              }
+            >
+              {resume.achievements.length ===
+              0 ? (
+                <EmptyState
+                  title="No achievements added"
+                  description="Add awards, rankings, competitions or notable accomplishments."
+                  button={
+                    <SmallActionButton
+                      onClick={
+                        addAchievement
+                      }
+                      label="Add achievement"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-3">
+                  {resume.achievements.map(
+                    (achievement, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-3"
+                      >
+                        <input
+                          value={achievement}
+                          onChange={(event) => {
+                            const updated = [
+                              ...resume.achievements,
+                            ];
 
-                              updated[
-                                index
-                              ] =
-                                event.target.value;
+                            updated[index] =
+                              event.target.value;
 
-                              updateResume(
-                                "achievements",
-                                updated
-                              );
-                            }}
-                            placeholder="Describe your achievement..."
-                            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                          />
+                            updateResume(
+                              "achievements",
+                              updated
+                            );
+                          }}
+                          placeholder="Describe an achievement..."
+                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        />
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeAchievement(
-                                index
-                              )
-                            }
-                            className="rounded-xl border border-red-200 px-3 text-red-400 hover:bg-red-50"
-                          >
-                            <Trash2
-                              size={15}
-                            />
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
+                        <IconDeleteButton
+                          onClick={() =>
+                            removeAchievement(
+                              index
+                            )
+                          }
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
 
-              {/* LANGUAGES */}
+            {/* Languages */}
 
-              <EditorSection
-                title="Languages"
-                description="Languages you can communicate in"
-                icon={
-                  <Languages
-                    size={17}
-                  />
-                }
-                open={
-                  openSection ===
+            <EditorSection
+              title="Languages"
+              description="Languages you can communicate in"
+              icon={
+                <Languages size={17} />
+              }
+              open={
+                openSection === "languages"
+              }
+              onToggle={() =>
+                toggleSection(
                   "languages"
-                }
-                onToggle={() =>
-                  toggleSection(
-                    "languages"
-                  )
-                }
-                action={
-                  <SmallActionButton
-                    onClick={addLanguage}
-                    label="Add language"
-                  />
-                }
-              >
-                {resume.languages.length ===
-                0 ? (
-                  <EmptyState
-                    title="No languages added"
-                    description="Add languages relevant to your profile."
-                    button={
-                      <SmallActionButton
-                        onClick={
-                          addLanguage
-                        }
-                        label="Add language"
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {resume.languages.map(
-                      (
-                        language,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="flex gap-3"
-                        >
-                          <input
-                            value={
-                              language
-                            }
-                            onChange={(
-                              event
-                            ) => {
-                              const updated =
-                                [
-                                  ...resume.languages,
-                                ];
+                )
+              }
+              action={
+                <SmallActionButton
+                  onClick={addLanguage}
+                  label="Add language"
+                />
+              }
+            >
+              {resume.languages.length ===
+              0 ? (
+                <EmptyState
+                  title="No languages added"
+                  description="Add languages and proficiency levels that are relevant to your profile."
+                  button={
+                    <SmallActionButton
+                      onClick={addLanguage}
+                      label="Add language"
+                    />
+                  }
+                />
+              ) : (
+                <div className="space-y-3">
+                  {resume.languages.map(
+                    (language, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-3"
+                      >
+                        <input
+                          value={language}
+                          onChange={(event) => {
+                            const updated = [
+                              ...resume.languages,
+                            ];
 
-                              updated[
-                                index
-                              ] =
-                                event.target.value;
+                            updated[index] =
+                              event.target.value;
 
-                              updateResume(
-                                "languages",
-                                updated
-                              );
-                            }}
-                            placeholder="English — Professional"
-                            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                          />
+                            updateResume(
+                              "languages",
+                              updated
+                            );
+                          }}
+                          placeholder="English — Professional"
+                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        />
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeLanguage(
-                                index
-                              )
-                            }
-                            className="rounded-xl border border-red-200 px-3 text-red-400 hover:bg-red-50"
-                          >
-                            <Trash2
-                              size={15}
-                            />
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </EditorSection>
+                        <IconDeleteButton
+                          onClick={() =>
+                            removeLanguage(
+                              index
+                            )
+                          }
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </EditorSection>
 
-              {/* Bottom Generate */}
+            {/* Final generation CTA */}
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <section className="overflow-hidden rounded-[24px] bg-slate-950 shadow-xl shadow-slate-950/10">
+              <div className="relative p-6 sm:p-8">
+                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-purple-600/20 blur-3xl" />
+
+                <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-sm font-bold">
-                      Ready to build your resume?
-                    </p>
+                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-purple-300">
+                      <Sparkles size={12} />
+                      Ready when you are
+                    </div>
 
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      AI will organize your information,
-                      improve presentation and apply your
-                      selected design.
+                    <h3 className="text-xl font-bold tracking-tight text-white">
+                      Generate your finished resume
+                    </h3>
+
+                    <p className="mt-2 max-w-xl text-xs leading-5 text-slate-400">
+                      AI will organize your content,
+                      improve presentation and apply the
+                      selected design direction.
                     </p>
                   </div>
 
@@ -2954,74 +2836,34 @@ export default function ResumeGeneratorPage() {
                     type="button"
                     onClick={generateResume}
                     disabled={isGenerating}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-slate-100 disabled:opacity-60"
+                    className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-6 text-sm font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isGenerating ? (
-                      <Loader2
-                        size={16}
-                        className="animate-spin"
-                      />
+                      <>
+                        <Loader2
+                          size={16}
+                          className="animate-spin"
+                        />
+                        Generating...
+                      </>
                     ) : (
-                      <Sparkles
-                        size={16}
-                      />
+                      <>
+                        <Wand2 size={16} />
+                        Generate Resume
+                      </>
                     )}
-
-                    {isGenerating
-                      ? "Generating..."
-                      : "Generate Resume"}
                   </button>
                 </div>
               </div>
+            </section>
+
+            <div className="pb-8 text-center">
+              <p className="text-[11px] text-slate-400">
+                Your information is used to create
+                your personalized resume.
+              </p>
             </div>
           </section>
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Preview                                                          */}
-          {/* ---------------------------------------------------------------- */}
-
-          <aside
-            className={`${
-              mobileView === "editor"
-                ? "hidden"
-                : "block"
-            } lg:block`}
-          >
-            <div className="sticky top-[88px]">
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Eye
-                      size={16}
-                      className="text-slate-500"
-                    />
-
-                    <span className="text-sm font-semibold">
-                      Live Preview
-                    </span>
-                  </div>
-
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    {templateInfo.name}
-                  </span>
-                </div>
-
-                <div className="max-h-[calc(100vh-150px)] overflow-auto bg-slate-100 p-4 sm:p-5">
-                  <ResumePreview
-                    resume={resume}
-                    design={design}
-                    profilePhoto={
-                      profilePhoto
-                    }
-                    photoSettings={
-                      photoSettings
-                    }
-                    template={template}
-                  />
-                </div>
-              </div>
-            </div>
-          </aside>
         </div>
       </div>
     </main>
@@ -3029,17 +2871,40 @@ export default function ResumeGeneratorPage() {
 }
 
 /* ========================================================================== */
-/* Components                                                                 */
+/* UI Components                                                              */
 /* ========================================================================== */
+
+function StatusPill({
+  icon,
+  label,
+}: {
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-600 shadow-sm">
+      <span className="text-purple-500">
+        {icon}
+      </span>
+      {label}
+    </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sidebar navigation                                                         */
+/* -------------------------------------------------------------------------- */
 
 function SectionNavButton({
   icon,
   label,
+  description,
   active,
   onClick,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
+  description: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -3047,34 +2912,62 @@ function SectionNavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+      className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
         active
-          ? "bg-slate-950 text-white"
-          : "text-slate-600 hover:bg-slate-100"
+          ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
+          : "text-slate-600 hover:bg-slate-50"
       }`}
     >
       <span
-        className={
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
           active
-            ? "text-white"
-            : "text-slate-400"
-        }
+            ? "bg-white/10 text-purple-300"
+            : "bg-slate-100 text-slate-400"
+        }`}
       >
         {icon}
       </span>
 
-      <span className="flex-1">
-        {label}
+      <span className="min-w-0 flex-1">
+        <span
+          className={`block text-xs font-bold ${
+            active
+              ? "text-white"
+              : "text-slate-700"
+          }`}
+        >
+          {label}
+        </span>
+
+        <span
+          className={`mt-0.5 block truncate text-[10px] ${
+            active
+              ? "text-slate-400"
+              : "text-slate-400"
+          }`}
+        >
+          {description}
+        </span>
       </span>
 
       {active ? (
-        <ChevronDown size={15} />
+        <ChevronDown
+          size={15}
+          className="shrink-0 text-slate-400"
+        />
       ) : (
-        <ChevronRight size={15} />
+        <ChevronRight
+          size={15}
+          className="shrink-0 text-slate-300"
+        />
       )}
     </button>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Editor section                                                             */
+/* -------------------------------------------------------------------------- */
 
 function EditorSection({
   title,
@@ -3087,18 +2980,18 @@ function EditorSection({
 }: {
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   open: boolean;
   onToggle: () => void;
-  children: React.ReactNode;
-  action?: React.ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div
         className={`flex items-center gap-3 px-5 py-4 sm:px-6 ${
           open
-            ? "border-b border-slate-200"
+            ? "border-b border-slate-100"
             : ""
         }`}
       >
@@ -3108,9 +3001,9 @@ function EditorSection({
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
           <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               open
-                ? "bg-slate-950 text-white"
+                ? "bg-purple-50 text-purple-600"
                 : "bg-slate-100 text-slate-500"
             }`}
           >
@@ -3118,22 +3011,20 @@ function EditorSection({
           </div>
 
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-slate-900">
+            <h3 className="text-sm font-bold text-slate-950">
               {title}
             </h3>
 
-            <p className="mt-0.5 truncate text-xs text-slate-500">
+            <p className="mt-0.5 truncate text-[11px] text-slate-400">
               {description}
             </p>
           </div>
 
-          <span className="ml-auto text-slate-400">
+          <span className="ml-auto shrink-0 text-slate-300">
             {open ? (
               <ChevronDown size={18} />
             ) : (
-              <ChevronRight
-                size={18}
-              />
+              <ChevronRight size={18} />
             )}
           </span>
         </button>
@@ -3150,6 +3041,10 @@ function EditorSection({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Input                                                                      */
+/* -------------------------------------------------------------------------- */
+
 function InputField({
   label,
   value,
@@ -3165,7 +3060,7 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-semibold text-slate-600">
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
         {label}
       </label>
 
@@ -3176,11 +3071,61 @@ function InputField({
           onChange(event.target.value)
         }
         placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
       />
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Textarea                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function TextareaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 5,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+          {label}
+        </label>
+
+        {hint && (
+          <span className="text-[10px] text-slate-400">
+            {hint}
+          </span>
+        )}
+      </div>
+
+      <textarea
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
+      />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Small action                                                               */
+/* -------------------------------------------------------------------------- */
 
 function SmallActionButton({
   onClick,
@@ -3193,13 +3138,38 @@ function SmallActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
     >
       <Plus size={14} />
       {label}
     </button>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Delete button                                                              */
+/* -------------------------------------------------------------------------- */
+
+function IconDeleteButton({
+  onClick,
+}: {
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border border-red-100 bg-white p-2 text-red-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+      aria-label="Delete"
+    >
+      <Trash2 size={15} />
+    </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Empty state                                                                */
+/* -------------------------------------------------------------------------- */
 
 function EmptyState({
   title,
@@ -3208,15 +3178,19 @@ function EmptyState({
 }: {
   title: string;
   description: string;
-  button: React.ReactNode;
+  button: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
-      <p className="text-sm font-semibold text-slate-700">
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-5 py-10 text-center">
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
+        <Plus size={18} />
+      </div>
+
+      <p className="mt-4 text-sm font-bold text-slate-700">
         {title}
       </p>
 
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-400">
         {description}
       </p>
 
@@ -3227,14 +3201,16 @@ function EmptyState({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Template button                                                            */
+/* -------------------------------------------------------------------------- */
+
 function TemplateButton({
-  value,
   selected,
   title,
   description,
   onClick,
 }: {
-  value: string;
   selected: boolean;
   title: string;
   description: string;
@@ -3246,58 +3222,57 @@ function TemplateButton({
       onClick={onClick}
       className={`w-full rounded-xl border p-3 text-left transition ${
         selected
-          ? "border-slate-950 bg-slate-950 text-white"
+          ? "border-purple-300 bg-purple-50"
           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-bold">
+        <span
+          className={`text-xs font-bold ${
+            selected
+              ? "text-purple-700"
+              : "text-slate-700"
+          }`}
+        >
           {title}
         </span>
 
         {selected && (
-          <Check size={14} />
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white">
+            <Check size={11} />
+          </span>
         )}
       </div>
 
-      <p
-        className={`mt-1 text-[11px] leading-4 ${
-          selected
-            ? "text-slate-300"
-            : "text-slate-500"
-        }`}
-      >
+      <p className="mt-1 text-[10px] leading-4 text-slate-400">
         {description}
       </p>
     </button>
   );
 }
 
-/* ========================================================================== */
-/* Photo Adjuster                                                             */
-/* ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Photo adjuster                                                             */
+/* -------------------------------------------------------------------------- */
 
 function PhotoAdjuster({
   settings,
   onChange,
 }: {
   settings: PhotoSettings;
-  onChange: (
-    settings: PhotoSettings
-  ) => void;
+  onChange: (settings: PhotoSettings) => void;
 }) {
   return (
     <div className="mt-5 border-t border-slate-200 pt-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-bold text-slate-700">
-            Photo positioning
-          </p>
+      <div className="mb-4">
+        <p className="text-xs font-bold text-slate-700">
+          Photo positioning
+        </p>
 
-          <p className="mt-0.5 text-[11px] text-slate-400">
-            Adjust how your photo appears in the resume.
-          </p>
-        </div>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Fine-tune how your photo will be placed in
+          the generated resume.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -3335,9 +3310,7 @@ function PhotoAdjuster({
 
         <SelectControl
           label="Horizontal"
-          value={
-            settings.horizontal
-          }
+          value={settings.horizontal}
           options={[
             ["left", "Left"],
             ["center", "Center"],
@@ -3370,13 +3343,13 @@ function PhotoAdjuster({
         />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <div className="mb-2 flex items-center justify-between">
-          <label className="text-xs font-semibold text-slate-600">
+          <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
             Zoom
           </label>
 
-          <span className="text-xs font-bold text-slate-500">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
             {settings.zoom}%
           </span>
         </div>
@@ -3395,12 +3368,16 @@ function PhotoAdjuster({
               ),
             })
           }
-          className="w-full"
+          className="w-full accent-purple-600"
         />
       </div>
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Select                                                                      */
+/* -------------------------------------------------------------------------- */
 
 function SelectControl({
   label,
@@ -3415,7 +3392,7 @@ function SelectControl({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-semibold text-slate-600">
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
         {label}
       </label>
 
@@ -3424,7 +3401,7 @@ function SelectControl({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
       >
         {options.map(
           ([optionValue, optionLabel]) => (
@@ -3438,629 +3415,5 @@ function SelectControl({
         )}
       </select>
     </div>
-  );
-}
-
-/* ========================================================================== */
-/* Resume Preview                                                             */
-/* ========================================================================== */
-
-function ResumePreview({
-  resume,
-  design,
-  profilePhoto,
-  photoSettings,
-  template,
-}: {
-  resume: ResumeData;
-  design: ResumeDesign | null;
-  profilePhoto: string | null;
-  photoSettings: PhotoSettings;
-  template: TemplateType;
-}) {
-  const colors =
-    design?.colors ?? {
-      primary:
-        template === "modern"
-          ? "#2563eb"
-          : "#0f172a",
-      secondary: "#475569",
-      text: "#172033",
-      mutedText: "#64748b",
-      background: "#ffffff",
-      border: "#e2e8f0",
-    };
-
-  const headingFont =
-    design?.typography
-      ?.headingFont ?? "Helvetica";
-
-  const bodyFont =
-    design?.typography
-      ?.bodyFont ?? "Helvetica";
-
-  const photoSize =
-    photoSettings.size === "small"
-      ? 72
-      : photoSettings.size === "large"
-      ? 118
-      : 94;
-
-  const photoRadius =
-    photoSettings.shape ===
-    "circle"
-      ? "999px"
-      : photoSettings.shape ===
-        "rounded"
-      ? "14px"
-      : "0px";
-
-  const sectionOrder =
-    design?.sections?.order ?? [
-      "summary",
-      "skills",
-      "experience",
-      "education",
-      "projects",
-      "certifications",
-      "achievements",
-      "languages",
-    ];
-
-  return (
-    <div
-      className="mx-auto min-h-[1120px] w-full max-w-[794px] overflow-hidden shadow-xl"
-      style={{
-        backgroundColor:
-          colors.background,
-        color: colors.text,
-        fontFamily: bodyFont,
-      }}
-    >
-      {/* Header */}
-
-      <div
-        className="px-8 pb-6 pt-9"
-        style={{
-          borderBottom:
-            `2px solid ${colors.primary}`,
-        }}
-      >
-        <div
-          className={`flex gap-6 ${
-            design?.header?.alignment ===
-            "center"
-              ? "flex-col items-center text-center"
-              : "items-center"
-          }`}
-        >
-          {profilePhoto &&
-            template !== "ats" && (
-              <div
-                className="shrink-0 overflow-hidden"
-                style={{
-                  width: photoSize,
-                  height: photoSize,
-                  borderRadius:
-                    photoRadius,
-                }}
-              >
-                <img
-                  src={profilePhoto}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  style={{
-                    objectPosition: `${photoSettings.horizontal} ${photoSettings.vertical}`,
-                    transform: `scale(${
-                      photoSettings.zoom /
-                      100
-                    })`,
-                  }}
-                />
-              </div>
-            )}
-
-          <div className="min-w-0 flex-1">
-            <h1
-              className="break-words text-[29px] font-bold leading-tight"
-              style={{
-                fontFamily:
-                  headingFont,
-                color:
-                  colors.primary,
-              }}
-            >
-              {resume.personal.name ||
-                "Your Name"}
-            </h1>
-
-            <p
-              className="mt-2 text-[13px] font-medium"
-              style={{
-                color:
-                  colors.secondary,
-              }}
-            >
-              {resume.personal.email ||
-                "email@example.com"}
-
-              {resume.personal.phone &&
-                `  •  ${resume.personal.phone}`}
-
-              {resume.personal.location &&
-                `  •  ${resume.personal.location}`}
-            </p>
-
-            <div
-              className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px]"
-              style={{
-                color:
-                  colors.mutedText,
-              }}
-            >
-              {resume.personal.linkedin && (
-                <span>
-                  {resume.personal.linkedin}
-                </span>
-              )}
-
-              {resume.personal.github && (
-                <span>
-                  {resume.personal.github}
-                </span>
-              )}
-
-              {resume.personal.website && (
-                <span>
-                  {resume.personal.website}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Resume body */}
-
-      <div className="px-8 py-7">
-        {sectionOrder.map(
-          (section) => {
-            if (
-              section === "summary" &&
-              resume.professionalSummary
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Professional Summary"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <p className="text-[10.5px] leading-[1.7]">
-                    {
-                      resume.professionalSummary
-                    }
-                  </p>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section === "skills" &&
-              resume.skills.length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Skills"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <div className="space-y-2">
-                    {resume.skills.map(
-                      (
-                        skill,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="text-[10.5px] leading-5"
-                        >
-                          <span className="font-bold">
-                            {
-                              skill.category
-                            }
-                            :
-                          </span>{" "}
-                          {skill.items.join(
-                            ", "
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section ===
-                "experience" &&
-              resume.experience.length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Experience"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <div className="space-y-4">
-                    {resume.experience.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                        >
-                          <div className="flex justify-between gap-3">
-                            <div>
-                              <p className="text-[11px] font-bold">
-                                {
-                                  item.role
-                                }
-                              </p>
-
-                              <p
-                                className="text-[10px] font-semibold"
-                                style={{
-                                  color:
-                                    colors.secondary,
-                                }}
-                              >
-                                {
-                                  item.company
-                                }
-                                {item.location &&
-                                  ` • ${item.location}`}
-                              </p>
-                            </div>
-
-                            <p
-                              className="shrink-0 text-[9px]"
-                              style={{
-                                color:
-                                  colors.mutedText,
-                              }}
-                            >
-                              {
-                                item.startDate
-                              }{" "}
-                              —{" "}
-                              {
-                                item.endDate
-                              }
-                            </p>
-                          </div>
-
-                          <ul className="mt-1.5 space-y-1 pl-4">
-                            {item.responsibilities.map(
-                              (
-                                responsibility,
-                                bulletIndex
-                              ) => (
-                                <li
-                                  key={
-                                    bulletIndex
-                                  }
-                                  className="list-disc text-[9.5px] leading-[1.6]"
-                                >
-                                  {
-                                    responsibility
-                                  }
-                                </li>
-                              )
-                            )}
-                          </ul>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section ===
-                "education" &&
-              resume.education.length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Education"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <div className="space-y-3">
-                    {resume.education.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                        >
-                          <div className="flex justify-between gap-3">
-                            <div>
-                              <p className="text-[11px] font-bold">
-                                {
-                                  item.degree
-                                }
-                                {item.field &&
-                                  ` in ${item.field}`}
-                              </p>
-
-                              <p
-                                className="text-[10px] font-semibold"
-                                style={{
-                                  color:
-                                    colors.secondary,
-                                }}
-                              >
-                                {
-                                  item.institution
-                                }
-                              </p>
-                            </div>
-
-                            <p
-                              className="text-[9px]"
-                              style={{
-                                color:
-                                  colors.mutedText,
-                              }}
-                            >
-                              {
-                                item.startDate
-                              }{" "}
-                              —{" "}
-                              {
-                                item.endDate
-                              }
-                            </p>
-                          </div>
-
-                          {item.details.length >
-                            0 && (
-                            <ul className="mt-1 pl-4">
-                              {item.details.map(
-                                (
-                                  detail,
-                                  detailIndex
-                                ) => (
-                                  <li
-                                    key={
-                                      detailIndex
-                                    }
-                                    className="list-disc text-[9.5px] leading-[1.6]"
-                                  >
-                                    {
-                                      detail
-                                    }
-                                  </li>
-                                )
-                              )}
-                            </ul>
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section === "projects" &&
-              resume.projects.length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Projects"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <div className="space-y-3">
-                    {resume.projects.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                        >
-                          <p className="text-[11px] font-bold">
-                            {
-                              item.name
-                            }
-                          </p>
-
-                          {item.technologies.length >
-                            0 && (
-                            <p
-                              className="text-[9px] font-medium"
-                              style={{
-                                color:
-                                  colors.secondary,
-                              }}
-                            >
-                              {item.technologies.join(
-                                " • "
-                              )}
-                            </p>
-                          )}
-
-                          <p className="mt-1 text-[9.5px] leading-[1.6]">
-                            {
-                              item.description
-                            }
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section ===
-                "certifications" &&
-              resume.certifications
-                .length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Certifications"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <div className="space-y-2">
-                    {resume.certifications.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <div
-                          key={index}
-                          className="text-[10px]"
-                        >
-                          <span className="font-bold">
-                            {
-                              item.name
-                            }
-                          </span>{" "}
-                          —{" "}
-                          {
-                            item.issuer
-                          }
-                          {item.date &&
-                            ` • ${item.date}`}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section ===
-                "achievements" &&
-              resume.achievements
-                .length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Achievements"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <ul className="space-y-1 pl-4">
-                    {resume.achievements.map(
-                      (
-                        achievement,
-                        index
-                      ) => (
-                        <li
-                          key={index}
-                          className="list-disc text-[9.5px] leading-[1.6]"
-                        >
-                          {
-                            achievement
-                          }
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </PreviewSection>
-              );
-            }
-
-            if (
-              section === "languages" &&
-              resume.languages.length
-            ) {
-              return (
-                <PreviewSection
-                  key={section}
-                  title="Languages"
-                  primary={
-                    colors.primary
-                  }
-                >
-                  <p className="text-[10px]">
-                    {resume.languages.join(
-                      " • "
-                    )}
-                  </p>
-                </PreviewSection>
-              );
-            }
-
-            return null;
-          }
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PreviewSection({
-  title,
-  primary,
-  children,
-}: {
-  title: string;
-  primary: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mb-6">
-      <div
-        className="mb-2 flex items-center gap-3"
-      >
-        <h2
-          className="text-[11px] font-bold uppercase tracking-[0.12em]"
-          style={{
-            color: primary,
-          }}
-        >
-          {title}
-        </h2>
-
-        <div
-          className="h-px flex-1"
-          style={{
-            backgroundColor:
-              `${primary}30`,
-          }}
-        />
-      </div>
-
-      {children}
-    </section>
   );
 }

@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
 import PortfolioRenderer from "@/components/portfolio/PortfolioRenderer";
+
 import type { PortfolioData } from "@/lib/ai/portfolio-schema";
 import type { PortfolioDesign } from "@/lib/ai/portfolio-design-schema";
 
@@ -10,15 +13,10 @@ type PageProps = {
   }>;
 };
 
-export default async function PublicPortfolioPage({
-  params,
-}: PageProps) {
-  const { slug } = await params;
-
+async function getPortfolio(slug: string) {
   const supabase = await createClient();
 
-  // Only published portfolios can be viewed publicly.
-  const { data: portfolio, error } = await supabase
+  const { data, error } = await supabase
     .from("portfolios")
     .select(`
       id,
@@ -33,45 +31,126 @@ export default async function PublicPortfolioPage({
     .eq("is_published", true)
     .single();
 
-  if (error || !portfolio) {
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    ...data,
+    supabase,
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  const result = await getPortfolio(slug);
+
+  if (!result) {
+    return {
+      title: "Portfolio Not Found | HirePro",
+      description: "The requested portfolio could not be found.",
+    };
+  }
+
+  const data = result.generated_data as PortfolioData;
+
+  const name =
+    data.personal?.name?.trim() ||
+    result.title ||
+    "Professional Portfolio";
+
+  const headline =
+    data.personal?.headline?.trim() ||
+    "Professional Portfolio";
+
+  const description =
+    data.summary?.trim() ||
+    `${name} — ${headline}`;
+
+  return {
+    title: `${name} | Portfolio`,
+    description,
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: `${name} | Portfolio`,
+      description,
+      type: "website",
+    },
+  };
+}
+
+export default async function PublicPortfolioPage({
+  params,
+}: PageProps) {
+  const { slug } = await params;
+
+  const result = await getPortfolio(slug);
+
+  if (!result) {
     notFound();
   }
+
+  const {
+    generated_data,
+    design_config,
+    resume_file_path,
+    profile_image_path,
+  } = result;
+
+  const supabase = result.supabase;
 
   let resumeUrl: string | null = null;
   let profileImageUrl: string | null = null;
 
-  // Generate a temporary signed URL for the private resume.
-  if (portfolio.resume_file_path) {
-    const { data, error: resumeError } = await supabase.storage
+  /*
+   * Resume
+   *
+   * The resume remains private in Supabase Storage.
+   * A temporary signed URL is generated only for
+   * the published portfolio visitor.
+   */
+  if (resume_file_path) {
+    const { data, error } = await supabase.storage
       .from("resumes")
       .createSignedUrl(
-        portfolio.resume_file_path,
-        60 * 60
+        resume_file_path,
+        60 * 60,
       );
 
-    if (resumeError) {
+    if (error) {
       console.error(
         "Public resume URL error:",
-        resumeError
+        error,
       );
     } else {
       resumeUrl = data?.signedUrl ?? null;
     }
   }
 
-  // Generate a temporary signed URL for the private profile image.
-  if (portfolio.profile_image_path) {
-    const { data, error: imageError } = await supabase.storage
+  /*
+   * Profile image
+   *
+   * The profile image also remains private and is
+   * exposed through a temporary signed URL.
+   */
+  if (profile_image_path) {
+    const { data, error } = await supabase.storage
       .from("profile-images")
       .createSignedUrl(
-        portfolio.profile_image_path,
-        60 * 60
+        profile_image_path,
+        60 * 60,
       );
 
-    if (imageError) {
+    if (error) {
       console.error(
         "Public profile image URL error:",
-        imageError
+        error,
       );
     } else {
       profileImageUrl = data?.signedUrl ?? null;
@@ -79,15 +158,11 @@ export default async function PublicPortfolioPage({
   }
 
   return (
-    <main className="min-h-screen">
-      <PortfolioRenderer
-        data={portfolio.generated_data as PortfolioData}
-        design={
-          portfolio.design_config as PortfolioDesign | null
-        }
-        profileImageUrl={profileImageUrl}
-        resumeUrl={resumeUrl}
-      />
-    </main>
+    <PortfolioRenderer
+      data={generated_data as PortfolioData}
+      design={design_config as PortfolioDesign | null}
+      profileImageUrl={profileImageUrl}
+      resumeUrl={resumeUrl}
+    />
   );
 }

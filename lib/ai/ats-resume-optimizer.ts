@@ -21,7 +21,7 @@ const ai = new GoogleGenAI({
 });
 
 /**
- * Remove markdown fences and other accidental text
+ * Remove markdown fences and accidental text
  * around Gemini JSON responses.
  */
 function cleanJsonResponse(raw: string): string {
@@ -60,7 +60,7 @@ function safeString(value: unknown): string {
 }
 
 /**
- * Convert an unknown value into an array of strings.
+ * Convert unknown value into an array of strings.
  */
 function safeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -73,9 +73,11 @@ function safeStringArray(value: unknown): string[] {
 }
 
 /**
- * Normalize a skills section.
+ * Normalize skills.
  */
-function normalizeSkills(value: unknown): ResumeData["skills"] {
+function normalizeSkills(
+  value: unknown
+): ResumeData["skills"] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -127,7 +129,9 @@ function normalizeExperience(
         location: safeString(obj.location),
         startDate: safeString(obj.startDate),
         endDate: safeString(obj.endDate),
-        responsibilities: safeStringArray(obj.responsibilities),
+        responsibilities: safeStringArray(
+          obj.responsibilities
+        ),
       };
     })
     .filter(
@@ -206,7 +210,9 @@ function normalizeProjects(
       return {
         name: safeString(obj.name),
         description: safeString(obj.description),
-        technologies: safeStringArray(obj.technologies),
+        technologies: safeStringArray(
+          obj.technologies
+        ),
         url: safeString(obj.url),
       };
     })
@@ -293,21 +299,21 @@ function normalizeAdditionalSections(
 }
 
 /**
- * Normalize Gemini's output into the exact ResumeSchema shape.
- *
- * This is intentionally conservative.
- * Missing information becomes an empty string/array.
- * We never invent information.
+ * Normalize the complete Gemini resume response.
  */
-function normalizeResume(value: unknown): unknown {
+function normalizeResume(
+  value: unknown
+): unknown {
   if (!value || typeof value !== "object") {
     return null;
   }
 
-  const obj = value as Record<string, unknown>;
+  const obj =
+    value as Record<string, unknown>;
 
   const personal =
-    obj.personal && typeof obj.personal === "object"
+    obj.personal &&
+    typeof obj.personal === "object"
       ? (obj.personal as Record<string, unknown>)
       : {};
 
@@ -328,49 +334,70 @@ function normalizeResume(value: unknown): unknown {
 
     skills: normalizeSkills(obj.skills),
 
-    experience: normalizeExperience(obj.experience),
-
-    education: normalizeEducation(obj.education),
-
-    projects: normalizeProjects(obj.projects),
-
-    certifications: normalizeCertifications(
-      obj.certifications
+    experience: normalizeExperience(
+      obj.experience
     ),
 
-    achievements: safeStringArray(obj.achievements),
-
-    languages: safeStringArray(obj.languages),
-
-    additionalSections: normalizeAdditionalSections(
-      obj.additionalSections
+    education: normalizeEducation(
+      obj.education
     ),
+
+    projects: normalizeProjects(
+      obj.projects
+    ),
+
+    certifications:
+      normalizeCertifications(
+        obj.certifications
+      ),
+
+    achievements:
+      safeStringArray(
+        obj.achievements
+      ),
+
+    languages:
+      safeStringArray(
+        obj.languages
+      ),
+
+    additionalSections:
+      normalizeAdditionalSections(
+        obj.additionalSections
+      ),
   };
 }
 
 /**
- * Parse and validate Gemini output.
+ * Parse Gemini response and validate
+ * against ResumeSchema.
  */
 function parseResumeResponse(
   raw: string
-): {
-  success: true;
-  resume: ResumeData;
-} | {
-  success: false;
-  raw: string;
-  error: string;
-} {
+):
+  | {
+      success: true;
+      resume: ResumeData;
+    }
+  | {
+      success: false;
+      raw: string;
+      error: string;
+    } {
   try {
-    const cleaned = cleanJsonResponse(raw);
+    const cleaned =
+      cleanJsonResponse(raw);
 
-    const parsed = JSON.parse(cleaned);
+    const parsed =
+      JSON.parse(cleaned);
 
-    const normalized = normalizeResume(parsed);
+    const normalized =
+      normalizeResume(parsed);
 
-    const validation = ResumeSchema.safeParse(
-      normalized
-    );
+    const validation =
+      ResumeSchema.safeParse(
+        normalized
+      );
 
     if (!validation.success) {
       console.error(
@@ -409,7 +436,12 @@ function parseResumeResponse(
 }
 
 /**
- * Build the main optimization prompt.
+ * Build the optimization prompt.
+ *
+ * IMPORTANT:
+ * The AI is allowed to improve wording,
+ * but it is NOT allowed to remove factual
+ * information from the original resume.
  */
 function buildOptimizationPrompt(
   resumeText: string,
@@ -417,59 +449,292 @@ function buildOptimizationPrompt(
   jobDescription: string
 ): string {
   return `
-You are an expert ATS resume optimization system.
+You are HirePro's expert ATS resume optimization engine.
 
-Your job is to improve the candidate's resume for ATS compatibility and recruiter readability.
+Your task is to optimize the candidate's resume for:
 
-CRITICAL RULE:
+1. ATS compatibility
+2. Recruiter readability
+3. Job-description relevance
+4. Clear professional wording
+5. Strong keyword alignment
+6. Better structure
+7. Better achievement-oriented wording where supported
 
-You MUST NOT invent information.
+However, this is NOT permission to rewrite the candidate's history.
 
-You are allowed to:
-- rewrite wording
+The ORIGINAL RESUME is the single source of truth.
+
+==================================================
+ABSOLUTE RULE: NEVER INVENT INFORMATION
+==================================================
+
+You MUST NOT invent:
+
+- companies
+- employers
+- job titles
+- dates
+- degrees
+- universities
+- institutions
+- certifications
+- skills
+- technologies
+- projects
+- achievements
+- metrics
+- percentages
+- numbers
+- responsibilities
+- employment history
+- internships
+- links
+- URLs
+- awards
+- locations
+- languages
+- tools
+- frameworks
+- clients
+- products
+- job duties
+
+If a fact is not present in the original resume,
+DO NOT create it.
+
+==================================================
+ABSOLUTE RULE: PRESERVE ALL EXISTING CONTENT
+==================================================
+
+The optimized resume MUST preserve the complete
+factual structure of the original resume.
+
+Optimization means improving presentation and wording.
+
+It does NOT mean deleting information.
+
+You MUST preserve EVERY existing:
+
+- personal information
+- email
+- phone
+- location
+- LinkedIn
+- GitHub
+- website
+- professional summary facts
+- skill category
+- individual skill
+- experience entry
+- company
+- role
+- location
+- start date
+- end date
+- responsibility
+- education entry
+- institution
+- degree
+- field
+- start date
+- end date
+- education detail
+- project
+- project description
+- project technology
+- project URL
+- certification
+- certification issuer
+- certification date
+- certification URL
+- achievement
+- language
+- additional section
+- additional section item
+
+==================================================
+EDUCATION PRESERVATION — CRITICAL
+==================================================
+
+This is especially important.
+
+If the original resume contains:
+
+2 education entries
+
+the optimized resume MUST contain:
+
+2 education entries.
+
+If one education entry has:
+
+3 details
+
+the optimized version MUST retain all 3 factual details.
+
+You may rewrite those details for clarity.
+
+You may NOT remove them simply because
+they are not directly related to the job description.
+
+Never drop an education record.
+
+==================================================
+EXPERIENCE PRESERVATION — CRITICAL
+==================================================
+
+Every original experience entry MUST remain.
+
+Every original responsibility MUST remain
+in factual meaning.
+
+You may:
+
 - improve grammar
 - improve clarity
-- improve professional phrasing
-- reorganize existing information
-- improve bullet points
-- emphasize existing relevant skills
-- improve keyword placement when the keyword is genuinely supported by the original resume
-- improve the professional summary using existing facts
-- make responsibilities clearer
-- improve project descriptions using only information already present
+- improve action verbs
+- improve professional wording
 - remove unnecessary repetition
 
-You MUST NOT:
-- invent companies
-- invent job titles
-- invent dates
-- invent degrees
-- invent universities
-- invent certifications
-- invent skills
-- invent technologies
-- invent achievements
+You may NOT:
+
+- remove an experience entry
+- remove a company
+- remove a role
+- remove dates
+- remove responsibilities
 - invent metrics
-- invent responsibilities
-- invent projects
-- invent employment
-- invent links
-- invent experience
-- claim that the candidate used a technology unless the original resume supports it
 
-If information is not present in the original resume, leave the corresponding field empty.
+==================================================
+PROJECT PRESERVATION — CRITICAL
+==================================================
 
-The original resume is the only source of truth.
+Every original project MUST remain.
 
---------------------------------------------------
+Every original technology MUST remain.
+
+Every original project URL MUST remain.
+
+You may improve the description using
+only information already present.
+
+==================================================
+SKILLS PRESERVATION — CRITICAL
+==================================================
+
+Every skill explicitly supported by the
+original resume must remain.
+
+You may reorganize skills into categories.
+
+You may emphasize skills relevant to the
+job description.
+
+You may NOT claim unsupported experience
+with a technology.
+
+For example:
+
+If the resume says:
+React
+
+you may use:
+React.js
+
+if this is only a wording normalization.
+
+But you may NOT create:
+
+React Native
+
+unless the original resume supports it.
+
+==================================================
+CONTACT INFORMATION PRESERVATION
+==================================================
+
+Never remove:
+
+- name
+- email
+- phone
+- location
+- LinkedIn
+- GitHub
+- website
+
+Preserve the actual values.
+
+Do not replace them with invented values.
+
+==================================================
+DATES
+==================================================
+
+Dates are factual information.
+
+Preserve them.
+
+Do not change:
+
+- months
+- years
+- start dates
+- end dates
+
+unless correcting an obvious formatting representation
+without changing the underlying factual date.
+
+==================================================
+ATS OPTIMIZATION
+==================================================
+
+Use the ATS analysis below.
+
+You may improve:
+
+- keyword placement
+- wording
+- summary
+- bullet clarity
+- section ordering
+- readability
+- professional phrasing
+- relevant emphasis
+
+Only when supported by the original resume.
+
+Missing keywords may be added ONLY if the original
+resume already contains the underlying skill,
+technology, responsibility, or experience.
+
+Never keyword-stuff unsupported technologies.
+
+==================================================
+PAGE LENGTH
+==================================================
+
+Do NOT remove factual information to make
+the resume shorter.
+
+Page length will be controlled by the
+resume rendering engine separately.
+
+If content is too long for one page,
+the renderer must adjust layout/spacing.
+
+You must preserve the content.
+
+==================================================
 ORIGINAL RESUME
---------------------------------------------------
+==================================================
 
 ${resumeText}
 
---------------------------------------------------
+==================================================
 ATS ANALYSIS
---------------------------------------------------
+==================================================
 
 Overall Score:
 ${atsResult.overallScore}
@@ -529,9 +794,9 @@ ${JSON.stringify(
   atsResult.recommendations
 )}
 
---------------------------------------------------
+==================================================
 JOB DESCRIPTION
---------------------------------------------------
+==================================================
 
 ${
   jobDescription
@@ -539,13 +804,13 @@ ${
     : "No job description was provided. Optimize for general ATS compatibility."
 }
 
---------------------------------------------------
+==================================================
 OUTPUT REQUIREMENTS
---------------------------------------------------
+==================================================
 
 Return ONLY ONE valid JSON object.
 
-The JSON MUST follow this EXACT structure:
+The structure MUST be:
 
 {
   "personal": {
@@ -619,30 +884,41 @@ The JSON MUST follow this EXACT structure:
   ]
 }
 
-IMPORTANT:
+==================================================
+FINAL VALIDATION BEFORE RESPONDING
+==================================================
 
-Every field must exist.
+Before returning JSON, internally verify:
 
-Use empty strings for unavailable text.
+1. Every original education entry exists.
+2. Every education detail remains.
+3. Every original experience entry exists.
+4. Every experience responsibility remains.
+5. Every original project exists.
+6. Every project technology remains.
+7. Every original certification exists.
+8. Every original achievement remains.
+9. Every original language remains.
+10. Every original skill remains.
+11. Contact information remains.
+12. Dates remain.
+13. Companies remain.
+14. Job titles remain.
+15. No unsupported facts were invented.
+16. No metrics were invented.
+17. No sections were silently deleted.
 
-Use empty arrays for unavailable lists.
+If the optimized version would lose information,
+DO NOT remove it.
 
-Do not use null.
+Return the complete preserved resume instead.
 
-Do not use undefined.
-
-Do not add extra top-level fields.
-
-Do not return markdown.
-
-Do not return explanations.
-
-Return ONLY valid JSON.
+Return ONLY JSON.
 `;
 }
 
 /**
- * Ask Gemini to repair malformed resume JSON.
+ * Repair malformed Gemini JSON.
  */
 async function repairResumeResponse(
   rawResponse: string,
@@ -650,25 +926,25 @@ async function repairResumeResponse(
   model: string
 ): Promise<ResumeData | null> {
   const repairPrompt = `
-You are a JSON repair system.
+You are HirePro's resume JSON repair system.
 
 The AI generated an invalid resume object.
 
-Your task is to repair it so it exactly matches the required ResumeSchema.
+Repair the JSON so it exactly matches ResumeSchema.
 
-DO NOT change factual information.
+IMPORTANT:
 
-DO NOT invent anything.
+This is a repair operation.
 
-Only:
-- fix JSON syntax
-- add missing fields using empty strings or empty arrays
-- convert null values into empty strings/arrays
-- convert invalid primitive fields into valid strings
-- convert invalid list fields into arrays
-- remove unsupported extra fields
+DO NOT invent information.
 
-Required structure:
+DO NOT remove factual information.
+
+DO NOT rewrite factual information.
+
+Preserve the candidate's existing content.
+
+The following fields MUST exist:
 
 {
   "personal": {
@@ -680,13 +956,16 @@ Required structure:
     "github": "",
     "website": ""
   },
+
   "professionalSummary": "",
+
   "skills": [
     {
       "category": "",
       "items": []
     }
   ],
+
   "experience": [
     {
       "company": "",
@@ -697,6 +976,7 @@ Required structure:
       "responsibilities": []
     }
   ],
+
   "education": [
     {
       "institution": "",
@@ -707,6 +987,7 @@ Required structure:
       "details": []
     }
   ],
+
   "projects": [
     {
       "name": "",
@@ -715,6 +996,7 @@ Required structure:
       "url": ""
     }
   ],
+
   "certifications": [
     {
       "name": "",
@@ -723,8 +1005,11 @@ Required structure:
       "url": ""
     }
   ],
+
   "achievements": [],
+
   "languages": [],
+
   "additionalSections": [
     {
       "title": "",
@@ -733,36 +1018,67 @@ Required structure:
   ]
 }
 
-Validation error:
+If a field is missing because it was genuinely
+not present, use an empty string or empty array.
 
-${validationError}
+DO NOT use null.
 
-Invalid AI response:
+DO NOT invent missing factual information.
+
+==================================================
+INVALID RESPONSE
+==================================================
 
 ${rawResponse}
 
-Return ONLY corrected JSON.
+==================================================
+VALIDATION ERROR
+==================================================
+
+${validationError}
+
+Return ONLY the repaired JSON object.
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: repairPrompt,
-      config: {
-        temperature: 0,
-        responseMimeType: "application/json",
-      },
-    });
+    const response =
+      await ai.models.generateContent({
+        model,
+        contents: repairPrompt,
+        config: {
+          temperature: 0,
+          responseMimeType:
+            "application/json",
+        },
+      });
 
-    const raw = response.text ?? "";
+    const raw =
+      response.text ?? "";
 
-    const parsed = parseResumeResponse(raw);
+    const cleaned =
+      cleanJsonResponse(raw);
 
-    if (parsed.success) {
-      return parsed.resume;
+    const parsed =
+      JSON.parse(cleaned);
+
+    const normalized =
+      normalizeResume(parsed);
+
+    const validation =
+      ResumeSchema.safeParse(
+        normalized
+      );
+
+    if (!validation.success) {
+      console.error(
+        "[ATS OPTIMIZER] Repair validation failed:",
+        validation.error.flatten()
+      );
+
+      return null;
     }
 
-    return null;
+    return validation.data;
   } catch (error) {
     console.error(
       "[ATS OPTIMIZER] Repair failed:",
@@ -774,19 +1090,22 @@ Return ONLY corrected JSON.
 }
 
 /**
- * Run Gemini with retry logic.
+ * Generate optimized resume using a specific model.
  */
 async function generateWithModel(
   model: string,
   prompt: string
 ): Promise<ResumeData> {
-  let lastRawResponse = "";
   let lastValidationError = "";
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (
+    let attempt = 1;
+    attempt <= MAX_ATTEMPTS;
+    attempt++
+  ) {
     try {
       console.log(
-        `[ATS OPTIMIZER] ${model} attempt ${attempt}/${MAX_ATTEMPTS}`
+        `[ATS OPTIMIZER] ${model} attempt ${attempt}`
       );
 
       const response =
@@ -795,29 +1114,29 @@ async function generateWithModel(
           contents: prompt,
           config: {
             temperature: 0.1,
-            responseMimeType: "application/json",
+            responseMimeType:
+              "application/json",
           },
         });
 
-      const raw = response.text ?? "";
+      const raw =
+        response.text ?? "";
 
-      lastRawResponse = raw;
+      if (!raw.trim()) {
+        throw new Error(
+          "AI returned an empty response."
+        );
+      }
 
-      console.log(
-        `[ATS OPTIMIZER] ${model} response length: ${raw.length}`
-      );
-
-      const parsed = parseResumeResponse(raw);
+      const parsed =
+        parseResumeResponse(raw);
 
       if (parsed.success) {
-        console.log(
-          `[ATS OPTIMIZER] ${model} returned valid resume`
-        );
-
         return parsed.resume;
       }
 
-      lastValidationError = parsed.error;
+      lastValidationError =
+        parsed.error;
 
       console.error(
         `[ATS OPTIMIZER] Invalid structure from ${model}:`,
@@ -825,13 +1144,15 @@ async function generateWithModel(
       );
 
       /**
-       * Give Gemini one chance to repair its own output.
+       * Give Gemini a chance to repair
+       * its own response.
        */
-      const repaired = await repairResumeResponse(
-        raw,
-        parsed.error,
-        model
-      );
+      const repaired =
+        await repairResumeResponse(
+          raw,
+          parsed.error,
+          model
+        );
 
       if (repaired) {
         console.log(
@@ -846,16 +1167,24 @@ async function generateWithModel(
         error
       );
 
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1500)
+      if (
+        attempt < MAX_ATTEMPTS
+      ) {
+        await new Promise(
+          (resolve) =>
+            setTimeout(
+              resolve,
+              1500
+            )
         );
       }
     }
   }
 
   throw new Error(
-    `AI returned an invalid optimized resume structure. ${lastValidationError || ""}`
+    `AI returned an invalid optimized resume structure. ${
+      lastValidationError || ""
+    }`
   );
 }
 
@@ -879,11 +1208,12 @@ export async function optimizeResumeForATS(
     );
   }
 
-  const prompt = buildOptimizationPrompt(
-    resumeText,
-    atsResult,
-    jobDescription
-  );
+  const prompt =
+    buildOptimizationPrompt(
+      resumeText,
+      atsResult,
+      jobDescription
+    );
 
   const models = [
     PRIMARY_MODEL,

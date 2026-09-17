@@ -4,8 +4,15 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { ResumePDF } from "@/lib/resume/resume-pdf";
 
-import type { ResumeData } from "@/lib/ai/resume-schema";
-import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
+import {
+  ResumeSchema,
+  type ResumeData,
+} from "@/lib/ai/resume-schema";
+
+import {
+  ResumeDesignSchema,
+  type ResumeDesign,
+} from "@/lib/ai/resume-design-schema";
 
 export const runtime = "nodejs";
 
@@ -15,11 +22,28 @@ type PDFRequest = {
   profilePhoto?: string | null;
 };
 
+const MAX_PROFILE_PHOTO_SIZE = 8_000_000;
+
+/**
+ * Creates a safe filename from the candidate's name.
+ */
+function createSafeFileName(
+  name: string | undefined,
+): string {
+  const safeName =
+    name
+      ?.trim()
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "resume";
+
+  return `${safeName}-Resume.pdf`;
+}
+
 export async function POST(request: Request) {
   try {
-    // ---------------------------------------------
+    // ============================================================
     // 1. AUTHENTICATION
-    // ---------------------------------------------
+    // ============================================================
 
     const supabase = await createClient();
 
@@ -32,20 +56,39 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized",
+          error:
+            "Unauthorized. Please sign in first.",
         },
         {
           status: 401,
-        }
+        },
       );
     }
 
-    // ---------------------------------------------
+    // ============================================================
     // 2. READ REQUEST BODY
-    // ---------------------------------------------
+    // ============================================================
 
-    const body =
-      (await request.json()) as PDFRequest;
+    let body: PDFRequest;
+
+    try {
+      body =
+        (await request.json()) as PDFRequest;
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid request body.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // ============================================================
+    // 3. CHECK RESUME
+    // ============================================================
 
     if (!body.resume) {
       return NextResponse.json(
@@ -55,9 +98,40 @@ export async function POST(request: Request) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
+
+    // ============================================================
+    // 4. VALIDATE RESUME DATA
+    // ============================================================
+
+    const resumeValidation =
+      ResumeSchema.safeParse(body.resume);
+
+    if (!resumeValidation.success) {
+      console.error(
+        "Resume PDF validation failed:",
+        resumeValidation.error.flatten(),
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid resume data.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const resume =
+      resumeValidation.data;
+
+    // ============================================================
+    // 5. CHECK DESIGN
+    // ============================================================
 
     if (!body.design) {
       return NextResponse.json(
@@ -67,88 +141,125 @@ export async function POST(request: Request) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    // ---------------------------------------------
-    // 3. PROFILE PHOTO SIZE CHECK
-    // ---------------------------------------------
+    // ============================================================
+    // 6. VALIDATE DESIGN DATA
+    // ============================================================
+
+    const designValidation =
+      ResumeDesignSchema.safeParse(
+        body.design,
+      );
+
+    if (!designValidation.success) {
+      console.error(
+        "Resume design validation failed:",
+        designValidation.error.flatten(),
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid resume design.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const design =
+      designValidation.data;
+
+    // ============================================================
+    // 7. PROFILE PHOTO
+    // ============================================================
+
+    const profilePhoto =
+      body.profilePhoto ?? null;
 
     if (
-      body.profilePhoto &&
-      body.profilePhoto.length > 8_000_000
+      profilePhoto &&
+      profilePhoto.length >
+        MAX_PROFILE_PHOTO_SIZE
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Profile photo is too large.",
+          error:
+            "Profile photo is too large. Please use a smaller image.",
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    // ---------------------------------------------
-    // 4. GENERATE PDF
-    // ---------------------------------------------
+    // ============================================================
+    // 8. GENERATE PDF
+    // ============================================================
 
     const pdfBuffer =
       await renderToBuffer(
         <ResumePDF
-          resume={body.resume}
-          design={body.design}
-          profilePhoto={
-            body.profilePhoto ?? null
-          }
-        />
+          resume={resume}
+          design={design}
+          profilePhoto={profilePhoto}
+        />,
       );
 
-    // ---------------------------------------------
-    // 5. CONVERT BUFFER TO UINT8ARRAY
-    // ---------------------------------------------
+    // ============================================================
+    // 9. CONVERT BUFFER
+    // ============================================================
 
     const pdfData =
       new Uint8Array(pdfBuffer);
 
-    // ---------------------------------------------
-    // 6. CREATE SAFE FILE NAME
-    // ---------------------------------------------
+    // ============================================================
+    // 10. CREATE SAFE FILE NAME
+    // ============================================================
 
-    const safeName =
-      body.resume.personal.name
-        ?.trim()
-        .replace(
-          /[^a-zA-Z0-9]+/g,
-          "-"
-        )
-        .replace(
-          /^-+|-+$/g,
-          ""
-        ) || "resume";
+    const fileName =
+      createSafeFileName(
+        resume.personal?.name,
+      );
 
-    // ---------------------------------------------
-    // 7. RETURN PDF
-    // ---------------------------------------------
+    // ============================================================
+    // 11. RETURN PDF
+    // ============================================================
 
-    return new Response(pdfData, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/pdf",
+    return new Response(
+      pdfData,
+      {
+        status: 200,
 
-        "Content-Disposition":
-          `attachment; filename="${safeName}-Resume.pdf"`,
+        headers: {
+          "Content-Type":
+            "application/pdf",
 
-        "Cache-Control":
-          "private, no-store",
+          "Content-Disposition":
+            `attachment; filename="${fileName}"`,
+
+          "Content-Length":
+            String(
+              pdfData.byteLength,
+            ),
+
+          "Cache-Control":
+            "private, no-store, max-age=0",
+
+          "X-Content-Type-Options":
+            "nosniff",
+        },
       },
-    });
+    );
   } catch (error) {
     console.error(
       "Resume PDF generation error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -161,7 +272,7 @@ export async function POST(request: Request) {
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

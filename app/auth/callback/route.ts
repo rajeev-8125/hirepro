@@ -2,28 +2,43 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const requestUrl = new URL(request.url);
 
-  const code = searchParams.get("code");
+  const code = requestUrl.searchParams.get("code");
 
-  let next = searchParams.get("next") ?? "/dashboard";
+  let next = requestUrl.searchParams.get("next") ?? "/dashboard";
 
+  // Security: only allow internal paths
   if (!next.startsWith("/")) {
     next = "/dashboard";
   }
 
-  if (code) {
-    const supabase = await createClient();
+  if (!code) {
+    return NextResponse.redirect(
+      new URL(
+        "/login?error=authentication_failed",
+        requestUrl.origin,
+      ),
+    );
+  }
 
-    const { error } =
-      await supabase.auth.exchangeCodeForSession(code);
+  const supabase = await createClient();
 
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
+  const { error } =
+    await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    console.error("OAuth callback error:", error);
+
+    return NextResponse.redirect(
+      new URL(
+        "/login?error=authentication_failed",
+        requestUrl.origin,
+      ),
+    );
   }
 
   return NextResponse.redirect(
-    `${origin}/auth/auth-code-error`
+    new URL(next, requestUrl.origin),
   );
 }

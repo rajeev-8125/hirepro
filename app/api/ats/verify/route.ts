@@ -1,416 +1,204 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateATSResult } from "@/lib/ai/ats-generator";
-import { ResumeSchema } from "@/lib/ai/resume-schema";
+import { extractText } from "unpdf";
+
+import { generateATSResult } from "@/lib/ai/ats-analyzer";
+import { ATSResultSchema } from "@/lib/ai/ats-schema";
 
 export const runtime = "nodejs";
 
-function resumeDataToText(
-  resume: Record<string, unknown>
-): string {
-  const sections: string[] = [];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-  const personal = resume.personal as
-    | Record<string, unknown>
-    | undefined;
-
-  if (personal) {
-    sections.push(`
-PERSONAL INFORMATION
-
-Name: ${personal.name ?? ""}
-Email: ${personal.email ?? ""}
-Phone: ${personal.phone ?? ""}
-Location: ${personal.location ?? ""}
-LinkedIn: ${personal.linkedin ?? ""}
-GitHub: ${personal.github ?? ""}
-Website: ${personal.website ?? ""}
-`);
-  }
-
-  if (typeof resume.professionalSummary === "string") {
-    sections.push(`
-PROFESSIONAL SUMMARY
-
-${resume.professionalSummary}
-`);
-  }
-
-  const skills = Array.isArray(resume.skills)
-    ? resume.skills
-    : [];
-
-  if (skills.length > 0) {
-    sections.push(`
-SKILLS
-
-${skills
-  .map((skill) => {
-    if (
-      typeof skill !== "object" ||
-      skill === null
-    ) {
-      return "";
-    }
-
-    const item =
-      skill as Record<string, unknown>;
-
-    const category =
-      typeof item.category === "string"
-        ? item.category
-        : "";
-
-    const items = Array.isArray(item.items)
-      ? item.items.join(", ")
-      : "";
-
-    return `${category}: ${items}`;
-  })
-  .filter(Boolean)
-  .join("\n")}
-`);
-  }
-
-  const experience = Array.isArray(
-    resume.experience
-  )
-    ? resume.experience
-    : [];
-
-  if (experience.length > 0) {
-    sections.push(`
-EXPERIENCE
-
-${experience
-  .map((entry) => {
-    if (
-      typeof entry !== "object" ||
-      entry === null
-    ) {
-      return "";
-    }
-
-    const item =
-      entry as Record<string, unknown>;
-
-    const responsibilities =
-      Array.isArray(
-        item.responsibilities
-      )
-        ? item.responsibilities
-            .map(
-              (value) => `- ${String(value)}`
-            )
-            .join("\n")
-        : "";
-
-    return `
-${item.role ?? ""}
-${item.company ?? ""}
-${item.location ?? ""}
-${item.startDate ?? ""} - ${item.endDate ?? ""}
-
-${responsibilities}
-`;
-  })
-  .filter(Boolean)
-  .join("\n")}
-`);
-  }
-
-  const education = Array.isArray(
-    resume.education
-  )
-    ? resume.education
-    : [];
-
-  if (education.length > 0) {
-    sections.push(`
-EDUCATION
-
-${education
-  .map((entry) => {
-    if (
-      typeof entry !== "object" ||
-      entry === null
-    ) {
-      return "";
-    }
-
-    const item =
-      entry as Record<string, unknown>;
-
-    const details = Array.isArray(
-      item.details
-    )
-      ? item.details
-          .map(
-            (value) => `- ${String(value)}`
-          )
-          .join("\n")
-      : "";
-
-    return `
-${item.degree ?? ""}
-${item.field ?? ""}
-${item.institution ?? ""}
-${item.location ?? ""}
-${item.startDate ?? ""} - ${item.endDate ?? ""}
-
-${details}
-`;
-  })
-  .filter(Boolean)
-  .join("\n")}
-`);
-  }
-
-  const projects = Array.isArray(
-    resume.projects
-  )
-    ? resume.projects
-    : [];
-
-  if (projects.length > 0) {
-    sections.push(`
-PROJECTS
-
-${projects
-  .map((entry) => {
-    if (
-      typeof entry !== "object" ||
-      entry === null
-    ) {
-      return "";
-    }
-
-    const item =
-      entry as Record<string, unknown>;
-
-    const technologies =
-      Array.isArray(
-        item.technologies
-      )
-        ? item.technologies.join(", ")
-        : "";
-
-    return `
-${item.name ?? ""}
-
-${item.description ?? ""}
-
-Technologies: ${technologies}
-URL: ${item.url ?? ""}
-`;
-  })
-  .filter(Boolean)
-  .join("\n")}
-`);
-  }
-
-  const certifications = Array.isArray(
-    resume.certifications
-  )
-    ? resume.certifications
-    : [];
-
-  if (certifications.length > 0) {
-    sections.push(`
-CERTIFICATIONS
-
-${certifications
-  .map((entry) => {
-    if (
-      typeof entry !== "object" ||
-      entry === null
-    ) {
-      return "";
-    }
-
-    const item =
-      entry as Record<string, unknown>;
-
-    return `
-${item.name ?? ""}
-Issuer: ${item.issuer ?? ""}
-Date: ${item.date ?? ""}
-URL: ${item.url ?? ""}
-`;
-  })
-  .filter(Boolean)
-  .join("\n")}
-`);
-  }
-
-  const achievements = Array.isArray(
-    resume.achievements
-  )
-    ? resume.achievements
-    : [];
-
-  if (achievements.length > 0) {
-    sections.push(`
-ACHIEVEMENTS
-
-${achievements
-  .map(
-    (value) => `- ${String(value)}`
-  )
-  .join("\n")}
-`);
-  }
-
-  const languages = Array.isArray(
-    resume.languages
-  )
-    ? resume.languages
-    : [];
-
-  if (languages.length > 0) {
-    sections.push(`
-LANGUAGES
-
-${languages.join(", ")}
-`);
-  }
-
-  const additionalSections =
-    Array.isArray(
-      resume.additionalSections
-    )
-      ? resume.additionalSections
-      : [];
-
-  for (const section of additionalSections) {
-    if (
-      typeof section !== "object" ||
-      section === null
-    ) {
-      continue;
-    }
-
-    const item =
-      section as Record<string, unknown>;
-
-    const title =
-      typeof item.title === "string"
-        ? item.title
-        : "Additional Section";
-
-    const items = Array.isArray(
-      item.items
-    )
-      ? item.items
-          .map(
-            (value) => `- ${String(value)}`
-          )
-          .join("\n")
-      : "";
-
-    sections.push(`
-${title.toUpperCase()}
-
-${items}
-`);
-  }
-
-  return sections.join("\n").trim();
+function cleanText(text: string): string {
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-export async function POST(
-  request: Request
-) {
+export async function POST(request: Request) {
   try {
+    // ------------------------------------------------------------
+    // 1. Authentication
+    // ------------------------------------------------------------
     const supabase = await createClient();
 
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized. Please sign in first.",
+        },
+        { status: 401 },
+      );
+    }
+
+    // ------------------------------------------------------------
+    // 2. Read multipart form data
+    // ------------------------------------------------------------
+    const formData = await request.formData();
+
+    const resumeFile = formData.get("resume");
+    const jobDescriptionValue = formData.get("jobDescription");
+
+    // ATS remains completely independent of Resume Builder.
+    // Any valid PDF resume can be checked.
+    if (!(resumeFile instanceof File)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Please upload a PDF resume.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // ------------------------------------------------------------
+    // 3. Validate file
+    // ------------------------------------------------------------
+    if (resumeFile.size === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The uploaded resume is empty.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (resumeFile.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Resume PDF must be 5 MB or smaller.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const fileName = resumeFile.name.toLowerCase();
+
+    if (
+      resumeFile.type !== "application/pdf" &&
+      !fileName.endsWith(".pdf")
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Only PDF resumes are supported.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // ------------------------------------------------------------
+    // 4. Optional job description
+    // ------------------------------------------------------------
+    const jobDescription =
+      typeof jobDescriptionValue === "string"
+        ? cleanText(jobDescriptionValue)
+        : "";
+
+    // ------------------------------------------------------------
+    // 5. Extract PDF text
+    // ------------------------------------------------------------
+    const pdfBuffer = Buffer.from(await resumeFile.arrayBuffer());
+
+    let extractedText = "";
+
+    try {
+      const result = await extractText(pdfBuffer);
+
+      extractedText = Array.isArray(result.text)
+        ? result.text.join("\n")
+        : String(result.text ?? "");
+    } catch (pdfError) {
+      console.error("ATS verification PDF extraction error:", pdfError);
+
       return NextResponse.json(
         {
           success: false,
           error:
-            "Unauthorized. Please sign in.",
+            "We could not read this PDF. Please upload a text-based PDF resume.",
         },
-        { status: 401 }
+        { status: 422 },
       );
     }
 
-    const body = await request.json();
+    const resumeText = cleanText(extractedText);
 
-    const resumeValue = body?.resume;
-
-    const jobDescription =
-      typeof body?.jobDescription ===
-      "string"
-        ? body.jobDescription.trim()
-        : "";
-
-    const validation =
-      ResumeSchema.safeParse(
-        resumeValue
+    // ------------------------------------------------------------
+    // 6. Validate extracted text
+    // ------------------------------------------------------------
+    if (!resumeText || resumeText.length < 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "We could not extract enough readable text from this PDF.",
+        },
+        { status: 422 },
       );
+    }
+
+    // ------------------------------------------------------------
+    // 7. Run the SAME ATS engine used by the initial checker
+    // ------------------------------------------------------------
+    const rawResult = await generateATSResult(
+      resumeText,
+      jobDescription,
+    );
+
+    // ------------------------------------------------------------
+    // 8. Validate AI response
+    // ------------------------------------------------------------
+    const validation = ATSResultSchema.safeParse(rawResult);
 
     if (!validation.success) {
       console.error(
-        "Optimized resume validation failed:",
-        validation.error.flatten()
+        "ATS verification validation failed:",
+        validation.error.flatten(),
       );
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "The optimized resume has an invalid structure.",
+            "The ATS analyzer returned an invalid result. Please try again.",
         },
-        { status: 400 }
+        { status: 502 },
       );
     }
 
-    const resumeText =
-      resumeDataToText(
-        validation.data
-      );
+    const result = validation.data;
 
-    if (!resumeText) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The optimized resume contains no readable content.",
-        },
-        { status: 400 }
-      );
-    }
-
-    /*
-     * Run the SAME ATS engine used by
-     * /api/ats/check.
-     *
-     * This is important because the AFTER
-     * score must be measured using the same
-     * scoring system as the BEFORE score.
-     */
-
-    const result =
-      await generateATSResult(
-        resumeText,
-        jobDescription
-      );
-
+    // ------------------------------------------------------------
+    // 9. Return verified score
+    // ------------------------------------------------------------
     return NextResponse.json({
       success: true,
-      result,
+
       score: result.overallScore,
+
+      result,
+
+      meta: {
+        verified: true,
+        hasJobDescription: Boolean(jobDescription),
+        resumeCharacters: resumeText.length,
+        resumeFileName: resumeFile.name,
+        resumeFileSize: resumeFile.size,
+      },
     });
   } catch (error) {
-    console.error(
-      "ATS verification error:",
-      error
-    );
+    console.error("ATS verification error:", error);
 
     return NextResponse.json(
       {
@@ -418,9 +206,9 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Failed to verify optimized resume.",
+            : "Something went wrong while verifying your optimized resume.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

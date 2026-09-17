@@ -17,10 +17,11 @@ export default function PortfolioRenderer({
   resumeUrl,
 }: PortfolioRendererProps) {
   /*
-   * Safe defaults.
-   * These are only used if an older portfolio does not have
-   * an AI-generated design configuration.
+   * ---------------------------------------------------------
+   * AI DESIGN SYSTEM
+   * ---------------------------------------------------------
    */
+
   const colors = design?.colors ?? {
     background: "#020617",
     surface: "#0f172a",
@@ -76,28 +77,68 @@ export default function PortfolioRenderer({
       "contact",
     ];
 
+  /*
+   * ---------------------------------------------------------
+   * BASIC DATA
+   * ---------------------------------------------------------
+   */
+
   const name =
-    data.personal.name?.trim() || "Your Name";
+    data.personal?.name?.trim() ||
+    "Your Name";
 
   const headline =
-    data.personal.headline?.trim() ||
+    data.personal?.headline?.trim() ||
     "Professional Portfolio";
 
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
-    .join("");
+  const summary =
+    data.summary?.trim() ||
+    "";
+
+  const initials =
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(
+        (word) =>
+          word[0]?.toUpperCase() || "",
+      )
+      .join("") || "P";
+
+  /*
+   * ---------------------------------------------------------
+   * STYLE HELPERS
+   * ---------------------------------------------------------
+   */
+
+  function radiusValue() {
+    switch (cards.radius) {
+      case "none":
+        return "0px";
+
+      case "small":
+        return "10px";
+
+      case "large":
+        return "28px";
+
+      default:
+        return "18px";
+    }
+  }
 
   function radiusClass() {
     switch (cards.radius) {
       case "none":
         return "rounded-none";
+
       case "small":
         return "rounded-lg";
+
       case "large":
         return "rounded-3xl";
+
       default:
         return "rounded-2xl";
     }
@@ -107,27 +148,29 @@ export default function PortfolioRenderer({
     switch (cards.shadow) {
       case "none":
         return "";
+
       case "medium":
-        return "shadow-xl";
+        return "shadow-2xl";
+
       default:
-        return "shadow-md";
+        return "shadow-lg";
     }
   }
 
   function photoClass() {
-    if (hero.photoShape === "circle") {
-      return "rounded-full";
-    }
+    switch (hero.photoShape) {
+      case "circle":
+        return "rounded-full";
 
-    if (hero.photoShape === "square") {
-      return "rounded-none";
-    }
+      case "square":
+        return "rounded-none";
 
-    if (hero.photoShape === "rounded") {
-      return "rounded-3xl";
-    }
+      case "rounded":
+        return "rounded-3xl";
 
-    return "rounded-full";
+      default:
+        return "rounded-full";
+    }
   }
 
   function photoSizeClass() {
@@ -163,8 +206,8 @@ export default function PortfolioRenderer({
     if (cards.style === "glass") {
       return {
         backgroundColor: `${colors.surface}cc`,
-        borderColor: `${colors.primary}33`,
-        backdropFilter: "blur(16px)",
+        borderColor: `${colors.primary}30`,
+        backdropFilter: "blur(18px)",
       };
     }
 
@@ -194,147 +237,234 @@ export default function PortfolioRenderer({
     };
   }
 
+  /*
+   * ---------------------------------------------------------
+   * HERO LAYOUT
+   * ---------------------------------------------------------
+   */
+
   const heroPhoto =
-    profileImageUrl && hero.photoShape !== "none";
+    profileImageUrl &&
+    hero.photoShape !== "none";
 
   const heroContainerClass =
     hero.layout === "center"
       ? "flex flex-col items-center text-center"
+
       : hero.layout === "right"
         ? "flex flex-col items-end text-right"
+
         : hero.layout === "split"
-          ? "grid grid-cols-1 items-center gap-12 md:grid-cols-2"
+          ? "grid grid-cols-1 items-center gap-12 lg:grid-cols-2"
+
           : "flex flex-col items-start text-left";
+
+  const heroContentClass =
+    hero.layout === "center"
+      ? "flex w-full flex-col items-center"
+
+      : hero.layout === "right"
+        ? "flex w-full flex-col items-end"
+
+        : hero.layout === "split"
+          ? "flex flex-col items-start text-left"
+
+          : "flex w-full flex-col items-start";
 
   const photoOrder =
     hero.photoPosition === "left"
-      ? "md:order-first"
+      ? "lg:order-first"
+
       : hero.photoPosition === "right"
-        ? "md:order-last"
+        ? "lg:order-last"
+
         : "";
+
+  /*
+   * ---------------------------------------------------------
+   * SOCIAL LINKS
+   * ---------------------------------------------------------
+   */
+
+  const socialLinks = [
+    {
+      label: "LinkedIn",
+      href: data.personal?.linkedin,
+    },
+    {
+      label: "GitHub",
+      href: data.personal?.github,
+    },
+    {
+      label: "Website",
+      href: data.personal?.website,
+    },
+  ].filter(
+    (
+      item,
+    ): item is {
+      label: string;
+      href: string;
+    } =>
+      Boolean(item.href?.trim()),
+  );
+
+  /*
+   * ---------------------------------------------------------
+   * NAVIGATION
+   * ---------------------------------------------------------
+   */
+
+  const navigationItems = [
+    sections.includes("about")
+      ? {
+          label: "About",
+          href: "#about",
+        }
+      : null,
+
+    sections.includes("skills")
+      ? {
+          label: "Skills",
+          href: "#skills",
+        }
+      : null,
+
+    sections.includes("experience")
+      ? {
+          label: "Experience",
+          href: "#experience",
+        }
+      : null,
+
+    sections.includes("projects")
+      ? {
+          label: "Projects",
+          href: "#projects",
+        }
+      : null,
+
+    sections.includes("contact")
+      ? {
+          label: "Contact",
+          href: "#contact",
+        }
+      : null,
+  ].filter(Boolean) as {
+    label: string;
+    href: string;
+  }[];
 
   return (
     <main
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={{
         backgroundColor: colors.background,
         color: colors.text,
         fontFamily: typography.body,
       }}
     >
-      {/* Navigation */}
+      {/* =====================================================
+          GLOBAL STYLE
+      ====================================================== */}
+
+      <style jsx global>{`
+        html {
+          scroll-behavior: smooth;
+        }
+
+        ::selection {
+          background: ${colors.primary};
+          color: ${colors.background};
+        }
+
+        a {
+          -webkit-tap-highlight-color: transparent;
+        }
+      `}</style>
+
+      {/* =====================================================
+          NAVIGATION
+      ====================================================== */}
+
       <nav
-        className="sticky top-0 z-50 border-b backdrop-blur-xl"
+        className="sticky top-0 z-50 border-b backdrop-blur-2xl"
         style={{
-          backgroundColor: `${colors.background}ee`,
-          borderColor: `${colors.primary}22`,
+          backgroundColor: `${colors.background}e8`,
+          borderColor: `${colors.primary}20`,
         }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+          {/* Brand */}
+
           <a
             href="#home"
-            className="text-xl font-bold"
-            style={{
-              color: colors.primary,
-              fontFamily: typography.heading,
-            }}
+            className="group flex max-w-[55%] items-center gap-3"
           >
-            {name}
-          </a>
-
-          <div
-            className={
-              navigation.style === "centered"
-                ? "hidden items-center gap-6 md:flex"
-                : "hidden items-center gap-6 md:flex"
-            }
-          >
-            <a href="#about" className="text-sm hover:opacity-70">
-              About
-            </a>
-
-            <a href="#skills" className="text-sm hover:opacity-70">
-              Skills
-            </a>
-
-            <a href="#experience" className="text-sm hover:opacity-70">
-              Experience
-            </a>
-
-            <a href="#projects" className="text-sm hover:opacity-70">
-              Projects
-            </a>
-
-            <a href="#contact" className="text-sm hover:opacity-70">
-              Contact
-            </a>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section
-        id="home"
-        className="mx-auto max-w-6xl px-6 py-20 md:py-28"
-      >
-        <div className={heroContainerClass}>
-          <div
-            className={
-              hero.layout === "split"
-                ? `${photoOrder} flex flex-col items-start text-left`
-                : "w-full"
-            }
-          >
-            <p
-              className="mb-4 text-sm font-semibold uppercase tracking-[0.25em]"
-              style={{ color: colors.primary }}
-            >
-              Portfolio
-            </p>
-
-            <h1
-              className="max-w-4xl text-5xl font-black leading-tight md:text-7xl"
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black"
               style={{
-                color: colors.text,
-                fontFamily: typography.heading,
+                backgroundColor: `${colors.primary}18`,
+                color: colors.primary,
+                border: `1px solid ${colors.primary}30`,
               }}
             >
-              {name}
-            </h1>
+              {initials.slice(0, 2)}
+            </div>
 
-            <p
-              className="mt-6 max-w-2xl text-xl md:text-2xl"
-              style={{ color: colors.primary }}
-            >
-              {headline}
-            </p>
-
-            {data.summary && (
+            <div className="min-w-0">
               <p
-                className="mt-6 max-w-2xl text-base leading-8 md:text-lg"
-                style={{ color: colors.mutedText }}
+                className="truncate text-sm font-bold md:text-base"
+                style={{
+                  color: colors.text,
+                  fontFamily: typography.heading,
+                }}
               >
-                {data.summary}
+                {name}
               </p>
-            )}
 
-            <div className="mt-8 flex flex-wrap gap-4">
-              {resumeButton.enabled && resumeUrl && (
+              <p
+                className="hidden truncate text-[10px] uppercase tracking-[0.2em] sm:block"
+                style={{
+                  color: colors.mutedText,
+                }}
+              >
+                Portfolio
+              </p>
+            </div>
+          </a>
+
+          {/* Desktop Navigation */}
+
+          <div className="hidden items-center gap-1 md:flex">
+            {navigationItems.map(
+              (item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-xl px-4 py-2 text-sm font-medium transition hover:opacity-70"
+                  style={{
+                    color: colors.mutedText,
+                  }}
+                >
+                  {item.label}
+                </a>
+              ),
+            )}
+          </div>
+
+          {/* Desktop CTA */}
+
+          <div className="hidden items-center gap-3 md:flex">
+            {resumeButton.enabled &&
+              resumeUrl && (
                 <a
                   href={resumeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   download
-                  className={`inline-flex items-center justify-center px-6 py-3 font-semibold ${animationClass()}`}
+                  className="rounded-xl px-4 py-2 text-sm font-bold transition hover:opacity-85"
                   style={{
-                    borderRadius:
-                      cards.radius === "none"
-                        ? "0"
-                        : cards.radius === "small"
-                          ? "8px"
-                          : cards.radius === "large"
-                            ? "24px"
-                            : "14px",
                     backgroundColor:
                       resumeButton.style === "filled"
                         ? colors.primary
@@ -349,580 +479,1169 @@ export default function PortfolioRenderer({
                         : `1px solid ${colors.primary}`,
                   }}
                 >
-                  {resumeButton.label || "Download Resume"}
+                  {resumeButton.label ||
+                    "Download Resume"}
                 </a>
               )}
-
-              {data.personal.linkedin && (
-                <a
-                  href={data.personal.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-xl border px-6 py-3 font-semibold transition hover:opacity-75"
-                  style={{
-                    borderColor: `${colors.primary}55`,
-                    color: colors.text,
-                  }}
-                >
-                  LinkedIn
-                </a>
-              )}
-
-              {data.personal.github && (
-                <a
-                  href={data.personal.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-xl border px-6 py-3 font-semibold transition hover:opacity-75"
-                  style={{
-                    borderColor: `${colors.primary}55`,
-                    color: colors.text,
-                  }}
-                >
-                  GitHub
-                </a>
-              )}
-            </div>
           </div>
 
-          {heroPhoto && (
-            <div
-              className={`flex ${
-                hero.photoPosition === "left"
-                  ? "justify-start"
-                  : hero.photoPosition === "right"
-                    ? "justify-end"
-                    : "justify-center"
-              } ${hero.layout === "split" ? "" : "mt-12"} ${photoOrder}`}
-            >
-              <img
-                src={profileImageUrl}
-                alt={`${name} profile`}
-                className={`${photoSizeClass()} ${photoClass()} object-cover object-center shadow-2xl`}
-                style={{
-                  border: `4px solid ${colors.primary}`,
-                }}
-              />
-            </div>
-          )}
+          {/* Mobile Navigation */}
 
-          {!heroPhoto &&
-            hero.photoShape !== "none" && (
-              <div
-                className={`flex ${
-                  hero.photoPosition === "left"
-                    ? "justify-start"
-                    : hero.photoPosition === "right"
-                      ? "justify-end"
-                      : "justify-center"
-                } ${hero.layout === "split" ? "" : "mt-12"} ${photoOrder}`}
-              >
-                <div
-                  className={`${photoSizeClass()} ${photoClass()} flex items-center justify-center text-5xl font-bold`}
+          <div className="flex items-center gap-2 md:hidden">
+            {navigationItems
+              .slice(0, 2)
+              .map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-lg px-2 py-2 text-xs font-medium"
                   style={{
-                    backgroundColor: colors.surface,
-                    color: colors.primary,
-                    border: `4px solid ${colors.primary}`,
+                    color: colors.mutedText,
                   }}
                 >
-                  {initials || "P"}
+                  {item.label}
+                </a>
+              ))}
+
+            {resumeButton.enabled &&
+              resumeUrl && (
+                <a
+                  href={resumeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="rounded-lg px-3 py-2 text-xs font-bold"
+                  style={{
+                    backgroundColor:
+                      colors.primary,
+                    color:
+                      colors.background,
+                  }}
+                >
+                  Resume
+                </a>
+              )}
+          </div>
+        </div>
+      </nav>
+
+      {/* =====================================================
+          HERO
+      ====================================================== */}
+
+      <section
+        id="home"
+        className="relative overflow-hidden"
+      >
+        {/* Ambient glow */}
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full blur-3xl"
+          style={{
+            backgroundColor: `${colors.primary}18`,
+          }}
+        />
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-32 top-20 h-96 w-96 rounded-full blur-3xl"
+          style={{
+            backgroundColor: `${colors.secondary}15`,
+          }}
+        />
+
+        <div className="relative mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-28 lg:py-36">
+          <div className={heroContainerClass}>
+            {/* Hero content */}
+
+            <div
+              className={`${heroContentClass} ${
+                hero.layout === "split"
+                  ? ""
+                  : "max-w-4xl"
+              }`}
+            >
+              <div
+                className="mb-6 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em]"
+                style={{
+                  borderColor: `${colors.primary}35`,
+                  backgroundColor: `${colors.primary}10`,
+                  color: colors.primary,
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    backgroundColor:
+                      colors.primary,
+                  }}
+                />
+
+                Professional Portfolio
+              </div>
+
+              <h1
+                className="max-w-5xl text-5xl font-black leading-[0.98] tracking-[-0.045em] sm:text-6xl md:text-7xl lg:text-8xl"
+                style={{
+                  color: colors.text,
+                  fontFamily: typography.heading,
+                }}
+              >
+                {name}
+              </h1>
+
+              <p
+                className="mt-7 max-w-3xl text-xl font-semibold leading-relaxed sm:text-2xl md:text-3xl"
+                style={{
+                  color: colors.primary,
+                  fontFamily: typography.heading,
+                }}
+              >
+                {headline}
+              </p>
+
+              {summary && (
+                <p
+                  className="mt-7 max-w-2xl text-base leading-8 md:text-lg"
+                  style={{
+                    color: colors.mutedText,
+                  }}
+                >
+                  {summary}
+                </p>
+              )}
+
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                {resumeButton.enabled &&
+                  resumeUrl && (
+                    <a
+                      href={resumeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className={`inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold ${radiusClass()} ${animationClass()}`}
+                      style={{
+                        backgroundColor:
+                          resumeButton.style ===
+                          "filled"
+                            ? colors.primary
+                            : "transparent",
+                        color:
+                          resumeButton.style ===
+                          "filled"
+                            ? colors.background
+                            : colors.primary,
+                        border:
+                          resumeButton.style ===
+                          "filled"
+                            ? "none"
+                            : `1px solid ${colors.primary}`,
+                      }}
+                    >
+                      {resumeButton.label ||
+                        "Download Resume"}
+
+                      <span aria-hidden="true">
+                        ↓
+                      </span>
+                    </a>
+                  )}
+
+                {sections.includes(
+                  "contact",
+                ) && (
+                  <a
+                    href="#contact"
+                    className={`inline-flex items-center gap-2 border px-6 py-3.5 text-sm font-bold ${radiusClass()} ${animationClass()}`}
+                    style={{
+                      borderColor: `${colors.primary}45`,
+                      color: colors.text,
+                    }}
+                  >
+                    Let's Connect
+
+                    <span aria-hidden="true">
+                      →
+                    </span>
+                  </a>
+                )}
+              </div>
+
+              {socialLinks.length > 0 && (
+                <div className="mt-8 flex flex-wrap items-center gap-5">
+                  {socialLinks.map(
+                    (social) => (
+                      <a
+                        key={social.label}
+                        href={social.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold transition hover:opacity-60"
+                        style={{
+                          color: colors.mutedText,
+                        }}
+                      >
+                        {social.label}
+                      </a>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Hero photo */}
+
+            {hero.photoShape !== "none" && (
+              <div
+                className={`flex ${
+                  hero.photoPosition ===
+                  "left"
+                    ? "justify-start"
+                    : hero.photoPosition ===
+                        "right"
+                      ? "justify-end"
+                      : "justify-center"
+                } ${
+                  hero.layout === "split"
+                    ? ""
+                    : "mt-14"
+                } ${photoOrder}`}
+              >
+                <div className="relative">
+                  <div
+                    aria-hidden="true"
+                    className="absolute -inset-5 rounded-full blur-3xl"
+                    style={{
+                      backgroundColor: `${colors.primary}16`,
+                    }}
+                  />
+
+                  {heroPhoto ? (
+                    <img
+                      src={profileImageUrl}
+                      alt={`${name} profile`}
+                      className={`relative ${photoSizeClass()} ${photoClass()} object-cover object-center shadow-2xl`}
+                      style={{
+                        border: `4px solid ${colors.primary}`,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className={`relative ${photoSizeClass()} ${photoClass()} flex items-center justify-center text-5xl font-black shadow-2xl`}
+                      style={{
+                        backgroundColor:
+                          colors.surface,
+                        color: colors.primary,
+                        border: `4px solid ${colors.primary}`,
+                      }}
+                    >
+                      {initials}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
+          </div>
         </div>
       </section>
 
-      {/* About */}
-      {sections.includes("about") && data.summary && (
-        <section
-          id="about"
-          className="mx-auto max-w-6xl px-6 py-16"
-        >
-          <SectionTitle
-            title="About"
-            primary={colors.primary}
-            headingFont={typography.heading}
-          />
+      {/* =====================================================
+          ABOUT
+      ====================================================== */}
 
-          <div
-            className={`mt-8 border p-8 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
-            style={cardStyle()}
+      {sections.includes("about") &&
+        summary && (
+          <section
+            id="about"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
           >
-            <p
-              className="leading-8"
-              style={{ color: colors.mutedText }}
-            >
-              {data.summary}
-            </p>
-          </div>
-        </section>
-      )}
+            <SectionHeading
+              eyebrow="About"
+              title="A little about me"
+              primary={colors.primary}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
+            />
 
-      {/* Skills */}
+            <div
+              className={`mt-10 border p-7 md:p-10 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+              style={cardStyle()}
+            >
+              <p
+                className="max-w-4xl text-base leading-8 md:text-lg md:leading-9"
+                style={{
+                  color: colors.mutedText,
+                }}
+              >
+                {summary}
+              </p>
+            </div>
+          </section>
+        )}
+
+      {/* =====================================================
+          SKILLS
+      ====================================================== */}
+
       {sections.includes("skills") &&
-        data.skills.length > 0 && (
+        data.skills?.length > 0 && (
           <section
             id="skills"
-            className="mx-auto max-w-6xl px-6 py-16"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
           >
-            <SectionTitle
-              title="Skills"
+            <SectionHeading
+              eyebrow="Skills"
+              title="Tools & technologies"
               primary={colors.primary}
-              headingFont={typography.heading}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
             />
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {data.skills.map((skill, index) => (
-                <span
-                  key={`${skill}-${index}`}
-                  className={`border px-4 py-2 text-sm font-medium ${radiusClass()}`}
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderColor: `${colors.primary}44`,
-                    color: colors.text,
-                  }}
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* Experience */}
-      {sections.includes("experience") &&
-        data.experience.length > 0 && (
-          <section
-            id="experience"
-            className="mx-auto max-w-6xl px-6 py-16"
-          >
-            <SectionTitle
-              title="Experience"
-              primary={colors.primary}
-              headingFont={typography.heading}
-            />
-
-            <div className="mt-8 space-y-6">
-              {data.experience.map((item, index) => (
-                <div
-                  key={`${item.company}-${index}`}
-                  className={`border p-7 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
-                  style={cardStyle()}
-                >
-                  <div className="flex flex-col justify-between gap-3 md:flex-row">
-                    <div>
-                      <h3
-                        className="text-xl font-bold"
-                        style={{
-                          color: colors.text,
-                          fontFamily: typography.heading,
-                        }}
-                      >
-                        {item.role}
-                      </h3>
-
-                      <p
-                        className="mt-1 font-semibold"
-                        style={{ color: colors.primary }}
-                      >
-                        {item.company}
-                      </p>
-                    </div>
-
-                    <p
-                      className="text-sm"
-                      style={{ color: colors.mutedText }}
-                    >
-                      {item.startDate}
-                      {item.startDate || item.endDate
-                        ? " — "
-                        : ""}
-                      {item.endDate}
-                    </p>
-                  </div>
-
-                  {item.location && (
-                    <p
-                      className="mt-3 text-sm"
-                      style={{ color: colors.mutedText }}
-                    >
-                      {item.location}
-                    </p>
-                  )}
-
-                  {item.description && (
-                    <p
-                      className="mt-5 whitespace-pre-line leading-7"
-                      style={{ color: colors.mutedText }}
-                    >
-                      {item.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* Projects */}
-      {sections.includes("projects") &&
-        data.projects.length > 0 && (
-          <section
-            id="projects"
-            className="mx-auto max-w-6xl px-6 py-16"
-          >
-            <SectionTitle
-              title="Projects"
-              primary={colors.primary}
-              headingFont={typography.heading}
-            />
-
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-              {data.projects.map((project, index) => (
-                <div
-                  key={`${project.name}-${index}`}
-                  className={`border p-7 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
-                  style={cardStyle()}
-                >
-                  <h3
-                    className="text-xl font-bold"
-                    style={{
-                      color: colors.text,
-                      fontFamily: typography.heading,
-                    }}
-                  >
-                    {project.name}
-                  </h3>
-
-                  {project.description && (
-                    <p
-                      className="mt-4 leading-7"
-                      style={{ color: colors.mutedText }}
-                    >
-                      {project.description}
-                    </p>
-                  )}
-
-                  {project.technologies.length > 0 && (
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {project.technologies.map(
-                        (technology, technologyIndex) => (
-                          <span
-                            key={`${technology}-${technologyIndex}`}
-                            className="rounded-lg px-3 py-1 text-xs font-medium"
-                            style={{
-                              backgroundColor: `${colors.primary}18`,
-                              color: colors.primary,
-                            }}
-                          >
-                            {technology}
-                          </span>
-                        )
-                      )}
-                    </div>
-                  )}
-
-                  {project.url && (
-                    <a
-                      href={project.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-6 inline-block font-semibold hover:underline"
-                      style={{ color: colors.primary }}
-                    >
-                      View Project →
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* Education */}
-      {sections.includes("education") &&
-        data.education.length > 0 && (
-          <section
-            id="education"
-            className="mx-auto max-w-6xl px-6 py-16"
-          >
-            <SectionTitle
-              title="Education"
-              primary={colors.primary}
-              headingFont={typography.heading}
-            />
-
-            <div className="mt-8 space-y-6">
-              {data.education.map((item, index) => (
-                <div
-                  key={`${item.institution}-${index}`}
-                  className={`border p-7 ${radiusClass()} ${shadowClass()}`}
-                  style={cardStyle()}
-                >
-                  <h3
-                    className="text-xl font-bold"
-                    style={{
-                      color: colors.text,
-                      fontFamily: typography.heading,
-                    }}
-                  >
-                    {item.degree}
-                    {item.field ? ` — ${item.field}` : ""}
-                  </h3>
-
-                  <p
-                    className="mt-2 font-semibold"
-                    style={{ color: colors.primary }}
-                  >
-                    {item.institution}
-                  </p>
-
-                  <p
-                    className="mt-2 text-sm"
-                    style={{ color: colors.mutedText }}
-                  >
-                    {item.startDate}
-                    {item.startDate || item.endDate
-                      ? " — "
-                      : ""}
-                    {item.endDate}
-                  </p>
-
-                  {item.description && (
-                    <p
-                      className="mt-4 leading-7"
-                      style={{ color: colors.mutedText }}
-                    >
-                      {item.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* Certifications */}
-      {sections.includes("certifications") &&
-        data.certifications.length > 0 && (
-          <section className="mx-auto max-w-6xl px-6 py-16">
-            <SectionTitle
-              title="Certifications"
-              primary={colors.primary}
-              headingFont={typography.heading}
-            />
-
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-              {data.certifications.map(
-                (certificate, index) => (
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {data.skills.map(
+                (skill, index) => (
                   <div
-                    key={`${certificate.name}-${index}`}
-                    className={`border p-7 ${radiusClass()} ${shadowClass()}`}
+                    key={`${skill}-${index}`}
+                    className={`group border p-5 ${radiusClass()} ${animationClass()}`}
                     style={cardStyle()}
                   >
-                    <h3
-                      className="text-lg font-bold"
-                      style={{
-                        color: colors.text,
-                        fontFamily: typography.heading,
-                      }}
-                    >
-                      {certificate.name}
-                    </h3>
-
-                    {certificate.issuer && (
-                      <p
-                        className="mt-2"
-                        style={{ color: colors.primary }}
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black"
+                        style={{
+                          backgroundColor: `${colors.primary}15`,
+                          color: colors.primary,
+                        }}
                       >
-                        {certificate.issuer}
-                      </p>
-                    )}
+                        {String(
+                          index + 1,
+                        ).padStart(
+                          2,
+                          "0",
+                        )}
+                      </div>
 
-                    {certificate.date && (
-                      <p
-                        className="mt-2 text-sm"
-                        style={{ color: colors.mutedText }}
+                      <span
+                        className="font-semibold"
+                        style={{
+                          color: colors.text,
+                        }}
                       >
-                        {certificate.date}
-                      </p>
-                    )}
-
-                    {certificate.url && (
-                      <a
-                        href={certificate.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-4 inline-block font-semibold"
-                        style={{ color: colors.primary }}
-                      >
-                        View Certificate →
-                      </a>
-                    )}
+                        {skill}
+                      </span>
+                    </div>
                   </div>
-                )
+                ),
               )}
             </div>
           </section>
         )}
 
-      {/* Achievements */}
-      {sections.includes("achievements") &&
-        data.achievements.length > 0 && (
-          <section className="mx-auto max-w-6xl px-6 py-16">
-            <SectionTitle
-              title="Achievements"
+      {/* =====================================================
+          EXPERIENCE
+      ====================================================== */}
+
+      {sections.includes(
+        "experience",
+      ) &&
+        data.experience?.length > 0 && (
+          <section
+            id="experience"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Experience"
+              title="Professional journey"
               primary={colors.primary}
-              headingFont={typography.heading}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
             />
 
-            <div
-              className={`mt-8 border p-7 ${radiusClass()} ${shadowClass()}`}
-              style={cardStyle()}
-            >
-              <ul className="space-y-4">
-                {data.achievements.map(
-                  (achievement, index) => (
-                    <li
-                      key={`${achievement}-${index}`}
-                      className="flex gap-3 leading-7"
-                      style={{ color: colors.mutedText }}
-                    >
-                      <span style={{ color: colors.primary }}>
-                        •
-                      </span>
+            <div className="relative mt-12 space-y-6">
+              <div
+                aria-hidden="true"
+                className="absolute bottom-8 left-[19px] top-8 hidden w-px md:block"
+                style={{
+                  backgroundColor: `${colors.primary}25`,
+                }}
+              />
 
-                      <span>{achievement}</span>
-                    </li>
-                  )
-                )}
-              </ul>
+              {data.experience.map(
+                (item, index) => (
+                  <div
+                    key={`${item.company}-${index}`}
+                    className="relative grid gap-5 md:grid-cols-[40px_1fr]"
+                  >
+                    <div
+                      className="relative z-10 mt-6 hidden h-10 w-10 items-center justify-center rounded-full text-xs font-black md:flex"
+                      style={{
+                        backgroundColor:
+                          colors.surface,
+                        color:
+                          colors.primary,
+                        border: `2px solid ${colors.primary}`,
+                      }}
+                    >
+                      {index + 1}
+                    </div>
+
+                    <div
+                      className={`border p-7 md:p-8 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                      style={cardStyle()}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <h3
+                            className="text-xl font-bold md:text-2xl"
+                            style={{
+                              color:
+                                colors.text,
+                              fontFamily:
+                                typography.heading,
+                            }}
+                          >
+                            {item.role}
+                          </h3>
+
+                          <p
+                            className="mt-2 font-semibold"
+                            style={{
+                              color:
+                                colors.primary,
+                            }}
+                          >
+                            {item.company}
+                          </p>
+
+                          {item.location && (
+                            <p
+                              className="mt-1 text-sm"
+                              style={{
+                                color:
+                                  colors.mutedText,
+                              }}
+                            >
+                              {item.location}
+                            </p>
+                          )}
+                        </div>
+
+                        {(item.startDate ||
+                          item.endDate) && (
+                          <div
+                            className="w-fit rounded-full px-3 py-1.5 text-xs font-semibold"
+                            style={{
+                              backgroundColor: `${colors.primary}12`,
+                              color:
+                                colors.primary,
+                            }}
+                          >
+                            {item.startDate}
+                            {item.startDate ||
+                            item.endDate
+                              ? " — "
+                              : ""}
+                            {item.endDate}
+                          </div>
+                        )}
+                      </div>
+
+                      {item.description && (
+                        <p
+                          className="mt-6 whitespace-pre-line text-sm leading-8 md:text-base"
+                          style={{
+                            color:
+                              colors.mutedText,
+                          }}
+                        >
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ),
+              )}
             </div>
           </section>
         )}
 
-      {/* Languages */}
-      {sections.includes("languages") &&
-        data.languages.length > 0 && (
-          <section className="mx-auto max-w-6xl px-6 py-16">
-            <SectionTitle
-              title="Languages"
+      {/* =====================================================
+          PROJECTS
+      ====================================================== */}
+
+      {sections.includes(
+        "projects",
+      ) &&
+        data.projects?.length > 0 && (
+          <section
+            id="projects"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Projects"
+              title="Selected work"
               primary={colors.primary}
-              headingFont={typography.heading}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
             />
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              {data.projects.map(
+                (project, index) => (
+                  <article
+                    key={`${project.name}-${index}`}
+                    className={`group relative overflow-hidden border p-7 md:p-8 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                    style={cardStyle()}
+                  >
+                    {/* Project number */}
+
+                    <div
+                      className="absolute right-6 top-6 text-xs font-black tracking-[0.2em]"
+                      style={{
+                        color: `${colors.primary}70`,
+                      }}
+                    >
+                      {String(
+                        index + 1,
+                      ).padStart(2, "0")}
+                    </div>
+
+                    <h3
+                      className="pr-12 text-2xl font-bold"
+                      style={{
+                        color:
+                          colors.text,
+                        fontFamily:
+                          typography.heading,
+                      }}
+                    >
+                      {project.name}
+                    </h3>
+
+                    {project.description && (
+                      <p
+                        className="mt-5 leading-8"
+                        style={{
+                          color:
+                            colors.mutedText,
+                        }}
+                      >
+                        {
+                          project.description
+                        }
+                      </p>
+                    )}
+
+                    {project.technologies
+                      ?.length >
+                      0 && (
+                      <div className="mt-6 flex flex-wrap gap-2">
+                        {project.technologies.map(
+                          (
+                            technology,
+                            technologyIndex,
+                          ) => (
+                            <span
+                              key={`${technology}-${technologyIndex}`}
+                              className="rounded-lg px-3 py-1.5 text-xs font-semibold"
+                              style={{
+                                backgroundColor: `${colors.primary}12`,
+                                color:
+                                  colors.primary,
+                              }}
+                            >
+                              {
+                                technology
+                              }
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    )}
+
+                    {project.url && (
+                      <a
+                        href={project.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-7 inline-flex items-center gap-2 text-sm font-bold"
+                        style={{
+                          color:
+                            colors.primary,
+                        }}
+                      >
+                        View Project
+
+                        <span
+                          aria-hidden="true"
+                          className="transition-transform duration-300 group-hover:translate-x-1"
+                        >
+                          →
+                        </span>
+                      </a>
+                    )}
+                  </article>
+                ),
+              )}
+            </div>
+          </section>
+        )}
+
+      {/* =====================================================
+          EDUCATION
+      ====================================================== */}
+
+      {sections.includes(
+        "education",
+      ) &&
+        data.education?.length > 0 && (
+          <section
+            id="education"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Education"
+              title="Academic background"
+              primary={colors.primary}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
+            />
+
+            <div className="mt-10 space-y-5">
+              {data.education.map(
+                (item, index) => (
+                  <div
+                    key={`${item.institution}-${index}`}
+                    className={`border p-7 md:p-8 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                    style={cardStyle()}
+                  >
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3
+                          className="text-xl font-bold md:text-2xl"
+                          style={{
+                            color:
+                              colors.text,
+                            fontFamily:
+                              typography.heading,
+                          }}
+                        >
+                          {item.degree}
+                          {item.field
+                            ? ` — ${item.field}`
+                            : ""}
+                        </h3>
+
+                        <p
+                          className="mt-2 font-semibold"
+                          style={{
+                            color:
+                              colors.primary,
+                          }}
+                        >
+                          {item.institution}
+                        </p>
+                      </div>
+
+                      {(item.startDate ||
+                        item.endDate) && (
+                        <span
+                          className="w-fit rounded-full px-3 py-1.5 text-xs font-semibold"
+                          style={{
+                            backgroundColor: `${colors.primary}12`,
+                            color:
+                              colors.primary,
+                          }}
+                        >
+                          {item.startDate}
+                          {item.startDate ||
+                          item.endDate
+                            ? " — "
+                            : ""}
+                          {item.endDate}
+                        </span>
+                      )}
+                    </div>
+
+                    {item.description && (
+                      <p
+                        className="mt-5 leading-8"
+                        style={{
+                          color:
+                            colors.mutedText,
+                        }}
+                      >
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
+          </section>
+        )}
+
+      {/* =====================================================
+          CERTIFICATIONS
+      ====================================================== */}
+
+      {sections.includes(
+        "certifications",
+      ) &&
+        data.certifications?.length >
+          0 && (
+          <section
+            id="certifications"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Certifications"
+              title="Credentials"
+              primary={colors.primary}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
+            />
+
+            <div className="mt-10 grid gap-5 md:grid-cols-2">
+              {data.certifications.map(
+                (
+                  certificate,
+                  index,
+                ) => (
+                  <div
+                    key={`${certificate.name}-${index}`}
+                    className={`border p-7 ${radiusClass()} ${shadowClass()} ${animationClass()}`}
+                    style={cardStyle()}
+                  >
+                    <div className="flex gap-4">
+                      <div
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black"
+                        style={{
+                          backgroundColor: `${colors.primary}14`,
+                          color:
+                            colors.primary,
+                        }}
+                      >
+                        ✓
+                      </div>
+
+                      <div className="min-w-0">
+                        <h3
+                          className="text-lg font-bold"
+                          style={{
+                            color:
+                              colors.text,
+                            fontFamily:
+                              typography.heading,
+                          }}
+                        >
+                          {
+                            certificate.name
+                          }
+                        </h3>
+
+                        {certificate.issuer && (
+                          <p
+                            className="mt-2 font-medium"
+                            style={{
+                              color:
+                                colors.primary,
+                            }}
+                          >
+                            {
+                              certificate.issuer
+                            }
+                          </p>
+                        )}
+
+                        {certificate.date && (
+                          <p
+                            className="mt-2 text-sm"
+                            style={{
+                              color:
+                                colors.mutedText,
+                            }}
+                          >
+                            {
+                              certificate.date
+                            }
+                          </p>
+                        )}
+
+                        {certificate.url && (
+                          <a
+                            href={
+                              certificate.url
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 inline-flex items-center gap-2 text-sm font-bold"
+                            style={{
+                              color:
+                                colors.primary,
+                            }}
+                          >
+                            Verify Credential
+                            <span>
+                              →
+                            </span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ),
+              )}
+            </div>
+          </section>
+        )}
+
+      {/* =====================================================
+          ACHIEVEMENTS
+      ====================================================== */}
+
+      {sections.includes(
+        "achievements",
+      ) &&
+        data.achievements?.length >
+          0 && (
+          <section
+            id="achievements"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Achievements"
+              title="Highlights"
+              primary={colors.primary}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
+            />
+
+            <div
+              className={`mt-10 border p-7 md:p-9 ${radiusClass()} ${shadowClass()}`}
+              style={cardStyle()}
+            >
+              <div className="space-y-5">
+                {data.achievements.map(
+                  (
+                    achievement,
+                    index,
+                  ) => (
+                    <div
+                      key={`${achievement}-${index}`}
+                      className="flex gap-4"
+                    >
+                      <span
+                        className="mt-2 h-2 w-2 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            colors.primary,
+                        }}
+                      />
+
+                      <p
+                        className="leading-8"
+                        style={{
+                          color:
+                            colors.mutedText,
+                        }}
+                      >
+                        {achievement}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+      {/* =====================================================
+          LANGUAGES
+      ====================================================== */}
+
+      {sections.includes(
+        "languages",
+      ) &&
+        data.languages?.length > 0 && (
+          <section
+            id="languages"
+            className="mx-auto max-w-7xl scroll-mt-24 px-5 py-20 md:px-8 md:py-24"
+          >
+            <SectionHeading
+              eyebrow="Languages"
+              title="Communication"
+              primary={colors.primary}
+              text={colors.mutedText}
+              headingFont={
+                typography.heading
+              }
+            />
+
+            <div className="mt-10 flex flex-wrap gap-3">
               {data.languages.map(
-                (language, index) => (
+                (
+                  language,
+                  index,
+                ) => (
                   <span
                     key={`${language}-${index}`}
-                    className={`border px-4 py-2 ${radiusClass()}`}
+                    className={`border px-5 py-2.5 text-sm font-semibold ${radiusClass()}`}
                     style={{
-                      backgroundColor: colors.surface,
-                      borderColor: `${colors.primary}44`,
-                      color: colors.text,
+                      backgroundColor:
+                        colors.surface,
+                      borderColor: `${colors.primary}35`,
+                      color:
+                        colors.text,
                     }}
                   >
                     {language}
                   </span>
-                )
+                ),
               )}
             </div>
           </section>
         )}
 
-      {/* Contact */}
-      {sections.includes("contact") && (
+      {/* =====================================================
+          CONTACT
+      ====================================================== */}
+
+      {sections.includes(
+        "contact",
+      ) && (
         <section
           id="contact"
-          className="mx-auto max-w-6xl px-6 py-20"
+          className="mx-auto max-w-7xl scroll-mt-24 px-5 py-24 md:px-8 md:py-32"
         >
-          <SectionTitle
-            title="Contact"
-            primary={colors.primary}
-            headingFont={typography.heading}
-          />
-
           <div
-            className={`mt-8 border p-8 ${radiusClass()} ${shadowClass()}`}
-            style={cardStyle()}
+            className={`relative overflow-hidden border p-8 md:p-12 lg:p-16 ${radiusClass()} ${shadowClass()}`}
+            style={{
+              ...cardStyle(),
+              borderColor: `${colors.primary}35`,
+            }}
           >
-            <div className="space-y-4">
-              {data.personal.email && (
-                <a
-                  href={`mailto:${data.personal.email}`}
-                  className="block font-medium hover:underline"
-                  style={{ color: colors.primary }}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
+              style={{
+                backgroundColor: `${colors.primary}18`,
+              }}
+            />
+
+            <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <p
+                  className="text-xs font-black uppercase tracking-[0.28em]"
+                  style={{
+                    color:
+                      colors.primary,
+                  }}
                 >
-                  {data.personal.email}
-                </a>
-              )}
-
-              {data.personal.phone && (
-                <p style={{ color: colors.mutedText }}>
-                  {data.personal.phone}
+                  Contact
                 </p>
-              )}
 
-              {data.personal.location && (
-                <p style={{ color: colors.mutedText }}>
-                  {data.personal.location}
-                </p>
-              )}
-
-              {data.personal.website && (
-                <a
-                  href={data.personal.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block font-medium hover:underline"
-                  style={{ color: colors.primary }}
+                <h2
+                  className="mt-4 max-w-2xl text-4xl font-black leading-tight tracking-[-0.035em] md:text-6xl"
+                  style={{
+                    color:
+                      colors.text,
+                    fontFamily:
+                      typography.heading,
+                  }}
                 >
-                  Personal Website
-                </a>
-              )}
+                  Let's build something meaningful.
+                </h2>
+
+                <p
+                  className="mt-5 max-w-xl leading-8"
+                  style={{
+                    color:
+                      colors.mutedText,
+                  }}
+                >
+                  If you'd like to discuss an opportunity,
+                  collaboration, or project, feel free to
+                  reach out.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {data.personal
+                  ?.email && (
+                  <a
+                    href={`mailto:${data.personal.email}`}
+                    className={`block border px-5 py-3.5 text-sm font-bold ${radiusClass()} ${animationClass()}`}
+                    style={{
+                      borderColor: `${colors.primary}40`,
+                      color:
+                        colors.primary,
+                    }}
+                  >
+                    {data.personal.email}
+                  </a>
+                )}
+
+                {data.personal
+                  ?.phone && (
+                  <a
+                    href={`tel:${data.personal.phone}`}
+                    className={`block border px-5 py-3.5 text-sm font-bold ${radiusClass()} ${animationClass()}`}
+                    style={{
+                      borderColor: `${colors.primary}40`,
+                      color:
+                        colors.text,
+                    }}
+                  >
+                    {data.personal.phone}
+                  </a>
+                )}
+
+                {data.personal
+                  ?.location && (
+                  <p
+                    className={`border px-5 py-3.5 text-sm font-medium ${radiusClass()}`}
+                    style={{
+                      borderColor: `${colors.primary}20`,
+                      color:
+                        colors.mutedText,
+                    }}
+                  >
+                    {data.personal.location}
+                  </p>
+                )}
+              </div>
             </div>
+
+            {socialLinks.length >
+              0 && (
+              <div
+                className="relative mt-10 flex flex-wrap gap-5 border-t pt-7"
+                style={{
+                  borderColor: `${colors.primary}18`,
+                }}
+              >
+                {socialLinks.map(
+                  (social) => (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-bold transition hover:opacity-60"
+                      style={{
+                        color:
+                          colors.text,
+                      }}
+                    >
+                      {social.label}
+                    </a>
+                  ),
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* Footer */}
+      {/* =====================================================
+          FOOTER
+      ====================================================== */}
+
       <footer
-        className="border-t px-6 py-10 text-center"
+        className="border-t px-5 py-10 md:px-8"
         style={{
-          borderColor: `${colors.primary}22`,
-          color: colors.mutedText,
+          borderColor: `${colors.primary}18`,
         }}
       >
-        <p>
-          © {new Date().getFullYear()} {name}. All rights reserved.
-        </p>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+          <p
+            className="text-sm"
+            style={{
+              color:
+                colors.mutedText,
+            }}
+          >
+            © {new Date().getFullYear()}{" "}
+            {name}. All rights reserved.
+          </p>
+
+          <a
+            href="#home"
+            className="text-sm font-bold"
+            style={{
+              color:
+                colors.primary,
+            }}
+          >
+            Back to top ↑
+          </a>
+        </div>
       </footer>
     </main>
   );
 }
 
-function SectionTitle({
+/*
+ * ============================================================
+ * SECTION HEADING
+ * ============================================================
+ */
+
+function SectionHeading({
+  eyebrow,
   title,
   primary,
+  text,
   headingFont,
 }: {
+  eyebrow: string;
   title: string;
   primary: string;
+  text: string;
   headingFont: string;
 }) {
   return (
     <div>
       <p
-        className="text-sm font-bold uppercase tracking-[0.25em]"
-        style={{ color: primary }}
+        className="text-xs font-black uppercase tracking-[0.28em]"
+        style={{
+          color: primary,
+        }}
       >
-        {title}
+        {eyebrow}
       </p>
 
+      <h2
+        className="mt-3 text-3xl font-black tracking-[-0.035em] md:text-5xl"
+        style={{
+          color: text,
+          fontFamily: headingFont,
+        }}
+      >
+        {title}
+      </h2>
+
       <div
-        className="mt-3 h-1 w-16 rounded-full"
-        style={{ backgroundColor: primary }}
+        className="mt-5 h-1 w-14 rounded-full"
+        style={{
+          backgroundColor: primary,
+        }}
       />
     </div>
   );

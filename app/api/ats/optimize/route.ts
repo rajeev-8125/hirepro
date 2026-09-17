@@ -1,28 +1,48 @@
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
-import { extractText } from "unpdf";
 
-import { optimizeResumeForATS } from "@/lib/ai/ats-resume-optimizer";
-import { generateResumeDesign } from "@/lib/ai/resume-design-generator";
+import {
+  extractText,
+  getDocumentProxy,
+} from "unpdf";
 
-import { ATSResultSchema } from "@/lib/ai/ats-schema";
-import { ResumeSchema } from "@/lib/ai/resume-schema";
-import { ResumeDesignSchema } from "@/lib/ai/resume-design-schema";
+import {
+  optimizeResumeForATS,
+} from "@/lib/ai/ats-resume-optimizer";
+
+import {
+  generateResumeDesign,
+} from "@/lib/ai/resume-design-generator";
+
+import {
+  ATSResultSchema,
+} from "@/lib/ai/ats-schema";
+
+import {
+  ResumeSchema,
+} from "@/lib/ai/resume-schema";
+
+import {
+  ResumeDesignSchema,
+} from "@/lib/ai/resume-design-schema";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE =
+  5 * 1024 * 1024;
 
 /**
- * ATS-safe fallback design.
+ * Guaranteed ATS-safe fallback design.
  *
- * This is NOT a fixed visual template for the user's resume.
- * It is a safety fallback only in case the AI design generator
- * fails validation.
+ * This is only a safety fallback.
+ * It is NOT the user's visual template.
  */
 const ATS_SAFE_FALLBACK_DESIGN = {
   layout: "single-column",
+
   density: "balanced",
+
   style: "ats",
 
   colors: {
@@ -91,11 +111,11 @@ const ATS_SAFE_FALLBACK_DESIGN = {
 };
 
 /**
- * Generate an ATS-safe design using the existing
- * ResumeDesignSchema.
+ * Generate an ATS-safe resume design.
  *
- * The prompt explicitly includes every field and enum
- * value expected by the schema.
+ * The design generator is allowed to generate
+ * a professional design, but we enforce the
+ * important ATS restrictions afterward.
  */
 async function generateATSSafeDesign() {
   const designPrompt = `
@@ -124,19 +144,20 @@ IMPORTANT:
 
 Return ONLY valid JSON.
 
-The output MUST EXACTLY follow this structure.
+The output MUST EXACTLY follow the
+ResumeDesignSchema structure.
 
-DO NOT omit any field.
+DO NOT omit fields.
 
-DO NOT add any field.
+DO NOT add fields.
 
 DO NOT use null.
 
 DO NOT use undefined.
 
-DO NOT use values outside the specified enums.
+Use ONLY valid enum values.
 
-EXACT JSON STRUCTURE:
+Use this structure:
 
 {
   "layout": "single-column",
@@ -210,110 +231,6 @@ EXACT JSON STRUCTURE:
   }
 }
 
-MANDATORY ENUM VALUES:
-
-layout:
-- single-column
-- two-column
-
-For this ATS resume, use:
-single-column
-
-density:
-- compact
-- balanced
-- spacious
-
-Use:
-balanced
-
-style:
-- ats
-- professional
-- modern
-- executive
-- minimal
-- creative
-
-Use:
-ats
-
-header.alignment:
-- left
-- center
-
-Use:
-left
-
-header.photo.position:
-- left
-- right
-- center
-
-Use:
-right
-
-header.photo.shape:
-- circle
-- square
-- rounded
-
-Use:
-circle
-
-header.photo.size:
-- small
-- medium
-- large
-
-Use:
-small
-
-visual.borderStyle:
-- none
-- subtle
-- strong
-
-Use:
-subtle
-
-visual.cardStyle:
-- none
-- flat
-- bordered
-- soft
-
-Use:
-none
-
-visual.accentStyle:
-- text
-- line
-- background
-- badge
-
-Use:
-line
-
-Resume sections may ONLY be:
-
-summary
-skills
-experience
-education
-projects
-certifications
-achievements
-languages
-
-sidebar sections may ONLY be:
-
-skills
-education
-certifications
-languages
-achievements
-
 ATS REQUIREMENTS:
 
 - sidebar.enabled MUST be false
@@ -324,32 +241,35 @@ ATS REQUIREMENTS:
 - ats.tablesUsed MUST be false
 - ats.graphicsUsed MUST be false
 - ats.recommendedForATS MUST be true
-- no tables
-- no charts
-- no graphics
-- no progress bars
-- no icons
-- no text boxes
-- no decorative symbols
-- no unusual fonts
-- no dark page background
-- no complicated layout
 
-Return ONLY the JSON object.
+DO NOT use:
+
+- tables
+- charts
+- graphics
+- progress bars
+- icons
+- text boxes
+- decorative symbols
+- unusual fonts
+- dark page backgrounds
+- complicated columns
+
+Return ONLY JSON.
 `;
 
   try {
     const generatedDesign =
-      await generateResumeDesign(designPrompt);
+      await generateResumeDesign(
+        designPrompt
+      );
 
     const validation =
-      ResumeDesignSchema.safeParse(generatedDesign);
+      ResumeDesignSchema.safeParse(
+        generatedDesign
+      );
 
     if (validation.success) {
-      /**
-       * We still enforce the critical ATS requirements
-       * after AI generation.
-       */
       return {
         ...validation.data,
 
@@ -366,6 +286,7 @@ Return ONLY the JSON object.
 
           photo: {
             ...validation.data.header.photo,
+
             enabled: false,
           },
         },
@@ -377,6 +298,7 @@ Return ONLY the JSON object.
 
         visual: {
           ...validation.data.visual,
+
           cardStyle: "none",
         },
 
@@ -400,13 +322,6 @@ Return ONLY the JSON object.
     );
   }
 
-  /**
-   * If Gemini produces an invalid design after its own
-   * retries, don't throw away the successfully optimized
-   * resume.
-   *
-   * Use a guaranteed schema-valid ATS-safe design instead.
-   */
   console.warn(
     "[ATS] Using ATS-safe fallback design."
   );
@@ -416,41 +331,96 @@ Return ONLY the JSON object.
   );
 }
 
-export async function POST(request: Request) {
+/**
+ * Normalize extracted PDF text.
+ */
+function cleanExtractedText(
+  text: string
+): string {
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * POST /api/ats/optimize
+ */
+export async function POST(
+  request: Request
+) {
   try {
-    const supabase = await createClient();
+    /**
+     * ----------------------------------------
+     * AUTHENTICATION
+     * ----------------------------------------
+     */
+    const supabase =
+      await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
-    if (authError || !user) {
+    if (
+      authError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized. Please sign in.",
+          error:
+            "Unauthorized. Please sign in.",
         },
-        { status: 401 }
+        {
+          status: 401,
+        }
       );
     }
 
-    const formData = await request.formData();
+    /**
+     * ----------------------------------------
+     * FORM DATA
+     * ----------------------------------------
+     */
+    const formData =
+      await request.formData();
 
-    const file = formData.get("resume");
+    const file =
+      formData.get("resume");
+
     const jobDescriptionValue =
-      formData.get("jobDescription");
-    const atsResultValue =
-      formData.get("atsResult");
+      formData.get(
+        "jobDescription"
+      );
 
-    if (!(file instanceof File)) {
+    const atsResultValue =
+      formData.get(
+        "atsResult"
+      );
+
+    /**
+     * ----------------------------------------
+     * FILE VALIDATION
+     * ----------------------------------------
+     */
+    if (
+      !(file instanceof File)
+    ) {
       return NextResponse.json(
         {
           success: false,
           error:
             "Please upload the original resume PDF.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -458,74 +428,101 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "The uploaded resume is empty.",
+          error:
+            "The uploaded resume is empty.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (
+      file.size >
+      MAX_FILE_SIZE
+    ) {
       return NextResponse.json(
         {
           success: false,
           error:
             "Resume must be smaller than 5 MB.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    if (file.type !== "application/pdf") {
+    const fileName =
+      file.name.toLowerCase();
+
+    const isPdf =
+      file.type ===
+        "application/pdf" ||
+      fileName.endsWith(".pdf");
+
+    if (!isPdf) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Only PDF resumes are supported.",
+            "Only PDF resume files are supported.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    if (typeof atsResultValue !== "string") {
+    /**
+     * ----------------------------------------
+     * ATS RESULT VALIDATION
+     * ----------------------------------------
+     */
+    if (
+      typeof atsResultValue !==
+      "string"
+    ) {
       return NextResponse.json(
         {
           success: false,
           error:
             "ATS analysis is required before optimization.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    /**
-     * Parse ATS result from the frontend.
-     */
     let parsedATSResult: unknown;
 
     try {
-      parsedATSResult = JSON.parse(
-        atsResultValue
-      );
+      parsedATSResult =
+        JSON.parse(
+          atsResultValue
+        );
     } catch {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid ATS analysis data.",
+          error:
+            "Invalid ATS analysis data.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    /**
-     * Validate ATS result before sending it
-     * to the optimization engine.
-     */
     const atsValidation =
       ATSResultSchema.safeParse(
         parsedATSResult
       );
 
-    if (!atsValidation.success) {
+    if (
+      !atsValidation.success
+    ) {
       console.error(
         "[ATS] ATS result validation failed:",
         atsValidation.error.flatten()
@@ -537,57 +534,187 @@ export async function POST(request: Request) {
           error:
             "The ATS analysis structure is invalid.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const atsResult = atsValidation.data;
+    const atsResult =
+      atsValidation.data;
 
+    /**
+     * ----------------------------------------
+     * JOB DESCRIPTION
+     * ----------------------------------------
+     */
     const jobDescription =
-      typeof jobDescriptionValue === "string"
+      typeof jobDescriptionValue ===
+      "string"
         ? jobDescriptionValue.trim()
         : "";
 
     /**
-     * Extract text from the original PDF.
+     * ----------------------------------------
+     * READ PDF
+     * ----------------------------------------
      */
     const arrayBuffer =
       await file.arrayBuffer();
 
-    const buffer = new Uint8Array(
-      arrayBuffer
+    const pdfData =
+      new Uint8Array(
+        arrayBuffer
+      );
+
+    let pdf;
+
+    try {
+      pdf =
+        await getDocumentProxy(
+          pdfData
+        );
+    } catch (error) {
+      console.error(
+        "[ATS] Failed to load PDF during optimization:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "We could not open this PDF. Please make sure it is a valid PDF file.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      !pdf ||
+      !pdf.numPages ||
+      pdf.numPages <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "This PDF does not contain any readable pages.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      pdf.numPages > 20
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Resume PDF contains too many pages. Please upload a resume with 20 pages or fewer.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    console.log(
+      `[ATS] PDF loaded successfully. Pages: ${pdf.numPages}`
     );
 
-    const { text } =
-      await extractText(buffer);
+    /**
+     * ----------------------------------------
+     * EXTRACT TEXT
+     * ----------------------------------------
+     */
+    let resumeText = "";
 
-    const resumeText = Array.isArray(text)
-      ? text.join("\n")
-      : String(text ?? "");
+    try {
+      const extracted =
+        await extractText(
+          pdf,
+          {
+            mergePages: true,
+          }
+        );
+
+      resumeText =
+        String(
+          extracted.text ?? ""
+        );
+    } catch (error) {
+      console.error(
+        "[ATS] PDF text extraction failed during optimization:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "We could not read this PDF. Please upload a text-based PDF resume.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
     const cleanResumeText =
-      resumeText.trim();
+      cleanExtractedText(
+        resumeText
+      );
 
-    if (!cleanResumeText) {
+    console.log(
+      `[ATS] Extracted resume characters: ${cleanResumeText.length}`
+    );
+
+    if (
+      !cleanResumeText
+    ) {
       return NextResponse.json(
         {
           success: false,
           error:
             "Could not extract readable text from this PDF.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    if (
+      cleanResumeText.length <
+      50
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "We could not find enough readable text in this PDF.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ----------------------------------------
+     * OPTIMIZE CONTENT
+     * ----------------------------------------
+     */
     console.log(
       `[ATS] Optimizing resume for user ${user.id}`
     );
 
-    /**
-     * STEP 1
-     *
-     * Optimize resume content.
-     */
     const optimizedResume =
       await optimizeResumeForATS(
         cleanResumeText,
@@ -596,16 +723,18 @@ export async function POST(request: Request) {
       );
 
     /**
-     * STEP 2
-     *
-     * Validate the optimized resume.
+     * ----------------------------------------
+     * VALIDATE OPTIMIZED RESUME
+     * ----------------------------------------
      */
     const resumeValidation =
       ResumeSchema.safeParse(
         optimizedResume
       );
 
-    if (!resumeValidation.success) {
+    if (
+      !resumeValidation.success
+    ) {
       console.error(
         "[ATS] Optimized resume validation failed:",
         resumeValidation.error.flatten()
@@ -617,7 +746,9 @@ export async function POST(request: Request) {
           error:
             "AI returned an invalid optimized resume structure.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -629,13 +760,9 @@ export async function POST(request: Request) {
     );
 
     /**
-     * STEP 3
-     *
-     * Generate ATS-safe design.
-     *
-     * This has its own fallback, so a design-generation
-     * problem cannot destroy the successful resume
-     * optimization.
+     * ----------------------------------------
+     * GENERATE ATS DESIGN
+     * ----------------------------------------
      */
     const optimizedDesign =
       await generateATSSafeDesign();
@@ -645,7 +772,9 @@ export async function POST(request: Request) {
     );
 
     /**
-     * Count recommendations applied.
+     * ----------------------------------------
+     * COUNT RECOMMENDATIONS
+     * ----------------------------------------
      */
     const recommendations =
       atsResult.recommendations;
@@ -653,26 +782,28 @@ export async function POST(request: Request) {
     const highPriority =
       recommendations.filter(
         (item) =>
-          item.priority === "high"
+          item.priority ===
+          "high"
       ).length;
 
     const mediumPriority =
       recommendations.filter(
         (item) =>
-          item.priority === "medium"
+          item.priority ===
+          "medium"
       ).length;
 
     const lowPriority =
       recommendations.filter(
         (item) =>
-          item.priority === "low"
+          item.priority ===
+          "low"
       ).length;
 
     /**
-     * Return optimized resume + design.
-     *
-     * The frontend will then call /api/ats/verify
-     * to calculate the real AFTER ATS score.
+     * ----------------------------------------
+     * RETURN RESULT
+     * ----------------------------------------
      */
     return NextResponse.json(
       {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import PortfolioRenderer from "./PortfolioRenderer";
 import type { PortfolioData } from "@/lib/ai/portfolio-schema";
 import type { PortfolioDesign } from "@/lib/ai/portfolio-design-schema";
@@ -66,28 +67,31 @@ const emptyCertification: PortfolioData["certifications"][number] = {
 export default function PortfolioEditor({
   portfolio,
 }: PortfolioEditorProps) {
+  const router = useRouter();
+
   const [data, setData] = useState<PortfolioData>(
-    portfolio.generated_data
+    portfolio.generated_data,
   );
 
-  const [openSection, setOpenSection] = useState<SectionName | null>("personal");
+  const [openSection, setOpenSection] =
+    useState<SectionName | null>("personal");
 
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
   const [published, setPublished] = useState(
-    portfolio.is_published ?? false
+    portfolio.is_published ?? false,
   );
 
   const [slug, setSlug] = useState(
-    portfolio.slug ?? null
+    portfolio.slug ?? null,
   );
 
   const [message, setMessage] = useState("");
 
   function toggleSection(section: SectionName) {
     setOpenSection((current) =>
-      current === section ? null : section
+      current === section ? null : section,
     );
   }
 
@@ -110,14 +114,14 @@ export default function PortfolioEditor({
           body: JSON.stringify({
             generated_data: data,
           }),
-        }
+        },
       );
 
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to save portfolio"
+          result.error || "Failed to save portfolio",
         );
       }
 
@@ -128,7 +132,7 @@ export default function PortfolioEditor({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Failed to save portfolio"
+          : "Failed to save portfolio",
       );
     } finally {
       setIsSaving(false);
@@ -144,7 +148,6 @@ export default function PortfolioEditor({
       setIsPublishing(true);
       setMessage("");
 
-      // Save latest changes first.
       const saveResponse = await fetch(
         `/api/portfolio/${portfolio.id}`,
         {
@@ -155,7 +158,7 @@ export default function PortfolioEditor({
           body: JSON.stringify({
             generated_data: data,
           }),
-        }
+        },
       );
 
       const saveResult = await saveResponse.json();
@@ -163,7 +166,7 @@ export default function PortfolioEditor({
       if (!saveResponse.ok) {
         throw new Error(
           saveResult.error ||
-            "Failed to save portfolio before publishing"
+            "Failed to save portfolio before publishing",
         );
       }
 
@@ -171,30 +174,28 @@ export default function PortfolioEditor({
         `/api/portfolio/${portfolio.id}/publish`,
         {
           method: "POST",
-        }
+        },
       );
 
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to publish portfolio"
+          result.error || "Failed to publish portfolio",
         );
       }
 
       setPublished(true);
       setSlug(result.slug);
 
-      setMessage(
-        "🎉 Your portfolio is now live!"
-      );
+      setMessage("Your portfolio is now live!");
     } catch (error) {
       console.error(error);
 
       setMessage(
         error instanceof Error
           ? error.message
-          : "Failed to publish portfolio"
+          : "Failed to publish portfolio",
       );
     } finally {
       setIsPublishing(false);
@@ -214,29 +215,27 @@ export default function PortfolioEditor({
         `/api/portfolio/${portfolio.id}/publish`,
         {
           method: "DELETE",
-        }
+        },
       );
 
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to unpublish portfolio"
+          result.error || "Failed to unpublish portfolio",
         );
       }
 
       setPublished(false);
 
-      setMessage(
-        "Portfolio has been unpublished."
-      );
+      setMessage("Portfolio has been unpublished.");
     } catch (error) {
       console.error(error);
 
       setMessage(
         error instanceof Error
           ? error.message
-          : "Failed to unpublish portfolio"
+          : "Failed to unpublish portfolio",
       );
     } finally {
       setIsPublishing(false);
@@ -249,7 +248,7 @@ export default function PortfolioEditor({
 
   function updatePersonal(
     field: keyof PortfolioData["personal"],
-    value: string
+    value: string,
   ) {
     setData((current) => ({
       ...current,
@@ -271,10 +270,7 @@ export default function PortfolioEditor({
     }));
   }
 
-  function updateSkill(
-    index: number,
-    value: string
-  ) {
+  function updateSkill(index: number, value: string) {
     setData((current) => {
       const skills = [...current.skills];
       skills[index] = value;
@@ -290,7 +286,7 @@ export default function PortfolioEditor({
     setData((current) => ({
       ...current,
       skills: current.skills.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     }));
   }
@@ -312,7 +308,7 @@ export default function PortfolioEditor({
   function updateExperience(
     index: number,
     field: keyof PortfolioData["experience"][number],
-    value: string
+    value: string,
   ) {
     setData((current) => {
       const experience = [...current.experience];
@@ -333,7 +329,7 @@ export default function PortfolioEditor({
     setData((current) => ({
       ...current,
       experience: current.experience.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     }));
   }
@@ -358,7 +354,7 @@ export default function PortfolioEditor({
   function updateProject(
     index: number,
     field: keyof PortfolioData["projects"][number],
-    value: string | string[]
+    value: string | string[],
   ) {
     setData((current) => {
       const projects = [...current.projects];
@@ -379,7 +375,7 @@ export default function PortfolioEditor({
     setData((current) => ({
       ...current,
       projects: current.projects.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     }));
   }
@@ -401,7 +397,7 @@ export default function PortfolioEditor({
   function updateEducation(
     index: number,
     field: keyof PortfolioData["education"][number],
-    value: string
+    value: string,
   ) {
     setData((current) => {
       const education = [...current.education];
@@ -422,7 +418,7 @@ export default function PortfolioEditor({
     setData((current) => ({
       ...current,
       education: current.education.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     }));
   }
@@ -444,7 +440,7 @@ export default function PortfolioEditor({
   function updateCertification(
     index: number,
     field: keyof PortfolioData["certifications"][number],
-    value: string
+    value: string,
   ) {
     setData((current) => {
       const certifications = [
@@ -468,7 +464,7 @@ export default function PortfolioEditor({
       ...current,
       certifications:
         current.certifications.filter(
-          (_, i) => i !== index
+          (_, i) => i !== index,
         ),
     }));
   }
@@ -489,7 +485,7 @@ export default function PortfolioEditor({
 
   function updateAchievement(
     index: number,
-    value: string
+    value: string,
   ) {
     setData((current) => {
       const achievements = [
@@ -510,7 +506,7 @@ export default function PortfolioEditor({
       ...current,
       achievements:
         current.achievements.filter(
-          (_, i) => i !== index
+          (_, i) => i !== index,
         ),
     }));
   }
@@ -531,7 +527,7 @@ export default function PortfolioEditor({
 
   function updateLanguage(
     index: number,
-    value: string
+    value: string,
   ) {
     setData((current) => {
       const languages = [
@@ -552,32 +548,144 @@ export default function PortfolioEditor({
       ...current,
       languages:
         current.languages.filter(
-          (_, i) => i !== index
+          (_, i) => i !== index,
         ),
     }));
   }
 
+  const sectionItems = [
+    {
+      id: "personal" as SectionName,
+      label: "Personal",
+      description: "Identity & contact",
+      icon: "👤",
+    },
+    {
+      id: "summary" as SectionName,
+      label: "Summary",
+      description: "Professional introduction",
+      icon: "📝",
+    },
+    {
+      id: "skills" as SectionName,
+      label: "Skills",
+      description: `${data.skills.length} skills`,
+      icon: "⚡",
+    },
+    {
+      id: "experience" as SectionName,
+      label: "Experience",
+      description: `${data.experience.length} entries`,
+      icon: "💼",
+    },
+    {
+      id: "projects" as SectionName,
+      label: "Projects",
+      description: `${data.projects.length} projects`,
+      icon: "🚀",
+    },
+    {
+      id: "education" as SectionName,
+      label: "Education",
+      description: `${data.education.length} entries`,
+      icon: "🎓",
+    },
+    {
+      id: "certifications" as SectionName,
+      label: "Certifications",
+      description: `${data.certifications.length} certificates`,
+      icon: "📜",
+    },
+    {
+      id: "achievements" as SectionName,
+      label: "Achievements",
+      description: `${data.achievements.length} achievements`,
+      icon: "🏆",
+    },
+    {
+      id: "languages" as SectionName,
+      label: "Languages",
+      description: `${data.languages.length} languages`,
+      icon: "🌐",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-100">
+    <main className="min-h-screen bg-[#f1f5f9] text-slate-900">
       {/* =====================================================
-          HEADER
+          TOP NAVIGATION
       ====================================================== */}
 
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 md:px-6">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">
-              Portfolio Editor
-            </h1>
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] max-w-[1900px] items-center justify-between gap-4 px-4 sm:px-6">
+          {/* BRAND */}
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-lg font-black text-white shadow-md shadow-blue-200 transition hover:-translate-y-0.5"
+            >
+              H
+            </button>
 
-            <p className="text-xs text-slate-500">
-              {published
-                ? "Your portfolio is public"
-                : "Your portfolio is private"}
-            </p>
+            <div className="hidden min-w-0 sm:block">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-sm font-black text-slate-950">
+                  Portfolio Studio
+                </h1>
+
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-blue-600">
+                  AI
+                </span>
+              </div>
+
+              <p className="max-w-[240px] truncate text-[11px] text-slate-400">
+                {portfolio.title || "Untitled Portfolio"}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* STATUS */}
+          <div className="hidden items-center gap-2 md:flex">
+            <span
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                published
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-slate-200 bg-slate-50 text-slate-500"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  published
+                    ? "bg-emerald-500"
+                    : "bg-slate-400"
+                }`}
+              />
+
+              {published ? "Published" : "Private"}
+            </span>
+
+            {isSaving ? (
+              <span className="text-xs font-medium text-blue-600">
+                Saving...
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-slate-400">
+                Changes are local until saved
+              </span>
+            )}
+          </div>
+
+          {/* ACTIONS */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 sm:block"
+            >
+              ← Dashboard
+            </button>
+
             <button
               type="button"
               onClick={savePortfolio}
@@ -585,11 +693,9 @@ export default function PortfolioEditor({
                 isSaving ||
                 isPublishing
               }
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
-              {isSaving
-                ? "Saving..."
-                : "Save"}
+              {isSaving ? "Saving..." : "Save"}
             </button>
 
             {published ? (
@@ -599,19 +705,22 @@ export default function PortfolioEditor({
                     href={`/p/${slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                    className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 sm:px-4"
                   >
-                    View Live
+                    <span className="hidden sm:inline">
+                      View Live
+                    </span>
+                    <span className="sm:hidden">
+                      Live
+                    </span>
                   </a>
                 )}
 
                 <button
                   type="button"
-                  onClick={
-                    unpublishPortfolio
-                  }
+                  onClick={unpublishPortfolio}
                   disabled={isPublishing}
-                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="hidden rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 lg:block"
                 >
                   {isPublishing
                     ? "Unpublishing..."
@@ -621,976 +730,1082 @@ export default function PortfolioEditor({
             ) : (
               <button
                 type="button"
-                onClick={
-                  publishPortfolio
-                }
+                onClick={publishPortfolio}
                 disabled={isPublishing}
-                className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-2 text-xs font-black text-white shadow-sm shadow-emerald-200 transition hover:-translate-y-0.5 hover:from-emerald-700 hover:to-green-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
               >
                 {isPublishing
                   ? "Publishing..."
-                  : "🚀 Publish Portfolio"}
+                  : "Publish"}
               </button>
             )}
           </div>
         </div>
 
+        {/* MESSAGE */}
         {message && (
-          <div className="border-t bg-slate-50 px-4 py-2 text-center text-sm text-slate-700">
+          <div
+            className={`border-t px-4 py-2 text-center text-xs font-semibold ${
+              message.toLowerCase().includes("failed") ||
+              message.toLowerCase().includes("error")
+                ? "border-red-100 bg-red-50 text-red-700"
+                : "border-blue-100 bg-blue-50 text-blue-700"
+            }`}
+          >
             {message}
           </div>
         )}
       </header>
 
       {/* =====================================================
-          MAIN
+          MAIN WORKSPACE
       ====================================================== */}
 
-      <div className="mx-auto grid max-w-[1800px] grid-cols-1 gap-6 p-4 md:p-6 xl:grid-cols-[440px_1fr]">
-        {/* ===================================================
-            EDITOR
-        ==================================================== */}
+      <div className="mx-auto max-w-[1900px] p-3 sm:p-5">
+        <div className="grid gap-4 xl:grid-cols-[390px_minmax(0,1fr)]">
+          {/* =================================================
+              LEFT EDITOR
+          ================================================== */}
 
-        <aside className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-          <div className="border-b px-5 py-4">
-            <h2 className="font-bold text-slate-900">
-              Edit Portfolio
-            </h2>
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm xl:h-[calc(100vh-110px)]">
+            {/* EDITOR HEADER */}
+            <div className="border-b border-slate-100 bg-white px-5 py-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">
+                    Portfolio Content
+                  </p>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Open a section to edit, add or remove content.
-            </p>
-          </div>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                    Edit your portfolio
+                  </h2>
 
-          <div className="divide-y">
-            {/* =================================================
-                PERSONAL
-            ================================================== */}
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Select a section to edit your information.
+                  </p>
+                </div>
 
-            <Accordion
-              title="Personal Information"
-              icon="👤"
-              open={
-                openSection ===
-                "personal"
-              }
-              onClick={() =>
-                toggleSection(
-                  "personal"
-                )
-              }
-            >
-              <Field
-                label="Name"
-                value={
-                  data.personal.name
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "name",
-                    value
-                  )
-                }
-              />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">
+                  ✦
+                </div>
+              </div>
+            </div>
 
-              <Field
-                label="Headline"
-                value={
-                  data.personal.headline
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "headline",
-                    value
-                  )
-                }
-              />
+            {/* SECTION NAV */}
+            <div className="border-b border-slate-100 bg-slate-50/70 p-3">
+              <div className="grid grid-cols-3 gap-2">
+                <MiniStat
+                  value={String(data.skills.length)}
+                  label="Skills"
+                />
 
-              <Field
-                label="Email"
-                value={
-                  data.personal.email
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "email",
-                    value
-                  )
-                }
-              />
+                <MiniStat
+                  value={String(data.projects.length)}
+                  label="Projects"
+                />
 
-              <Field
-                label="Phone"
-                value={
-                  data.personal.phone
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "phone",
-                    value
-                  )
-                }
-              />
+                <MiniStat
+                  value={String(data.experience.length)}
+                  label="Experience"
+                />
+              </div>
+            </div>
 
-              <Field
-                label="Location"
-                value={
-                  data.personal.location
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "location",
-                    value
-                  )
-                }
-              />
-
-              <Field
-                label="Website"
-                value={
-                  data.personal.website
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "website",
-                    value
-                  )
-                }
-              />
-
-              <Field
-                label="LinkedIn"
-                value={
-                  data.personal.linkedin
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "linkedin",
-                    value
-                  )
-                }
-              />
-
-              <Field
-                label="GitHub"
-                value={
-                  data.personal.github
-                }
-                onChange={(value) =>
-                  updatePersonal(
-                    "github",
-                    value
-                  )
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                SUMMARY
-            ================================================== */}
-
-            <Accordion
-              title="Professional Summary"
-              icon="📝"
-              open={
-                openSection ===
-                "summary"
-              }
-              onClick={() =>
-                toggleSection(
-                  "summary"
-                )
-              }
-            >
-              <Textarea
-                label="Summary"
-                value={
-                  data.summary
-                }
-                rows={8}
-                onChange={(value) =>
-                  setData(
-                    (current) => ({
-                      ...current,
-                      summary: value,
-                    })
-                  )
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                SKILLS
-            ================================================== */}
-
-            <Accordion
-              title={`Skills (${data.skills.length})`}
-              icon="🛠️"
-              open={
-                openSection ===
-                "skills"
-              }
-              onClick={() =>
-                toggleSection(
-                  "skills"
-                )
-              }
-            >
-              {data.skills.length ===
-                0 && (
-                <EmptyState text="No skills added yet." />
-              )}
-
-              {data.skills.map(
-                (skill, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-2"
+            {/* ACCORDIONS */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {sectionItems.map((section) => (
+                <div
+                  key={section.id}
+                  className="border-b border-slate-100 last:border-b-0"
+                >
+                  <Accordion
+                    title={section.label}
+                    icon={section.icon}
+                    description={section.description}
+                    open={
+                      openSection === section.id
+                    }
+                    onClick={() =>
+                      toggleSection(
+                        section.id,
+                      )
+                    }
                   >
-                    <input
-                      value={skill}
-                      onChange={(event) =>
-                        updateSkill(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                      placeholder="Enter skill"
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                    />
-
-                    <DeleteButton
-                      onClick={() =>
-                        deleteSkill(
-                          index
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
-
-              <AddButton
-                label="Add Skill"
-                onClick={
-                  addSkill
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                EXPERIENCE
-            ================================================== */}
-
-            <Accordion
-              title={`Experience (${data.experience.length})`}
-              icon="💼"
-              open={
-                openSection ===
-                "experience"
-              }
-              onClick={() =>
-                toggleSection(
-                  "experience"
-                )
-              }
-            >
-              {data.experience.length ===
-                0 && (
-                <EmptyState text="No experience added yet." />
-              )}
-
-              {data.experience.map(
-                (item, index) => (
-                  <div
-                    key={index}
-                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-800">
-                        Experience{" "}
-                        {index + 1}
-                      </p>
-
-                      <DeleteButton
-                        onClick={() =>
-                          deleteExperience(
-                            index
-                          )
-                        }
-                      />
-                    </div>
-
-                    <Field
-                      label="Company"
-                      value={
-                        item.company
-                      }
-                      onChange={(value) =>
-                        updateExperience(
-                          index,
-                          "company",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Role"
-                      value={
-                        item.role
-                      }
-                      onChange={(value) =>
-                        updateExperience(
-                          index,
-                          "role",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Location"
-                      value={
-                        item.location
-                      }
-                      onChange={(value) =>
-                        updateExperience(
-                          index,
-                          "location",
-                          value
-                        )
-                      }
-                    />
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field
-                        label="Start Date"
-                        value={
-                          item.startDate
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          updateExperience(
-                            index,
-                            "startDate",
-                            value
-                          )
-                        }
-                      />
-
-                      <Field
-                        label="End Date"
-                        value={
-                          item.endDate
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          updateExperience(
-                            index,
-                            "endDate",
-                            value
-                          )
-                        }
-                      />
-                    </div>
-
-                    <Textarea
-                      label="Description"
-                      value={
-                        item.description
-                      }
-                      rows={6}
-                      onChange={(value) =>
-                        updateExperience(
-                          index,
-                          "description",
-                          value
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
-
-              <AddButton
-                label="Add Experience"
-                onClick={
-                  addExperience
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                PROJECTS
-            ================================================== */}
-
-            <Accordion
-              title={`Projects (${data.projects.length})`}
-              icon="🚀"
-              open={
-                openSection ===
-                "projects"
-              }
-              onClick={() =>
-                toggleSection(
-                  "projects"
-                )
-              }
-            >
-              {data.projects.length ===
-                0 && (
-                <EmptyState text="No projects added yet." />
-              )}
-
-              {data.projects.map(
-                (item, index) => (
-                  <div
-                    key={index}
-                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-800">
-                        Project{" "}
-                        {index + 1}
-                      </p>
-
-                      <DeleteButton
-                        onClick={() =>
-                          deleteProject(
-                            index
-                          )
-                        }
-                      />
-                    </div>
-
-                    <Field
-                      label="Project Name"
-                      value={
-                        item.name
-                      }
-                      onChange={(value) =>
-                        updateProject(
-                          index,
-                          "name",
-                          value
-                        )
-                      }
-                    />
-
-                    <Textarea
-                      label="Description"
-                      value={
-                        item.description
-                      }
-                      rows={6}
-                      onChange={(value) =>
-                        updateProject(
-                          index,
-                          "description",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Technologies"
-                      value={item.technologies.join(
-                        ", "
-                      )}
-                      placeholder="React, Node.js, MySQL"
-                      onChange={(value) =>
-                        updateProject(
-                          index,
-                          "technologies",
-                          value
-                            .split(",")
-                            .map(
-                              (
-                                tech
-                              ) =>
-                                tech.trim()
+                    {/* PERSONAL */}
+                    {section.id ===
+                      "personal" && (
+                      <div className="space-y-4">
+                        <Field
+                          label="Name"
+                          value={
+                            data.personal.name
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "name",
+                              value,
                             )
-                            .filter(
-                              Boolean
+                          }
+                        />
+
+                        <Field
+                          label="Headline"
+                          value={
+                            data.personal
+                              .headline
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "headline",
+                              value,
                             )
-                        )
-                      }
-                    />
+                          }
+                        />
 
-                    <Field
-                      label="Project URL"
-                      value={
-                        item.url
-                      }
-                      onChange={(value) =>
-                        updateProject(
-                          index,
-                          "url",
-                          value
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
+                        <Field
+                          label="Email"
+                          value={
+                            data.personal.email
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "email",
+                              value,
+                            )
+                          }
+                        />
 
-              <AddButton
-                label="Add Project"
-                onClick={
-                  addProject
-                }
-              />
-            </Accordion>
+                        <Field
+                          label="Phone"
+                          value={
+                            data.personal.phone
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "phone",
+                              value,
+                            )
+                          }
+                        />
 
-            {/* =================================================
-                EDUCATION
-            ================================================== */}
+                        <Field
+                          label="Location"
+                          value={
+                            data.personal
+                              .location
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "location",
+                              value,
+                            )
+                          }
+                        />
 
-            <Accordion
-              title={`Education (${data.education.length})`}
-              icon="🎓"
-              open={
-                openSection ===
-                "education"
-              }
-              onClick={() =>
-                toggleSection(
-                  "education"
-                )
-              }
-            >
-              {data.education.length ===
-                0 && (
-                <EmptyState text="No education added yet." />
-              )}
+                        <Field
+                          label="Website"
+                          value={
+                            data.personal
+                              .website
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "website",
+                              value,
+                            )
+                          }
+                        />
 
-              {data.education.map(
-                (item, index) => (
-                  <div
-                    key={index}
-                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-800">
-                        Education{" "}
-                        {index + 1}
-                      </p>
+                        <Field
+                          label="LinkedIn"
+                          value={
+                            data.personal
+                              .linkedin
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "linkedin",
+                              value,
+                            )
+                          }
+                        />
 
-                      <DeleteButton
-                        onClick={() =>
-                          deleteEducation(
-                            index
+                        <Field
+                          label="GitHub"
+                          value={
+                            data.personal
+                              .github
+                          }
+                          onChange={(value) =>
+                            updatePersonal(
+                              "github",
+                              value,
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* SUMMARY */}
+                    {section.id ===
+                      "summary" && (
+                      <Textarea
+                        label="Professional Summary"
+                        value={data.summary}
+                        rows={9}
+                        onChange={(value) =>
+                          setData(
+                            (current) => ({
+                              ...current,
+                              summary: value,
+                            }),
                           )
                         }
                       />
-                    </div>
+                    )}
 
-                    <Field
-                      label="Institution"
-                      value={
-                        item.institution
-                      }
-                      onChange={(value) =>
-                        updateEducation(
-                          index,
-                          "institution",
-                          value
-                        )
-                      }
-                    />
+                    {/* SKILLS */}
+                    {section.id ===
+                      "skills" && (
+                      <div className="space-y-3">
+                        {data.skills.length ===
+                          0 && (
+                          <EmptyState text="No skills added yet." />
+                        )}
 
-                    <Field
-                      label="Degree"
-                      value={
-                        item.degree
-                      }
-                      onChange={(value) =>
-                        updateEducation(
-                          index,
-                          "degree",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Field"
-                      value={
-                        item.field
-                      }
-                      onChange={(value) =>
-                        updateEducation(
-                          index,
-                          "field",
-                          value
-                        )
-                      }
-                    />
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field
-                        label="Start Date"
-                        value={
-                          item.startDate
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          updateEducation(
+                        {data.skills.map(
+                          (
+                            skill,
                             index,
-                            "startDate",
-                            value
-                          )
-                        }
-                      />
+                          ) => (
+                            <div
+                              key={index}
+                              className="flex gap-2"
+                            >
+                              <input
+                                value={skill}
+                                onChange={(
+                                  event,
+                                ) =>
+                                  updateSkill(
+                                    index,
+                                    event
+                                      .target
+                                      .value,
+                                  )
+                                }
+                                placeholder="e.g. React.js"
+                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                              />
 
-                      <Field
-                        label="End Date"
-                        value={
-                          item.endDate
-                        }
-                        onChange={(
-                          value
-                        ) =>
-                          updateEducation(
+                              <DeleteButton
+                                onClick={() =>
+                                  deleteSkill(
+                                    index,
+                                  )
+                                }
+                              />
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Skill"
+                          onClick={
+                            addSkill
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* EXPERIENCE */}
+                    {section.id ===
+                      "experience" && (
+                      <div className="space-y-4">
+                        {data.experience
+                          .length === 0 && (
+                          <EmptyState text="No experience added yet." />
+                        )}
+
+                        {data.experience.map(
+                          (
+                            item,
                             index,
-                            "endDate",
-                            value
-                          )
-                        }
-                      />
-                    </div>
+                          ) => (
+                            <div
+                              key={index}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+                                    Experience{" "}
+                                    {index +
+                                      1}
+                                  </p>
 
-                    <Textarea
-                      label="Description"
-                      value={
-                        item.description
-                      }
-                      rows={5}
-                      onChange={(value) =>
-                        updateEducation(
-                          index,
-                          "description",
-                          value
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {item.role ||
+                                      "New experience"}
+                                  </p>
+                                </div>
 
-              <AddButton
-                label="Add Education"
-                onClick={
-                  addEducation
+                                <DeleteButton
+                                  onClick={() =>
+                                    deleteExperience(
+                                      index,
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-4">
+                                <Field
+                                  label="Company"
+                                  value={
+                                    item.company
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateExperience(
+                                      index,
+                                      "company",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Role"
+                                  value={
+                                    item.role
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateExperience(
+                                      index,
+                                      "role",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Location"
+                                  value={
+                                    item.location
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateExperience(
+                                      index,
+                                      "location",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Field
+                                    label="Start Date"
+                                    value={
+                                      item.startDate
+                                    }
+                                    onChange={(
+                                      value,
+                                    ) =>
+                                      updateExperience(
+                                        index,
+                                        "startDate",
+                                        value,
+                                      )
+                                    }
+                                  />
+
+                                  <Field
+                                    label="End Date"
+                                    value={
+                                      item.endDate
+                                    }
+                                    onChange={(
+                                      value,
+                                    ) =>
+                                      updateExperience(
+                                        index,
+                                        "endDate",
+                                        value,
+                                      )
+                                    }
+                                  />
+                                </div>
+
+                                <Textarea
+                                  label="Description"
+                                  value={
+                                    item.description
+                                  }
+                                  rows={6}
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateExperience(
+                                      index,
+                                      "description",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Experience"
+                          onClick={
+                            addExperience
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* PROJECTS */}
+                    {section.id ===
+                      "projects" && (
+                      <div className="space-y-4">
+                        {data.projects
+                          .length === 0 && (
+                          <EmptyState text="No projects added yet." />
+                        )}
+
+                        {data.projects.map(
+                          (
+                            item,
+                            index,
+                          ) => (
+                            <div
+                              key={index}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+                                    Project{" "}
+                                    {index +
+                                      1}
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {item.name ||
+                                      "New project"}
+                                  </p>
+                                </div>
+
+                                <DeleteButton
+                                  onClick={() =>
+                                    deleteProject(
+                                      index,
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-4">
+                                <Field
+                                  label="Project Name"
+                                  value={
+                                    item.name
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateProject(
+                                      index,
+                                      "name",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Textarea
+                                  label="Description"
+                                  value={
+                                    item.description
+                                  }
+                                  rows={6}
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateProject(
+                                      index,
+                                      "description",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Technologies"
+                                  value={item.technologies.join(
+                                    ", ",
+                                  )}
+                                  placeholder="React, Node.js, PostgreSQL"
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateProject(
+                                      index,
+                                      "technologies",
+                                      value
+                                        .split(
+                                          ",",
+                                        )
+                                        .map(
+                                          (
+                                            tech,
+                                          ) =>
+                                            tech.trim(),
+                                        )
+                                        .filter(
+                                          Boolean,
+                                        ),
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Project URL"
+                                  value={
+                                    item.url
+                                  }
+                                  placeholder="https://..."
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateProject(
+                                      index,
+                                      "url",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Project"
+                          onClick={
+                            addProject
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* EDUCATION */}
+                    {section.id ===
+                      "education" && (
+                      <div className="space-y-4">
+                        {data.education
+                          .length === 0 && (
+                          <EmptyState text="No education added yet." />
+                        )}
+
+                        {data.education.map(
+                          (
+                            item,
+                            index,
+                          ) => (
+                            <div
+                              key={index}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+                                    Education{" "}
+                                    {index +
+                                      1}
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {item.institution ||
+                                      "New education"}
+                                  </p>
+                                </div>
+
+                                <DeleteButton
+                                  onClick={() =>
+                                    deleteEducation(
+                                      index,
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-4">
+                                <Field
+                                  label="Institution"
+                                  value={
+                                    item.institution
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateEducation(
+                                      index,
+                                      "institution",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Degree"
+                                  value={
+                                    item.degree
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateEducation(
+                                      index,
+                                      "degree",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Field"
+                                  value={
+                                    item.field
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateEducation(
+                                      index,
+                                      "field",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Field
+                                    label="Start Date"
+                                    value={
+                                      item.startDate
+                                    }
+                                    onChange={(
+                                      value,
+                                    ) =>
+                                      updateEducation(
+                                        index,
+                                        "startDate",
+                                        value,
+                                      )
+                                    }
+                                  />
+
+                                  <Field
+                                    label="End Date"
+                                    value={
+                                      item.endDate
+                                    }
+                                    onChange={(
+                                      value,
+                                    ) =>
+                                      updateEducation(
+                                        index,
+                                        "endDate",
+                                        value,
+                                      )
+                                    }
+                                  />
+                                </div>
+
+                                <Textarea
+                                  label="Description"
+                                  value={
+                                    item.description
+                                  }
+                                  rows={5}
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateEducation(
+                                      index,
+                                      "description",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Education"
+                          onClick={
+                            addEducation
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* CERTIFICATIONS */}
+                    {section.id ===
+                      "certifications" && (
+                      <div className="space-y-4">
+                        {data.certifications
+                          .length === 0 && (
+                          <EmptyState text="No certifications added yet." />
+                        )}
+
+                        {data.certifications.map(
+                          (
+                            item,
+                            index,
+                          ) => (
+                            <div
+                              key={index}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <div className="mb-4 flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+                                    Certification{" "}
+                                    {index +
+                                      1}
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-slate-800">
+                                    {item.name ||
+                                      "New certification"}
+                                  </p>
+                                </div>
+
+                                <DeleteButton
+                                  onClick={() =>
+                                    deleteCertification(
+                                      index,
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-4">
+                                <Field
+                                  label="Certification Name"
+                                  value={
+                                    item.name
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateCertification(
+                                      index,
+                                      "name",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Issuer"
+                                  value={
+                                    item.issuer
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateCertification(
+                                      index,
+                                      "issuer",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="Date"
+                                  value={
+                                    item.date
+                                  }
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateCertification(
+                                      index,
+                                      "date",
+                                      value,
+                                    )
+                                  }
+                                />
+
+                                <Field
+                                  label="URL"
+                                  value={
+                                    item.url
+                                  }
+                                  placeholder="https://..."
+                                  onChange={(
+                                    value,
+                                  ) =>
+                                    updateCertification(
+                                      index,
+                                      "url",
+                                      value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Certification"
+                          onClick={
+                            addCertification
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* ACHIEVEMENTS */}
+                    {section.id ===
+                      "achievements" && (
+                      <div className="space-y-3">
+                        {data.achievements
+                          .length === 0 && (
+                          <EmptyState text="No achievements added yet." />
+                        )}
+
+                        {data.achievements.map(
+                          (
+                            achievement,
+                            index,
+                          ) => (
+                            <div
+                              key={index}
+                              className="flex gap-2"
+                            >
+                              <textarea
+                                value={
+                                  achievement
+                                }
+                                rows={3}
+                                placeholder="Enter achievement"
+                                onChange={(
+                                  event,
+                                ) =>
+                                  updateAchievement(
+                                    index,
+                                    event
+                                      .target
+                                      .value,
+                                  )
+                                }
+                                className="min-w-0 flex-1 resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                              />
+
+                              <DeleteButton
+                                onClick={() =>
+                                  deleteAchievement(
+                                    index,
+                                  )
+                                }
+                              />
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Achievement"
+                          onClick={
+                            addAchievement
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* LANGUAGES */}
+                    {section.id ===
+                      "languages" && (
+                      <div className="space-y-3">
+                        {data.languages
+                          .length === 0 && (
+                          <EmptyState text="No languages added yet." />
+                        )}
+
+                        {data.languages.map(
+                          (
+                            language,
+                            index,
+                          ) => (
+                            <div
+                              key={index}
+                              className="flex gap-2"
+                            >
+                              <input
+                                value={
+                                  language
+                                }
+                                onChange={(
+                                  event,
+                                ) =>
+                                  updateLanguage(
+                                    index,
+                                    event
+                                      .target
+                                      .value,
+                                  )
+                                }
+                                placeholder="e.g. English"
+                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                              />
+
+                              <DeleteButton
+                                onClick={() =>
+                                  deleteLanguage(
+                                    index,
+                                  )
+                                }
+                              />
+                            </div>
+                          ),
+                        )}
+
+                        <AddButton
+                          label="Add Language"
+                          onClick={
+                            addLanguage
+                          }
+                        />
+                      </div>
+                    )}
+                  </Accordion>
+                </div>
+              ))}
+            </div>
+
+            {/* BOTTOM SAVE */}
+            <div className="border-t border-slate-100 bg-white p-4">
+              <button
+                type="button"
+                onClick={savePortfolio}
+                disabled={
+                  isSaving ||
+                  isPublishing
                 }
-              />
-            </Accordion>
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <span>✓</span>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </aside>
 
-            {/* =================================================
-                CERTIFICATIONS
-            ================================================== */}
+          {/* =================================================
+              RIGHT PREVIEW
+          ================================================== */}
 
-            <Accordion
-              title={`Certifications (${data.certifications.length})`}
-              icon="📜"
-              open={
-                openSection ===
-                "certifications"
-              }
-              onClick={() =>
-                toggleSection(
-                  "certifications"
-                )
-              }
-            >
-              {data.certifications.length ===
-                0 && (
-                <EmptyState text="No certifications added yet." />
-              )}
+          <section className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm xl:h-[calc(100vh-110px)]">
+            {/* PREVIEW TOOLBAR */}
+            <div className="flex min-h-[70px] items-center justify-between gap-4 border-b border-slate-100 bg-white px-4 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  ◉
+                </div>
 
-              {data.certifications.map(
-                (item, index) => (
-                  <div
-                    key={index}
-                    className="space-y-4 rounded-xl border bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-800">
-                        Certification{" "}
-                        {index + 1}
-                      </p>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-black text-slate-900">
+                    Live Preview
+                  </h2>
 
-                      <DeleteButton
-                        onClick={() =>
-                          deleteCertification(
-                            index
-                          )
-                        }
-                      />
-                    </div>
-
-                    <Field
-                      label="Certification Name"
-                      value={
-                        item.name
-                      }
-                      onChange={(value) =>
-                        updateCertification(
-                          index,
-                          "name",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Issuer"
-                      value={
-                        item.issuer
-                      }
-                      onChange={(value) =>
-                        updateCertification(
-                          index,
-                          "issuer",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="Date"
-                      value={
-                        item.date
-                      }
-                      onChange={(value) =>
-                        updateCertification(
-                          index,
-                          "date",
-                          value
-                        )
-                      }
-                    />
-
-                    <Field
-                      label="URL"
-                      value={
-                        item.url
-                      }
-                      onChange={(value) =>
-                        updateCertification(
-                          index,
-                          "url",
-                          value
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
-
-              <AddButton
-                label="Add Certification"
-                onClick={
-                  addCertification
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                ACHIEVEMENTS
-            ================================================== */}
-
-            <Accordion
-              title={`Achievements (${data.achievements.length})`}
-              icon="🏆"
-              open={
-                openSection ===
-                "achievements"
-              }
-              onClick={() =>
-                toggleSection(
-                  "achievements"
-                )
-              }
-            >
-              {data.achievements.length ===
-                0 && (
-                <EmptyState text="No achievements added yet." />
-              )}
-
-              {data.achievements.map(
-                (achievement, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-2"
-                  >
-                    <textarea
-                      value={
-                        achievement
-                      }
-                      rows={3}
-                      placeholder="Enter achievement"
-                      onChange={(
-                        event
-                      ) =>
-                        updateAchievement(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                      className="min-w-0 flex-1 resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                    />
-
-                    <DeleteButton
-                      onClick={() =>
-                        deleteAchievement(
-                          index
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
-
-              <AddButton
-                label="Add Achievement"
-                onClick={
-                  addAchievement
-                }
-              />
-            </Accordion>
-
-            {/* =================================================
-                LANGUAGES
-            ================================================== */}
-
-            <Accordion
-              title={`Languages (${data.languages.length})`}
-              icon="🌐"
-              open={
-                openSection ===
-                "languages"
-              }
-              onClick={() =>
-                toggleSection(
-                  "languages"
-                )
-              }
-            >
-              {data.languages.length ===
-                0 && (
-                <EmptyState text="No languages added yet." />
-              )}
-
-              {data.languages.map(
-                (language, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-2"
-                  >
-                    <input
-                      value={language}
-                      onChange={(event) =>
-                        updateLanguage(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                      placeholder="Enter language"
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-                    />
-
-                    <DeleteButton
-                      onClick={() =>
-                        deleteLanguage(
-                          index
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
-
-              <AddButton
-                label="Add Language"
-                onClick={
-                  addLanguage
-                }
-              />
-            </Accordion>
-          </div>
-
-          {/* SAVE */}
-          <div className="border-t p-5">
-            <button
-              type="button"
-              onClick={savePortfolio}
-              disabled={
-                isSaving ||
-                isPublishing
-              }
-              className="w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSaving
-                ? "Saving..."
-                : "Save Changes"}
-            </button>
-          </div>
-        </aside>
-
-        {/* ===================================================
-            LIVE PREVIEW
-        ==================================================== */}
-
-        <section className="min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm">
-          <div className="border-b bg-slate-50 px-5 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-semibold text-slate-900">
-                  Live Preview
-                </h2>
-
-                <p className="text-xs text-slate-500">
-                  Changes appear here immediately.
-                </p>
+                  <p className="truncate text-[11px] text-slate-400">
+                    Changes appear instantly
+                  </p>
+                </div>
               </div>
 
-              {published &&
-                slug && (
-                  <a
-                    href={`/p/${slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-green-600 hover:underline"
-                  >
-                    Open public page →
-                  </a>
-                )}
-            </div>
-          </div>
+              <div className="flex items-center gap-2">
+                <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold text-slate-500 sm:block">
+                  Desktop Preview
+                </span>
 
-          <div className="min-h-[700px] overflow-auto">
-            <PortfolioRenderer
-              data={data}
-              design={
-                portfolio.design_config
-              }
-              profileImageUrl={
-                portfolio.profile_image_url
-              }
-              resumeUrl={
-                portfolio.resume_url
-              }
-            />
-          </div>
-        </section>
+                {published &&
+                  slug && (
+                    <a
+                      href={`/p/${slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      Open Public Page →
+                    </a>
+                  )}
+              </div>
+            </div>
+
+            {/* PREVIEW AREA */}
+            <div className="h-[calc(100%-70px)] overflow-auto bg-slate-100 p-3 sm:p-5">
+              <div className="mx-auto min-h-full max-w-[1400px] overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200">
+                <PortfolioRenderer
+                  data={data}
+                  design={portfolio.design_config}
+                  profileImageUrl={
+                    portfolio.profile_image_url
+                  }
+                  resumeUrl={
+                    portfolio.resume_url
+                  }
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+/* ============================================================
+   MINI STAT
+============================================================ */
+
+function MiniStat({
+  value,
+  label,
+}: {
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center">
+      <div className="text-sm font-black text-slate-900">
+        {value}
+      </div>
+
+      <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
       </div>
     </div>
   );
@@ -1603,12 +1818,14 @@ export default function PortfolioEditor({
 function Accordion({
   title,
   icon,
+  description,
   open,
   onClick,
   children,
 }: {
   title: string;
   icon: string;
+  description: string;
   open: boolean;
   onClick: () => void;
   children: ReactNode;
@@ -1618,31 +1835,53 @@ function Accordion({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-slate-50"
+        className={`flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition ${
+          open
+            ? "bg-blue-50/60"
+            : "hover:bg-slate-50"
+        }`}
       >
-        <span className="flex items-center gap-3">
-          <span className="text-lg">
+        <span className="flex min-w-0 items-center gap-3">
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base transition ${
+              open
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
             {icon}
           </span>
 
-          <span className="text-sm font-semibold text-slate-800">
-            {title}
+          <span className="min-w-0">
+            <span
+              className={`block truncate text-sm font-black ${
+                open
+                  ? "text-blue-800"
+                  : "text-slate-800"
+              }`}
+            >
+              {title}
+            </span>
+
+            <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+              {description}
+            </span>
           </span>
         </span>
 
         <span
-          className={`text-sm text-slate-400 transition-transform ${
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs text-slate-400 transition ${
             open
-              ? "rotate-180"
-              : ""
+              ? "rotate-180 bg-white text-blue-600"
+              : "bg-slate-100"
           }`}
         >
-          ▼
+          ↓
         </span>
       </button>
 
       {open && (
-        <div className="space-y-4 border-t bg-white px-5 py-5">
+        <div className="border-t border-blue-100 bg-white px-4 py-5">
           {children}
         </div>
       )}
@@ -1667,7 +1906,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+      <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-slate-500">
         {label}
       </label>
 
@@ -1675,11 +1914,9 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) =>
-          onChange(
-            event.target.value
-          )
+          onChange(event.target.value)
         }
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
       />
     </div>
   );
@@ -1704,7 +1941,7 @@ function Textarea({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+      <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-slate-500">
         {label}
       </label>
 
@@ -1713,11 +1950,9 @@ function Textarea({
         rows={rows}
         placeholder={placeholder}
         onChange={(event) =>
-          onChange(
-            event.target.value
-          )
+          onChange(event.target.value)
         }
-        className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
+        className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
       />
     </div>
   );
@@ -1738,9 +1973,9 @@ function AddButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-green-400 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+      className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700 transition hover:border-blue-400 hover:bg-blue-100"
     >
-      <span className="text-lg">
+      <span className="text-lg leading-none">
         +
       </span>
 
@@ -1763,9 +1998,10 @@ function DeleteButton({
       type="button"
       onClick={onClick}
       title="Delete"
-      className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+      aria-label="Delete"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-white text-sm text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
     >
-      🗑️
+      🗑
     </button>
   );
 }
@@ -1780,8 +2016,18 @@ function EmptyState({
   text: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed bg-slate-50 p-5 text-center text-sm text-slate-500">
-      {text}
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm">
+        +
+      </div>
+
+      <p className="mt-3 text-xs font-semibold text-slate-500">
+        {text}
+      </p>
+
+      <p className="mt-1 text-[10px] text-slate-400">
+        Use the button below to add one.
+      </p>
     </div>
   );
 }
