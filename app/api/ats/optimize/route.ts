@@ -9,18 +9,21 @@ import {
 
 import {
   optimizeResumeForATS,
+  type ResumePageCount,
 } from "@/lib/ai/ats-resume-optimizer";
 
 import {
-  generateResumeDesign,
-} from "@/lib/ai/resume-design-generator";
+  generateATSResult,
+} from "@/lib/ai/ats-analyzer";
 
 import {
   ATSResultSchema,
+  type ATSResult,
 } from "@/lib/ai/ats-schema";
 
 import {
   ResumeSchema,
+  type ResumeData,
 } from "@/lib/ai/resume-schema";
 
 import {
@@ -32,13 +35,13 @@ export const runtime = "nodejs";
 const MAX_FILE_SIZE =
   5 * 1024 * 1024;
 
-/**
- * ATS-safe fallback design.
- *
- * This is only used when the AI design generator
- * fails or returns invalid data.
- */
-const ATS_SAFE_FALLBACK_DESIGN = {
+const MAX_OPTIMIZATION_ATTEMPTS = 3;
+
+/* ============================================================
+   ATS-SAFE DESIGN
+============================================================ */
+
+const ATS_SAFE_DESIGN = {
   layout: "single-column",
 
   density: "balanced",
@@ -110,227 +113,17 @@ const ATS_SAFE_FALLBACK_DESIGN = {
   },
 };
 
-/**
- * Generate an ATS-safe design.
- */
-async function generateATSSafeDesign() {
-  const designPrompt = `
-Create an ATS-safe professional resume design.
-
-This design is for a real job application.
-
-The resume MUST be:
-
-- single column
-- ATS friendly
-- machine readable
-- recruiter friendly
-- professional
-- elegant
-- modern but restrained
-- easy to scan
-- easy to print
-- white background
-- dark readable text
-- strong contrast
-- standard typography
-- no unnecessary decoration
-
-IMPORTANT:
-
-Return ONLY valid JSON.
-
-The output MUST EXACTLY follow the
-ResumeDesignSchema structure.
-
-DO NOT omit fields.
-
-DO NOT add fields.
-
-DO NOT use null.
-
-DO NOT use undefined.
-
-Use ONLY valid enum values.
-
-Use this structure:
-
-{
-  "layout": "single-column",
-
-  "density": "balanced",
-
-  "style": "ats",
-
-  "colors": {
-    "primary": "#1E3A8A",
-    "secondary": "#2563EB",
-    "text": "#0F172A",
-    "mutedText": "#64748B",
-    "background": "#FFFFFF",
-    "border": "#E2E8F0"
-  },
-
-  "typography": {
-    "headingFont": "Arial",
-    "bodyFont": "Arial",
-    "headingSize": "medium",
-    "bodySize": "medium"
-  },
-
-  "header": {
-    "alignment": "left",
-
-    "photo": {
-      "enabled": false,
-      "position": "right",
-      "shape": "circle",
-      "size": "small"
-    }
-  },
-
-  "sections": {
-    "order": [
-      "summary",
-      "skills",
-      "experience",
-      "projects",
-      "education",
-      "certifications",
-      "achievements",
-      "languages"
-    ],
-
-    "emphasis": [
-      "experience",
-      "skills",
-      "projects"
-    ]
-  },
-
-  "sidebar": {
-    "enabled": false,
-    "sections": []
-  },
-
-  "visual": {
-    "borderStyle": "subtle",
-    "cardStyle": "none",
-    "accentStyle": "line"
-  },
-
-  "ats": {
-    "safe": true,
-    "tablesUsed": false,
-    "graphicsUsed": false,
-    "recommendedForATS": true
-  }
-}
-
-ATS REQUIREMENTS:
-
-- sidebar.enabled MUST be false
-- header.photo.enabled MUST be false
-- visual.cardStyle MUST be none
-- layout MUST be single-column
-- ats.safe MUST be true
-- ats.tablesUsed MUST be false
-- ats.graphicsUsed MUST be false
-- ats.recommendedForATS MUST be true
-
-DO NOT use:
-
-- tables
-- charts
-- graphics
-- progress bars
-- icons
-- text boxes
-- decorative symbols
-- unusual fonts
-- dark page backgrounds
-- complicated columns
-
-Return ONLY JSON.
-`;
-
-  try {
-    const generatedDesign =
-      await generateResumeDesign(
-        designPrompt,
-      );
-
-    const validation =
-      ResumeDesignSchema.safeParse(
-        generatedDesign,
-      );
-
-    if (validation.success) {
-      return {
-        ...validation.data,
-
-        layout: "single-column",
-
-        density: "balanced",
-
-        style: "ats",
-
-        header: {
-          ...validation.data.header,
-
-          alignment: "left",
-
-          photo: {
-            ...validation.data.header.photo,
-
-            enabled: false,
-          },
-        },
-
-        sidebar: {
-          enabled: false,
-          sections: [],
-        },
-
-        visual: {
-          ...validation.data.visual,
-
-          cardStyle: "none",
-        },
-
-        ats: {
-          safe: true,
-          tablesUsed: false,
-          graphicsUsed: false,
-          recommendedForATS: true,
-        },
-      };
-    }
-
-    console.error(
-      "[ATS] AI design validation failed:",
-      validation.error.flatten(),
-    );
-  } catch (error) {
-    console.error(
-      "[ATS] AI design generation failed:",
-      error,
-    );
-  }
-
-  console.warn(
-    "[ATS] Using ATS-safe fallback design.",
-  );
-
+function getSafeDesign() {
   return ResumeDesignSchema.parse(
-    ATS_SAFE_FALLBACK_DESIGN,
+    ATS_SAFE_DESIGN,
   );
 }
 
-/**
- * Normalize extracted PDF text.
- */
-function cleanExtractedText(
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function cleanText(
   text: string,
 ): string {
   return text
@@ -342,47 +135,364 @@ function cleanExtractedText(
     .trim();
 }
 
-/**
- * Parse and validate requested resume page count.
- *
- * The page count is an AI optimization requirement.
- * It is NOT merely a PDF formatting option.
- */
 function parsePageCount(
   value: FormDataEntryValue | null,
-): 1 | 2 | 3 {
-  if (
-    typeof value !== "string"
-  ) {
+): ResumePageCount {
+  if (typeof value !== "string") {
     return 2;
   }
 
-  const parsed =
+  const number =
     Number(value);
 
-  if (parsed === 1) {
+  if (number === 1) {
     return 1;
   }
 
-  if (parsed === 3) {
+  if (number === 3) {
     return 3;
   }
 
   return 2;
 }
 
-/**
- * POST /api/ats/optimize
- */
+function resumeToText(
+  resume: ResumeData,
+): string {
+  const parts: string[] = [];
+
+  const p =
+    resume.personal;
+
+  [
+    p.name,
+    p.email,
+    p.phone,
+    p.location,
+    p.linkedin,
+    p.github,
+    p.website,
+  ].forEach((value) => {
+    if (value) {
+      parts.push(value);
+    }
+  });
+
+  if (
+    resume.professionalSummary
+  ) {
+    parts.push(
+      "PROFESSIONAL SUMMARY",
+    );
+
+    parts.push(
+      resume.professionalSummary,
+    );
+  }
+
+  if (resume.skills.length) {
+    parts.push("SKILLS");
+
+    for (const group of resume.skills) {
+      if (group.category) {
+        parts.push(
+          group.category,
+        );
+      }
+
+      if (group.items.length) {
+        parts.push(
+          group.items.join(", "),
+        );
+      }
+    }
+  }
+
+  if (resume.experience.length) {
+    parts.push("EXPERIENCE");
+
+    for (const item of resume.experience) {
+      parts.push(
+        item.role,
+        item.company,
+        item.location,
+        item.startDate,
+        item.endDate,
+      );
+
+      parts.push(
+        ...item.responsibilities,
+      );
+    }
+  }
+
+  if (resume.projects.length) {
+    parts.push("PROJECTS");
+
+    for (const item of resume.projects) {
+      parts.push(
+        item.name,
+        item.description,
+        ...item.technologies,
+        item.url,
+      );
+    }
+  }
+
+  if (resume.education.length) {
+    parts.push("EDUCATION");
+
+    for (const item of resume.education) {
+      parts.push(
+        item.institution,
+        item.degree,
+        item.field,
+        item.startDate,
+        item.endDate,
+        ...item.details,
+      );
+    }
+  }
+
+  if (
+    resume.certifications.length
+  ) {
+    parts.push(
+      "CERTIFICATIONS",
+    );
+
+    for (
+      const item of resume.certifications
+    ) {
+      parts.push(
+        item.name,
+        item.issuer,
+        item.date,
+        item.url,
+      );
+    }
+  }
+
+  if (resume.achievements.length) {
+    parts.push("ACHIEVEMENTS");
+
+    parts.push(
+      ...resume.achievements,
+    );
+  }
+
+  if (resume.languages.length) {
+    parts.push("LANGUAGES");
+
+    parts.push(
+      resume.languages.join(", "),
+    );
+  }
+
+  for (
+    const section of
+      resume.additionalSections
+  ) {
+    if (section.title) {
+      parts.push(
+        section.title,
+      );
+    }
+
+    parts.push(
+      ...section.items,
+    );
+  }
+
+  return cleanText(
+    parts
+      .filter(Boolean)
+      .join("\n"),
+  );
+}
+
+function buildRepairFeedback(
+  originalScore: number,
+  candidateScore: number,
+  candidateATS: ATSResult,
+): string {
+  const keywordFixes =
+    candidateATS.keywordMatch
+      .missingKeywords
+      .slice(0, 20);
+
+  const skillFixes =
+    candidateATS.skills
+      .missingSkills
+      .slice(0, 20);
+
+  const recommendations =
+    candidateATS.recommendations
+      .slice(0, 8)
+      .map(
+        (item) =>
+          `[${item.priority}] ${item.recommendation}`,
+      );
+
+  return `
+IMPORTANT REPAIR REQUIRED.
+
+The previous optimization was NOT accepted.
+
+Original ATS score:
+${originalScore}/100
+
+Previous optimized score:
+${candidateScore}/100
+
+The optimized version lost ATS points.
+
+You must produce a stronger candidate.
+
+Focus on the following remaining missing keywords:
+
+${
+  keywordFixes.length
+    ? keywordFixes.join(", ")
+    : "None returned"
+}
+
+Remaining missing skills:
+
+${
+  skillFixes.length
+    ? skillFixes.join(", ")
+    : "None returned"
+}
+
+Remaining recommendations:
+
+${
+  recommendations.length
+    ? recommendations.join("\n")
+    : "None returned"
+}
+
+DO NOT solve this by inventing facts.
+
+Instead:
+- restore anything that was unnecessarily removed
+- improve keyword placement
+- improve skills organization
+- strengthen factual experience wording
+- improve summary alignment
+- preserve all education
+- preserve all projects
+- preserve all certifications
+- preserve all original facts
+
+The next version must be better than the previous version.
+`;
+}
+
+/* ============================================================
+   PDF TEXT EXTRACTION
+============================================================ */
+
+async function extractResumeText(
+  file: File,
+): Promise<{
+  text: string;
+  pageCount: number;
+}> {
+  if (file.size === 0) {
+    throw new Error(
+      "The uploaded resume is empty.",
+    );
+  }
+
+  if (
+    file.size >
+    MAX_FILE_SIZE
+  ) {
+    throw new Error(
+      "Resume must be smaller than 5 MB.",
+    );
+  }
+
+  const name =
+    file.name.toLowerCase();
+
+  if (
+    file.type !==
+      "application/pdf" &&
+    !name.endsWith(".pdf")
+  ) {
+    throw new Error(
+      "Only PDF resume files are supported.",
+    );
+  }
+
+  const bytes =
+    new Uint8Array(
+      await file.arrayBuffer(),
+    );
+
+  const pdf =
+    await getDocumentProxy(
+      bytes,
+    );
+
+  if (
+    !pdf.numPages ||
+    pdf.numPages < 1
+  ) {
+    throw new Error(
+      "This PDF does not contain readable pages.",
+    );
+  }
+
+  if (pdf.numPages > 20) {
+    throw new Error(
+      "Resume PDF cannot contain more than 20 pages.",
+    );
+  }
+
+  const extracted =
+    await extractText(
+      pdf,
+      {
+        mergePages: true,
+      },
+    );
+
+  const text =
+    cleanText(
+      String(
+        extracted.text ?? "",
+      ),
+    );
+
+  if (text.length < 50) {
+    throw new Error(
+      "We could not extract enough readable text from this PDF.",
+    );
+  }
+
+  return {
+    text,
+    pageCount:
+      pdf.numPages,
+  };
+}
+
+/* ============================================================
+   POST
+============================================================ */
+
 export async function POST(
   request: Request,
 ) {
   try {
-    /**
-     * ----------------------------------------
-     * AUTHENTICATION
-     * ----------------------------------------
-     */
+    /* --------------------------------------------------------
+       AUTH
+    -------------------------------------------------------- */
+
     const supabase =
       await createClient();
 
@@ -408,20 +518,16 @@ export async function POST(
       );
     }
 
-    /**
-     * ----------------------------------------
-     * FORM DATA
-     * ----------------------------------------
-     */
+    /* --------------------------------------------------------
+       FORM DATA
+    -------------------------------------------------------- */
+
     const formData =
       await request.formData();
 
     const file =
-      formData.get("resume");
-
-    const jobDescriptionValue =
       formData.get(
-        "jobDescription",
+        "resume",
       );
 
     const atsResultValue =
@@ -429,19 +535,11 @@ export async function POST(
         "atsResult",
       );
 
-    /**
-     * ----------------------------------------
-     * TARGET PAGE COUNT
-     * ----------------------------------------
-     *
-     * This comes from the UI selection:
-     *
-     * 1 page
-     * 2 pages
-     * 3 pages
-     *
-     * It is passed into the AI optimizer below.
-     */
+    const jobDescriptionValue =
+      formData.get(
+        "jobDescription",
+      );
+
     const pageCount =
       parsePageCount(
         formData.get(
@@ -449,15 +547,6 @@ export async function POST(
         ),
       );
 
-    console.log(
-      `[ATS] Requested optimization length: ${pageCount} page(s)`,
-    );
-
-    /**
-     * ----------------------------------------
-     * FILE VALIDATION
-     * ----------------------------------------
-     */
     if (
       !(file instanceof File)
     ) {
@@ -465,7 +554,7 @@ export async function POST(
         {
           success: false,
           error:
-            "Please upload the original resume PDF.",
+            "Please upload your original resume PDF.",
         },
         {
           status: 400,
@@ -473,63 +562,10 @@ export async function POST(
       );
     }
 
-    if (
-      file.size === 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The uploaded resume is empty.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+    /* --------------------------------------------------------
+       ATS RESULT
+    -------------------------------------------------------- */
 
-    if (
-      file.size >
-      MAX_FILE_SIZE
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Resume must be smaller than 5 MB.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const fileName =
-      file.name.toLowerCase();
-
-    const isPdf =
-      file.type ===
-        "application/pdf" ||
-      fileName.endsWith(".pdf");
-
-    if (!isPdf) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Only PDF resume files are supported.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    /**
-     * ----------------------------------------
-     * ATS RESULT VALIDATION
-     * ----------------------------------------
-     */
     if (
       typeof atsResultValue !==
       "string"
@@ -538,7 +574,7 @@ export async function POST(
         {
           success: false,
           error:
-            "ATS analysis is required before optimization.",
+            "Please analyze the resume before optimizing it.",
         },
         {
           status: 400,
@@ -546,10 +582,10 @@ export async function POST(
       );
     }
 
-    let parsedATSResult: unknown;
+    let parsedATS: unknown;
 
     try {
-      parsedATSResult =
+      parsedATS =
         JSON.parse(
           atsResultValue,
         );
@@ -558,7 +594,7 @@ export async function POST(
         {
           success: false,
           error:
-            "Invalid ATS analysis data.",
+            "The ATS analysis data is invalid.",
         },
         {
           status: 400,
@@ -568,17 +604,12 @@ export async function POST(
 
     const atsValidation =
       ATSResultSchema.safeParse(
-        parsedATSResult,
+        parsedATS,
       );
 
     if (
       !atsValidation.success
     ) {
-      console.error(
-        "[ATS] ATS result validation failed:",
-        atsValidation.error.flatten(),
-      );
-
       return NextResponse.json(
         {
           success: false,
@@ -591,51 +622,41 @@ export async function POST(
       );
     }
 
-    const atsResult =
+    const originalATS =
       atsValidation.data;
 
-    /**
-     * ----------------------------------------
-     * JOB DESCRIPTION
-     * ----------------------------------------
-     */
+    const originalScore =
+      Math.round(
+        originalATS.overallScore,
+      );
+
     const jobDescription =
       typeof jobDescriptionValue ===
       "string"
-        ? jobDescriptionValue.trim()
+        ? cleanText(
+            jobDescriptionValue,
+          )
         : "";
 
-    /**
-     * ----------------------------------------
-     * READ PDF
-     * ----------------------------------------
-     */
-    const arrayBuffer =
-      await file.arrayBuffer();
+    /* --------------------------------------------------------
+       EXTRACT ORIGINAL RESUME
+    -------------------------------------------------------- */
 
-    const pdfData =
-      new Uint8Array(
-        arrayBuffer,
-      );
-
-    let pdf;
+    let extracted;
 
     try {
-      pdf =
-        await getDocumentProxy(
-          pdfData,
+      extracted =
+        await extractResumeText(
+          file,
         );
     } catch (error) {
-      console.error(
-        "[ATS] Failed to load PDF during optimization:",
-        error,
-      );
-
       return NextResponse.json(
         {
           success: false,
           error:
-            "We could not open this PDF. Please make sure it is a valid PDF file.",
+            error instanceof Error
+              ? error.message
+              : "Unable to read the resume PDF.",
         },
         {
           status: 400,
@@ -643,245 +664,255 @@ export async function POST(
       );
     }
 
-    if (
-      !pdf ||
-      !pdf.numPages ||
-      pdf.numPages <= 0
+    const originalResumeText =
+      extracted.text;
+
+    /* --------------------------------------------------------
+       OPTIMIZATION LOOP
+    -------------------------------------------------------- */
+
+    let bestResume:
+      | ResumeData
+      | null = null;
+
+    let bestATS:
+      | ATSResult
+      | null = null;
+
+    let bestScore =
+      -1;
+
+    let repairFeedback = "";
+
+    const attempts: Array<{
+      attempt: number;
+      score: number;
+      accepted: boolean;
+    }> = [];
+
+    for (
+      let attempt = 1;
+      attempt <=
+      MAX_OPTIMIZATION_ATTEMPTS;
+      attempt++
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "This PDF does not contain any readable pages.",
-        },
-        {
-          status: 400,
-        },
+      console.log(
+        `[ATS] Optimization attempt ${attempt}/${MAX_OPTIMIZATION_ATTEMPTS}`,
       );
-    }
 
-    if (
-      pdf.numPages > 20
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Resume PDF contains too many pages. Please upload a resume with 20 pages or fewer.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+      let candidate: ResumeData;
 
-    console.log(
-      `[ATS] PDF loaded successfully. Original pages: ${pdf.numPages}`,
-    );
-
-    /**
-     * ----------------------------------------
-     * EXTRACT TEXT
-     * ----------------------------------------
-     */
-    let resumeText = "";
-
-    try {
-      const extracted =
-        await extractText(
-          pdf,
-          {
-            mergePages: true,
-          },
+      try {
+        candidate =
+          await optimizeResumeForATS(
+            originalResumeText,
+            originalATS,
+            jobDescription,
+            pageCount,
+            repairFeedback,
+          );
+      } catch (error) {
+        console.error(
+          `[ATS] Optimization attempt ${attempt} failed:`,
+          error,
         );
 
-      resumeText =
-        String(
-          extracted.text ?? "",
+        if (!bestResume) {
+          throw error;
+        }
+
+        continue;
+      }
+
+      const validation =
+        ResumeSchema.safeParse(
+          candidate,
         );
-    } catch (error) {
-      console.error(
-        "[ATS] PDF text extraction failed during optimization:",
-        error,
+
+      if (
+        !validation.success
+      ) {
+        console.error(
+          "[ATS] Candidate validation failed:",
+          validation.error.flatten(),
+        );
+
+        continue;
+      }
+
+      const verifiedResume =
+        validation.data;
+
+      const candidateText =
+        resumeToText(
+          verifiedResume,
+        );
+
+      if (
+        candidateText.length <
+        50
+      ) {
+        console.warn(
+          "[ATS] Candidate contained too little text.",
+        );
+
+        continue;
+      }
+
+      /* ------------------------------------------------------
+         SERVER-SIDE VERIFICATION
+      ------------------------------------------------------ */
+
+      let candidateATS: ATSResult;
+
+      try {
+        candidateATS =
+          await generateATSResult(
+            candidateText,
+            jobDescription,
+          );
+      } catch (error) {
+        console.error(
+          "[ATS] Candidate verification failed:",
+          error,
+        );
+
+        repairFeedback = `
+The previous candidate could not be verified.
+
+Regenerate the resume carefully.
+
+Preserve the complete original factual content.
+`;
+
+        continue;
+      }
+
+      const candidateScore =
+        Math.round(
+          candidateATS.overallScore,
+        );
+
+      const accepted =
+        candidateScore >=
+        originalScore;
+
+      attempts.push({
+        attempt,
+        score: candidateScore,
+        accepted,
+      });
+
+      console.log(
+        `[ATS] Attempt ${attempt}: ${candidateScore}/100. Original: ${originalScore}/100. Accepted: ${accepted}`,
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "We could not read this PDF. Please upload a text-based PDF resume.",
-        },
-        {
-          status: 400,
-        },
-      );
+      /* ------------------------------------------------------
+         KEEP BEST CANDIDATE
+      ------------------------------------------------------ */
+
+      if (
+        candidateScore >
+        bestScore
+      ) {
+        bestScore =
+          candidateScore;
+
+        bestResume =
+          verifiedResume;
+
+        bestATS =
+          candidateATS;
+      }
+
+      /* ------------------------------------------------------
+         ACCEPT IF SCORE IS AT LEAST ORIGINAL
+      ------------------------------------------------------ */
+
+      if (accepted) {
+        break;
+      }
+
+      /* ------------------------------------------------------
+         REPAIR LOWER SCORE
+      ------------------------------------------------------ */
+
+      repairFeedback =
+        buildRepairFeedback(
+          originalScore,
+          candidateScore,
+          candidateATS,
+        );
     }
 
-    const cleanResumeText =
-      cleanExtractedText(
-        resumeText,
-      );
-
-    console.log(
-      `[ATS] Extracted resume characters: ${cleanResumeText.length}`,
-    );
+    /* --------------------------------------------------------
+       NO VALID CANDIDATE
+    -------------------------------------------------------- */
 
     if (
-      !cleanResumeText
+      !bestResume ||
+      !bestATS
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Could not extract readable text from this PDF.",
+            "The AI could not produce a valid optimized resume. Please try again.",
         },
         {
-          status: 400,
+          status: 502,
         },
       );
     }
 
-    if (
-      cleanResumeText.length <
-      50
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "We could not find enough readable text in this PDF.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+    /* --------------------------------------------------------
+       ACCEPTANCE STATUS
+    -------------------------------------------------------- */
 
-    /**
-     * ----------------------------------------
-     * AI OPTIMIZATION
-     * ----------------------------------------
-     *
-     * IMPORTANT:
-     *
-     * pageCount is passed as the fourth argument.
-     *
-     * The optimizer should use:
-     *
-     * - ATS missing keywords
-     * - ATS missing skills
-     * - ATS recommendations
-     * - job description
-     * - original resume facts
-     * - selected page count
-     *
-     * while preventing fabricated information.
-     */
-    console.log(
-      `[ATS] Starting AI optimization for ${pageCount} page(s).`,
-    );
+    const accepted =
+      bestScore >=
+      originalScore;
 
-    const optimizedResume =
-      await optimizeResumeForATS(
-        cleanResumeText,
-        atsResult,
-        jobDescription,
-        pageCount,
-      );
+    const improved =
+      bestScore >
+      originalScore;
 
-    /**
-     * ----------------------------------------
-     * VALIDATE OPTIMIZED RESUME
-     * ----------------------------------------
-     */
-    const resumeValidation =
-      ResumeSchema.safeParse(
-        optimizedResume,
-      );
+    const difference =
+      bestScore -
+      originalScore;
 
-    if (
-      !resumeValidation.success
-    ) {
-      console.error(
-        "[ATS] Optimized resume validation failed:",
-        resumeValidation.error.flatten(),
-      );
+    /* --------------------------------------------------------
+       DESIGN
+    -------------------------------------------------------- */
 
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "AI returned an invalid optimized resume structure.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    const validatedResume =
-      resumeValidation.data;
-
-    console.log(
-      "[ATS] Optimized resume validated successfully.",
-    );
-
-    /**
-     * ----------------------------------------
-     * GENERATE ATS DESIGN
-     * ----------------------------------------
-     */
     const optimizedDesign =
-      await generateATSSafeDesign();
+      getSafeDesign();
 
-    console.log(
-      "[ATS] ATS-safe resume design generated successfully.",
-    );
+    /* --------------------------------------------------------
+       RESPONSE
+    -------------------------------------------------------- */
 
-    /**
-     * ----------------------------------------
-     * COUNT RECOMMENDATIONS
-     * ----------------------------------------
-     */
-    const recommendations =
-      atsResult.recommendations ??
-      [];
-
-    const highPriority =
-      recommendations.filter(
-        (item) =>
-          item.priority ===
-          "high",
-      ).length;
-
-    const mediumPriority =
-      recommendations.filter(
-        (item) =>
-          item.priority ===
-          "medium",
-      ).length;
-
-    const lowPriority =
-      recommendations.filter(
-        (item) =>
-          item.priority ===
-          "low",
-      ).length;
-
-    /**
-     * ----------------------------------------
-     * RETURN RESULT
-     * ----------------------------------------
-     */
     return NextResponse.json(
       {
         success: true,
 
-        originalScore:
-          atsResult.overallScore,
+        originalScore,
+
+        optimizedScore:
+          bestScore,
+
+        scoreDifference:
+          difference,
+
+        improved,
+
+        accepted,
 
         optimizedResume:
-          validatedResume,
+          bestResume,
+
+        optimizedATSResult:
+          bestATS,
 
         optimizedDesign,
 
@@ -889,46 +920,56 @@ export async function POST(
           pageCount,
 
         originalPdfPageCount:
-          pdf.numPages,
+          extracted.pageCount,
 
-        optimization: {
-          recommendationsApplied:
-            recommendations.length,
+        verification: {
+          performedOnServer:
+            true,
 
-          highPriority,
+          verified:
+            true,
 
-          mediumPriority,
+          accepted,
 
-          lowPriority,
+          improved,
+
+          attempts:
+            attempts.length,
+
+          history:
+            attempts,
         },
 
-        optimizationStrategy: {
-          pageCount,
+        optimization: {
+          usedMissingKeywords:
+            true,
 
-          usesMissingKeywords: true,
+          usedMissingSkills:
+            true,
 
-          usesMissingSkills: true,
+          usedRecommendations:
+            true,
 
-          usesRecommendations: true,
-
-          usesJobDescription:
+          usedJobDescription:
             Boolean(
               jobDescription,
             ),
 
-          preservesOriginalFacts:
+          preservedFacts:
             true,
 
-          preventsFabrication:
+          preventedFabrication:
+            true,
+
+          scoreProtected:
             true,
         },
 
-        verification: {
-          required: true,
-
-          message:
-            "The optimized resume should be rechecked using the ATS analyzer before displaying the final improved score.",
-        },
+        message: improved
+          ? `Optimization accepted. ATS score improved from ${originalScore} to ${bestScore}.`
+          : accepted
+            ? `Optimization accepted. ATS score remained at ${bestScore}.`
+            : `Best verified optimization scored ${bestScore}, below the original ${originalScore}. The resume was not falsely marked as improved.`,
       },
       {
         status: 200,
@@ -936,7 +977,7 @@ export async function POST(
     );
   } catch (error) {
     console.error(
-      "[ATS] Optimization error:",
+      "[ATS] Optimization route error:",
       error,
     );
 
@@ -946,7 +987,7 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Failed to optimize resume.",
+            : "Something went wrong while optimizing your resume.",
       },
       {
         status: 500,

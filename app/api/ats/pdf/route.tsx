@@ -1,9 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { renderToBuffer } from "@react-pdf/renderer";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-import { ResumeSchema } from "@/lib/ai/resume-schema";
-import { ATSResumePDF } from "@/lib/ats/ats-resume-pdf";
+import {
+  createClient,
+} from "@/lib/supabase/server";
+
+import {
+  renderToBuffer,
+} from "@react-pdf/renderer";
+
+import {
+  ResumeSchema,
+} from "@/lib/ai/resume-schema";
+
+import {
+  ATSResumePDF,
+} from "@/lib/ats/ats-resume-pdf";
 
 export const runtime = "nodejs";
 
@@ -26,13 +40,37 @@ function parsePageCount(
   return 2;
 }
 
+function safeFileName(
+  name: string,
+) {
+  const cleaned =
+    name
+      .trim()
+      .replace(
+        /[^a-zA-Z0-9]+/g,
+        "-",
+      )
+      .replace(
+        /^-+|-+$/g,
+        "",
+      )
+      .toLowerCase();
+
+  return (
+    cleaned ||
+    "resume"
+  );
+}
+
 export async function POST(
   request: NextRequest,
 ) {
   try {
-    // ============================================================
-    // 1. AUTHENTICATION
-    // ============================================================
+    /*
+     * ============================================================
+     * AUTHENTICATION
+     * ============================================================
+     */
 
     const supabase =
       await createClient();
@@ -40,9 +78,13 @@ export async function POST(
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
-    if (authError || !user) {
+    if (
+      authError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -55,14 +97,35 @@ export async function POST(
       );
     }
 
-    // ============================================================
-    // 2. READ REQUEST
-    // ============================================================
+    /*
+     * ============================================================
+     * REQUEST
+     * ============================================================
+     */
 
-    const body =
-      await request.json();
+    let body: unknown;
 
-    if (!body?.resume) {
+    try {
+      body =
+        await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Invalid JSON request.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !("resume" in body)
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -75,18 +138,26 @@ export async function POST(
       );
     }
 
-    // ============================================================
-    // 3. VALIDATE RESUME
-    // ============================================================
+    const requestBody =
+      body as {
+        resume: unknown;
+        pageCount?: unknown;
+      };
+
+    /*
+     * ============================================================
+     * RESUME VALIDATION
+     * ============================================================
+     */
 
     const parsedResume =
       ResumeSchema.safeParse(
-        body.resume,
+        requestBody.resume,
       );
 
     if (!parsedResume.success) {
       console.error(
-        "ATS PDF ResumeSchema validation failed:",
+        "[ATS PDF] Resume validation failed:",
         parsedResume.error.flatten(),
       );
 
@@ -107,18 +178,27 @@ export async function POST(
     const resume =
       parsedResume.data;
 
-    // ============================================================
-    // 4. PAGE COUNT
-    // ============================================================
+    /*
+     * ============================================================
+     * PAGE COUNT
+     * ============================================================
+     */
 
     const pageCount =
       parsePageCount(
-        body.pageCount,
+        requestBody.pageCount,
       );
 
-    // ============================================================
-    // 5. GENERATE PDF
-    // ============================================================
+    /*
+     * ============================================================
+     * PDF GENERATION
+     * ============================================================
+     *
+     * IMPORTANT:
+     *
+     * This PDF is the same document that the frontend later
+     * sends back to /api/ats/check for the NEW ATS score.
+     */
 
     const pdfBuffer =
       await renderToBuffer(
@@ -137,30 +217,25 @@ export async function POST(
       );
     }
 
-    // ============================================================
-    // 6. SAFE FILE NAME
-    // ============================================================
+    /*
+     * ============================================================
+     * FILE NAME
+     * ============================================================
+     */
 
-    const safeName =
-      resume.personal.name
-        ?.trim()
-        .replace(
-          /[^a-zA-Z0-9]+/g,
-          "-",
-        )
-        .replace(
-          /^-+|-+$/g,
-          "",
-        )
-        .toLowerCase() ||
-      "resume";
+    const name =
+      safeFileName(
+        resume.personal.name,
+      );
 
     const fileName =
-      `${safeName}-ats-optimized-resume.pdf`;
+      `${name}-ats-optimized-resume.pdf`;
 
-    // ============================================================
-    // 7. RETURN PDF
-    // ============================================================
+    /*
+     * ============================================================
+     * RESPONSE
+     * ============================================================
+     */
 
     return new NextResponse(
       pdfBuffer as BodyInit,
@@ -180,13 +255,19 @@ export async function POST(
             ),
 
           "Cache-Control":
-            "private, no-store",
+            "private, no-store, max-age=0",
+
+          "X-HirePro-Page-Count":
+            String(pageCount),
+
+          "X-HirePro-ATS-Ready":
+            "true",
         },
       },
     );
   } catch (error) {
     console.error(
-      "ATS PDF generation error:",
+      "[ATS PDF] Generation error:",
       error,
     );
 
@@ -196,7 +277,7 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Failed to generate ATS optimized PDF.",
+            : "Failed to generate the optimized ATS PDF.",
       },
       {
         status: 500,

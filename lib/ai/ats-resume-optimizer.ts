@@ -7,6 +7,8 @@ import {
 
 import type { ATSResult } from "@/lib/ai/ats-schema";
 
+export type ResumePageCount = 1 | 2 | 3;
+
 const PRIMARY_MODEL = "gemini-3.6-flash";
 
 const FALLBACK_MODELS = [
@@ -14,63 +16,50 @@ const FALLBACK_MODELS = [
   "gemini-3.1-flash-lite",
 ];
 
-const MAX_ATTEMPTS = 3;
+const MAX_MODEL_ATTEMPTS = 2;
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+function getAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
 
-export type ResumePageCount = 1 | 2 | 3;
-
-/* ==========================================================
-   BASIC HELPERS
-========================================================== */
-
-function cleanJsonResponse(
-  raw: string,
-): string {
-  let cleaned = raw.trim();
-
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned
-      .replace(
-        /^```(?:json)?\s*/i,
-        "",
-      )
-      .replace(
-        /\s*```$/i,
-        "",
-      )
-      .trim();
-  }
-
-  const firstBrace =
-    cleaned.indexOf("{");
-
-  const lastBrace =
-    cleaned.lastIndexOf("}");
-
-  if (
-    firstBrace !== -1 &&
-    lastBrace !== -1 &&
-    lastBrace > firstBrace
-  ) {
-    cleaned = cleaned.slice(
-      firstBrace,
-      lastBrace + 1,
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY is not configured.",
     );
   }
 
-  return cleaned;
+  return new GoogleGenAI({
+    apiKey,
+  });
 }
 
-function safeString(
+function cleanJson(raw: string): string {
+  let text = raw.trim();
+
+  text = text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+
+  if (
+    first !== -1 &&
+    last !== -1 &&
+    last > first
+  ) {
+    return text.slice(first, last + 1);
+  }
+
+  return text;
+}
+
+function stringValue(
   value: unknown,
 ): string {
-  if (
-    typeof value === "string"
-  ) {
-    return value;
+  if (typeof value === "string") {
+    return value.trim();
   }
 
   if (
@@ -80,10 +69,10 @@ function safeString(
     return "";
   }
 
-  return String(value);
+  return String(value).trim();
 }
 
-function safeStringArray(
+function stringArray(
   value: unknown,
 ): string[] {
   if (!Array.isArray(value)) {
@@ -92,1058 +81,693 @@ function safeStringArray(
 
   return value
     .map((item) =>
-      safeString(item).trim(),
+      stringValue(item),
     )
     .filter(Boolean);
 }
 
-/* ==========================================================
-   NORMALIZERS
-========================================================== */
-
-function normalizeSkills(
+function objectValue(
   value: unknown,
-): ResumeData["skills"] {
-  if (!Array.isArray(value)) {
-    return [];
+): Record<string, unknown> {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return value as Record<
+      string,
+      unknown
+    >;
   }
 
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        category: safeString(
-          obj.category,
-        ),
-        items: safeStringArray(
-          obj.items,
-        ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["skills"][number] =>
-        item !== null,
-    );
+  return {};
 }
-
-function normalizeExperience(
-  value: unknown,
-): ResumeData["experience"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        company: safeString(
-          obj.company,
-        ),
-        role: safeString(
-          obj.role,
-        ),
-        location: safeString(
-          obj.location,
-        ),
-        startDate: safeString(
-          obj.startDate,
-        ),
-        endDate: safeString(
-          obj.endDate,
-        ),
-        responsibilities:
-          safeStringArray(
-            obj.responsibilities,
-          ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["experience"][number] =>
-        item !== null,
-    );
-}
-
-function normalizeEducation(
-  value: unknown,
-): ResumeData["education"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        institution: safeString(
-          obj.institution,
-        ),
-        degree: safeString(
-          obj.degree,
-        ),
-        field: safeString(
-          obj.field,
-        ),
-        startDate: safeString(
-          obj.startDate,
-        ),
-        endDate: safeString(
-          obj.endDate,
-        ),
-        details:
-          safeStringArray(
-            obj.details,
-          ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["education"][number] =>
-        item !== null,
-    );
-}
-
-function normalizeProjects(
-  value: unknown,
-): ResumeData["projects"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        name: safeString(
-          obj.name,
-        ),
-        description:
-          safeString(
-            obj.description,
-          ),
-        technologies:
-          safeStringArray(
-            obj.technologies,
-          ),
-        url: safeString(
-          obj.url,
-        ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["projects"][number] =>
-        item !== null,
-    );
-}
-
-function normalizeCertifications(
-  value: unknown,
-): ResumeData["certifications"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        name: safeString(
-          obj.name,
-        ),
-        issuer: safeString(
-          obj.issuer,
-        ),
-        date: safeString(
-          obj.date,
-        ),
-        url: safeString(
-          obj.url,
-        ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["certifications"][number] =>
-        item !== null,
-    );
-}
-
-function normalizeAdditionalSections(
-  value: unknown,
-): ResumeData["additionalSections"] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
-        return null;
-      }
-
-      const obj =
-        item as Record<
-          string,
-          unknown
-        >;
-
-      return {
-        title: safeString(
-          obj.title,
-        ),
-        items: safeStringArray(
-          obj.items,
-        ),
-      };
-    })
-    .filter(
-      (
-        item,
-      ): item is ResumeData["additionalSections"][number] =>
-        item !== null,
-    );
-}
-
-/* ==========================================================
-   COMPLETE RESUME NORMALIZATION
-========================================================== */
 
 function normalizeResume(
   value: unknown,
 ): unknown {
-  if (
-    !value ||
-    typeof value !== "object"
-  ) {
-    return null;
-  }
-
-  const obj =
-    value as Record<
-      string,
-      unknown
-    >;
+  const root =
+    objectValue(value);
 
   const personal =
-    obj.personal &&
-    typeof obj.personal ===
-      "object"
-      ? (obj.personal as Record<
-          string,
-          unknown
-        >)
-      : {};
+    objectValue(root.personal);
+
+  const skills = Array.isArray(
+    root.skills,
+  )
+    ? root.skills
+        .map((item) => {
+          const obj =
+            objectValue(item);
+
+          return {
+            category:
+              stringValue(
+                obj.category,
+              ),
+            items:
+              stringArray(
+                obj.items,
+              ),
+          };
+        })
+        .filter(
+          (item) =>
+            item.category ||
+            item.items.length > 0,
+        )
+    : [];
+
+  const experience =
+    Array.isArray(
+      root.experience,
+    )
+      ? root.experience
+          .map((item) => {
+            const obj =
+              objectValue(item);
+
+            return {
+              company:
+                stringValue(
+                  obj.company,
+                ),
+              role:
+                stringValue(
+                  obj.role,
+                ),
+              location:
+                stringValue(
+                  obj.location,
+                ),
+              startDate:
+                stringValue(
+                  obj.startDate,
+                ),
+              endDate:
+                stringValue(
+                  obj.endDate,
+                ),
+              responsibilities:
+                stringArray(
+                  obj.responsibilities,
+                ),
+            };
+          })
+          .filter(
+            (item) =>
+              item.company ||
+              item.role ||
+              item.responsibilities
+                .length > 0,
+          )
+      : [];
+
+  const education =
+    Array.isArray(
+      root.education,
+    )
+      ? root.education
+          .map((item) => {
+            const obj =
+              objectValue(item);
+
+            return {
+              institution:
+                stringValue(
+                  obj.institution,
+                ),
+              degree:
+                stringValue(
+                  obj.degree,
+                ),
+              field:
+                stringValue(
+                  obj.field,
+                ),
+              startDate:
+                stringValue(
+                  obj.startDate,
+                ),
+              endDate:
+                stringValue(
+                  obj.endDate,
+                ),
+              details:
+                stringArray(
+                  obj.details,
+                ),
+            };
+          })
+          .filter(
+            (item) =>
+              item.institution ||
+              item.degree ||
+              item.field ||
+              item.details
+                .length > 0,
+          )
+      : [];
+
+  const projects =
+    Array.isArray(
+      root.projects,
+    )
+      ? root.projects
+          .map((item) => {
+            const obj =
+              objectValue(item);
+
+            return {
+              name:
+                stringValue(
+                  obj.name,
+                ),
+              description:
+                stringValue(
+                  obj.description,
+                ),
+              technologies:
+                stringArray(
+                  obj.technologies,
+                ),
+              url:
+                stringValue(
+                  obj.url,
+                ),
+            };
+          })
+          .filter(
+            (item) =>
+              item.name ||
+              item.description ||
+              item.technologies
+                .length > 0,
+          )
+      : [];
+
+  const certifications =
+    Array.isArray(
+      root.certifications,
+    )
+      ? root.certifications
+          .map((item) => {
+            const obj =
+              objectValue(item);
+
+            return {
+              name:
+                stringValue(
+                  obj.name,
+                ),
+              issuer:
+                stringValue(
+                  obj.issuer,
+                ),
+              date:
+                stringValue(
+                  obj.date,
+                ),
+              url:
+                stringValue(
+                  obj.url,
+                ),
+            };
+          })
+          .filter(
+            (item) =>
+              item.name ||
+              item.issuer,
+          )
+      : [];
+
+  const additionalSections =
+    Array.isArray(
+      root.additionalSections,
+    )
+      ? root.additionalSections
+          .map((item) => {
+            const obj =
+              objectValue(item);
+
+            return {
+              title:
+                stringValue(
+                  obj.title,
+                ),
+              items:
+                stringArray(
+                  obj.items,
+                ),
+            };
+          })
+          .filter(
+            (item) =>
+              item.title ||
+              item.items.length > 0,
+          )
+      : [];
 
   return {
     personal: {
-      name: safeString(
+      name: stringValue(
         personal.name,
       ),
-      email: safeString(
+      email: stringValue(
         personal.email,
       ),
-      phone: safeString(
+      phone: stringValue(
         personal.phone,
       ),
-      location: safeString(
+      location: stringValue(
         personal.location,
       ),
-      linkedin: safeString(
+      linkedin: stringValue(
         personal.linkedin,
       ),
-      github: safeString(
+      github: stringValue(
         personal.github,
       ),
-      website: safeString(
+      website: stringValue(
         personal.website,
       ),
     },
 
     professionalSummary:
-      safeString(
-        obj.professionalSummary,
+      stringValue(
+        root.professionalSummary,
       ),
 
-    skills: normalizeSkills(
-      obj.skills,
-    ),
+    skills,
 
-    experience:
-      normalizeExperience(
-        obj.experience,
-      ),
+    experience,
 
-    education:
-      normalizeEducation(
-        obj.education,
-      ),
+    education,
 
-    projects:
-      normalizeProjects(
-        obj.projects,
-      ),
+    projects,
 
-    certifications:
-      normalizeCertifications(
-        obj.certifications,
-      ),
+    certifications,
 
     achievements:
-      safeStringArray(
-        obj.achievements,
+      stringArray(
+        root.achievements,
       ),
 
     languages:
-      safeStringArray(
-        obj.languages,
+      stringArray(
+        root.languages,
       ),
 
-    additionalSections:
-      normalizeAdditionalSections(
-        obj.additionalSections,
-      ),
+    additionalSections,
   };
 }
 
-/* ==========================================================
-   PARSE GEMINI RESPONSE
-========================================================== */
-
-function parseResumeResponse(
+function parseResume(
   raw: string,
-):
-  | {
-      success: true;
-      resume: ResumeData;
-    }
-  | {
-      success: false;
-      raw: string;
-      error: string;
-    } {
+): ResumeData {
+  let parsed: unknown;
+
   try {
-    const cleaned =
-      cleanJsonResponse(raw);
-
-    const parsed =
-      JSON.parse(cleaned);
-
-    const normalized =
-      normalizeResume(parsed);
-
-    const validation =
-      ResumeSchema.safeParse(
-        normalized,
-      );
-
-    if (!validation.success) {
-      console.error(
-        "[ATS OPTIMIZER] Resume validation failed:",
-        validation.error.flatten(),
-      );
-
-      return {
-        success: false,
-        raw,
-        error: JSON.stringify(
-          validation.error.flatten(),
-        ),
-      };
-    }
-
-    return {
-      success: true,
-      resume: validation.data,
-    };
-  } catch (error) {
-    console.error(
-      "[ATS OPTIMIZER] JSON parsing failed:",
-      error,
+    parsed = JSON.parse(
+      cleanJson(raw),
     );
-
-    return {
-      success: false,
-      raw,
-      error:
+  } catch (error) {
+    throw new Error(
+      `AI returned invalid JSON: ${
         error instanceof Error
           ? error.message
-          : "Invalid JSON response.",
-    };
+          : "unknown error"
+      }`,
+    );
   }
+
+  const normalized =
+    normalizeResume(parsed);
+
+  const validation =
+    ResumeSchema.safeParse(
+      normalized,
+    );
+
+  if (!validation.success) {
+    console.error(
+      "[ATS OPTIMIZER] Invalid ResumeData:",
+      validation.error.flatten(),
+    );
+
+    throw new Error(
+      "AI returned an invalid resume structure.",
+    );
+  }
+
+  return validation.data;
 }
 
-/* ==========================================================
-   PAGE STRATEGY
-========================================================== */
-
-function getPageStrategy(
+function pageInstructions(
   pageCount: ResumePageCount,
 ): string {
   if (pageCount === 1) {
     return `
-TARGET LENGTH: 1 PAGE
+TARGET: ONE PAGE
 
-Create a highly concise professional resume.
+Create a very concise one-page resume.
 
-Important:
+Use:
+- compact summaries
+- concise bullets
+- no repetitive wording
+- high-value information first
 
-- Do NOT delete factual information.
-- Do NOT remove education entries.
-- Do NOT remove experience entries.
-- Do NOT remove projects.
-- Do NOT remove certifications.
-- Do NOT remove achievements.
-- Do NOT remove skills.
-- Do NOT invent information.
+Never remove factual education,
+experience, projects, certifications,
+skills or achievements simply to fit one page.
 
-Use concise wording.
-
-Reduce unnecessary repetition.
-
-Use compact but meaningful bullet points.
-
-Keep the most ATS-relevant information prominent.
-
-The PDF renderer will control physical spacing.
+The PDF renderer controls physical spacing.
 `;
   }
 
   if (pageCount === 3) {
     return `
-TARGET LENGTH: UP TO 3 PAGES
+TARGET: UP TO THREE PAGES
 
-Allow enough space to preserve the candidate's
-complete professional history.
+Preserve the candidate's complete history.
 
-Do NOT artificially shorten the resume.
+Use enough detail for:
+- experience
+- projects
+- education
+- certifications
+- achievements
 
-Preserve all factual information.
+Do not add filler just to reach three pages.
 
-Use detailed but concise professional wording.
-
-Do not add filler merely to reach three pages.
-
-The PDF renderer will control physical spacing.
+The PDF renderer controls physical spacing.
 `;
   }
 
   return `
-TARGET LENGTH: UP TO 2 PAGES
+TARGET: UP TO TWO PAGES
 
 Create a balanced professional resume.
 
 Preserve all factual information.
 
-Use concise professional wording.
+Use concise but meaningful bullets.
 
-Prioritize important ATS information.
-
-Do not delete factual content simply to make
-the resume shorter.
-
-The PDF renderer will control physical spacing.
+The PDF renderer controls physical spacing.
 `;
 }
 
-/* ==========================================================
-   OPTIMIZATION PROMPT
-========================================================== */
-
-function buildOptimizationPrompt(
+function buildPrompt(
   resumeText: string,
   atsResult: ATSResult,
   jobDescription: string,
   pageCount: ResumePageCount,
+  repairFeedback: string,
 ): string {
-  const pageStrategy =
-    getPageStrategy(
-      pageCount,
-    );
+  const missingKeywords =
+    atsResult.keywordMatch.missingKeywords;
+
+  const missingSkills =
+    atsResult.skills.missingSkills;
+
+  const recommendations =
+    atsResult.recommendations;
+
+  const weaknesses =
+    atsResult.experience.weaknesses;
 
   return `
-You are HirePro's expert ATS resume optimization engine.
+You are HirePro's senior ATS resume optimization engine.
 
-You are optimizing a REAL candidate resume.
+Your task is to transform the supplied REAL resume into a
+stronger ATS-compatible resume.
 
-Your task is to improve ATS compatibility while
-preserving the candidate's factual information.
+The candidate's original resume is the ONLY source of truth.
 
-==================================================
-MOST IMPORTANT RULE
-==================================================
+============================================================
+ABSOLUTE FACTUAL ACCURACY
+============================================================
 
-THE ORIGINAL RESUME IS THE SINGLE SOURCE OF TRUTH.
+NEVER invent:
 
-You may improve wording.
-
-You may improve organization.
-
-You may improve keyword placement.
-
-You may improve professional phrasing.
-
-You may improve the summary.
-
-You may improve weak bullet points.
-
-BUT:
-
-YOU MUST NEVER INVENT FACTS.
-
-==================================================
-NEVER INVENT
-==================================================
-
-Never invent:
-
-- employers
+- jobs
 - companies
 - job titles
 - employment dates
 - education
-- universities
 - degrees
+- universities
 - certifications
 - technologies
 - programming languages
 - frameworks
 - tools
 - projects
-- responsibilities
+- clients
 - achievements
 - metrics
 - percentages
 - numbers
-- clients
-- products
 - awards
 - locations
-- languages
-- links
+- responsibilities
 - URLs
-- job duties
-- professional experience
 
-If the original resume does not support a claim,
-DO NOT make that claim.
+If something is not supported by the original resume,
+DO NOT add it.
 
-==================================================
-PRESERVE THE COMPLETE RESUME
-==================================================
+============================================================
+DO NOT DELETE FACTUAL INFORMATION
+============================================================
 
-You MUST preserve every factual item from the
-original resume.
+Preserve:
 
-Do not silently remove content.
+- every experience entry
+- every education entry
+- every project
+- every certification
+- every explicit skill
+- every achievement
+- every language
+- every contact detail
 
-Do not remove information merely because it is
-not relevant to the provided job description.
+You may rewrite wording, but do not erase facts.
 
-The ATS optimizer is allowed to improve content,
-not erase history.
+============================================================
+ATS SCORE IMPROVEMENT
+============================================================
 
-==================================================
-PERSONAL INFORMATION
-==================================================
+The original ATS score is:
 
-Preserve exactly:
+${atsResult.overallScore}/100
 
-- name
-- email
-- phone
-- location
-- LinkedIn
-- GitHub
-- website
+The optimization must specifically improve the areas
+identified by the ATS analysis.
 
-Do not replace contact information.
+Missing keywords:
 
-Do not create missing contact information.
+${missingKeywords.length > 0
+  ? missingKeywords.join(", ")
+  : "None identified"}
 
-==================================================
-EXPERIENCE
-==================================================
+Missing skills:
 
-Every original experience entry MUST remain.
+${missingSkills.length > 0
+  ? missingSkills.join(", ")
+  : "None identified"}
 
-Every original company MUST remain.
+Experience weaknesses:
 
-Every original role MUST remain.
+${weaknesses.length > 0
+  ? weaknesses.join("\n- ")
+  : "None identified"}
 
-Every original date MUST remain.
+ATS recommendations:
 
-Every original responsibility MUST remain
-in factual meaning.
+${
+  recommendations.length > 0
+    ? recommendations
+        .map(
+          (item) =>
+            `- [${item.priority}] ${item.recommendation}`,
+        )
+        .join("\n")
+    : "None identified"
+}
 
-You may improve grammar.
+============================================================
+KEYWORD RULE
+============================================================
 
-You may improve action verbs.
+Use missing keywords ONLY when they are factually supported
+by the original resume.
 
-You may improve sentence structure.
+If a missing keyword describes a technology or skill that
+the candidate clearly demonstrates elsewhere in the original
+resume, integrate it naturally.
 
-You may make responsibilities more concise.
+Do NOT keyword-stuff.
 
-You may NOT fabricate metrics.
+Do NOT create a fake skills section containing unsupported
+technologies.
+
+Prefer natural placement in:
+
+1. professional summary
+2. skills
+3. experience
+4. projects
+
+============================================================
+EXPERIENCE OPTIMIZATION
+============================================================
+
+Improve weak bullets using:
+
+ACTION + TASK + TECHNOLOGY/CONTEXT + RESULT
+
+But NEVER invent results or metrics.
 
 Example:
 
 Original:
 "Worked on Python API development."
 
-Allowed:
-"Developed Python APIs."
+Improved:
+"Developed Python APIs for application functionality."
 
-Not allowed:
-"Developed Python APIs that improved performance by 40%."
+Do NOT write:
 
-The 40% would be fabricated if it was not
-present in the original resume.
+"Improved API performance by 40%."
 
-==================================================
-EDUCATION
-==================================================
+unless 40% actually exists in the original resume.
 
-THIS IS CRITICAL.
+============================================================
+SUMMARY
+============================================================
 
-Every original education entry MUST remain.
+Write a concise ATS-friendly professional summary.
 
-If the original resume contains:
+The summary must be based ONLY on facts present in the
+original resume.
 
-2 education entries
+Do not introduce unsupported job titles or skills.
 
-the output must contain:
-
-2 education entries.
-
-If an education entry contains multiple details,
-preserve every factual detail.
-
-You may rewrite grammar.
-
-You may make wording more professional.
-
-You may NOT remove education entries.
-
-==================================================
-PROJECTS
-==================================================
-
-Every original project MUST remain.
-
-Every original project technology MUST remain.
-
-Every original project URL MUST remain.
-
-You may improve descriptions.
-
-You may make project descriptions more ATS-friendly.
-
-You may connect existing technologies to relevant
-job-description wording ONLY when factually supported.
-
-==================================================
-CERTIFICATIONS
-==================================================
-
-Every original certification MUST remain.
-
-Preserve:
-
-- certification name
-- issuer
-- date
-- URL
-
-Do not create certifications.
-
-==================================================
+============================================================
 SKILLS
-==================================================
+============================================================
 
-Every skill explicitly supported by the original
-resume must remain.
+Preserve every supported skill.
 
-You may reorganize skills into categories.
-
-You may normalize obvious naming variations.
+Group them clearly.
 
 Example:
 
-React -> React.js
+Programming:
+Python, Java, JavaScript
 
-is acceptable.
+Web:
+HTML, CSS, React
 
-But:
+Database:
+SQL, MySQL
 
-React -> React Native
+Do not add technologies merely because they appear in
+the job description.
 
-is NOT acceptable unless React Native
-is supported by the original resume.
+============================================================
+PROJECTS
+============================================================
 
-==================================================
-MISSING KEYWORDS
-==================================================
+Preserve every original project.
 
-The ATS analyzer identified missing keywords.
+Improve descriptions using only facts already present.
 
-Process EVERY missing keyword individually.
+Preserve technologies.
 
-For each missing keyword:
+============================================================
+EDUCATION
+============================================================
 
-1. Search the original resume for factual support.
-2. Check experience.
-3. Check projects.
-4. Check skills.
-5. Check education.
-6. Check certifications.
-7. Check other sections.
+THIS IS MANDATORY.
 
-If the candidate genuinely has evidence supporting
-the keyword, integrate it naturally.
+Every education record in the source must remain.
 
-If the candidate does NOT have evidence,
-DO NOT invent it.
+Do not delete education to save space.
 
-Never keyword-stuff unsupported terms.
+============================================================
+CERTIFICATIONS
+============================================================
 
-==================================================
-MISSING SKILLS
-==================================================
+Preserve every original certification.
 
-Process EVERY missing skill individually.
+Do not create certifications.
 
-For every missing skill:
+============================================================
+FORMATTING STRATEGY
+============================================================
 
-1. Search the original resume.
-2. Determine whether the skill is already present
-   under another name or section.
-3. If supported, expose it more clearly.
-4. If unsupported, do not add it.
+The resulting structure should be:
 
-Never claim experience the candidate does not have.
-
-==================================================
-ATS RECOMMENDATIONS
-==================================================
-
-Process EVERY recommendation individually.
-
-Use the recommendations to improve:
-
-- summary
-- skills
-- experience wording
-- project wording
-- keyword placement
-- formatting-related content
-- clarity
-- recruiter readability
-
-Do not implement a recommendation if doing so
-would require inventing information.
-
-==================================================
-JOB DESCRIPTION
-==================================================
-
-When a job description is provided:
-
-Use it to understand:
-
-- important keywords
-- required skills
-- responsibilities
-- terminology
-- role expectations
-
-Then align the resume using ONLY information
-supported by the original resume.
-
-Do not claim missing qualifications.
-
-Do not fabricate experience.
-
-==================================================
+CONTACT
 PROFESSIONAL SUMMARY
-==================================================
+SKILLS
+EXPERIENCE
+PROJECTS
+EDUCATION
+CERTIFICATIONS
+ACHIEVEMENTS
+LANGUAGES
+ADDITIONAL SECTIONS
 
-Improve the professional summary.
+Use conventional section names.
 
-The summary should:
+Avoid:
+- tables
+- columns
+- graphics
+- decorative symbols
+- progress bars
+- skill percentages
+- unnecessary icons
 
-- clearly describe the candidate
-- use relevant existing skills
-- contain supported keywords
-- be concise
-- be ATS-friendly
-- avoid generic filler
+============================================================
+${pageInstructions(pageCount)}
+============================================================
 
-Do not invent years of experience.
+============================================================
+PREVIOUS VERIFICATION FEEDBACK
+============================================================
 
-Do not invent achievements.
+${repairFeedback || "This is the first optimization attempt."}
 
-Do not invent technologies.
+If previous verification produced a lower score,
+specifically fix the weaknesses mentioned in that feedback.
 
-==================================================
-BULLET POINT IMPROVEMENT
-==================================================
+============================================================
+JOB DESCRIPTION
+============================================================
 
-Improve weak bullet points when possible.
+${
+  jobDescription
+    ? jobDescription
+    : "No job description was supplied. Optimize for general ATS compatibility."
+}
 
-Prefer:
-
-Action + task + technology/context + result
-
-BUT:
-
-Only include a result when the original resume
-supports that result.
-
-Do not invent numbers.
-
-==================================================
-PAGE STRATEGY
-==================================================
-
-${pageStrategy}
-
-==================================================
+============================================================
 ORIGINAL RESUME
-==================================================
+============================================================
 
 ${resumeText}
 
-==================================================
-ATS ANALYSIS
-==================================================
+============================================================
+OUTPUT
+============================================================
 
-Overall Score:
-${atsResult.overallScore}
+Return ONLY JSON.
 
-Summary:
-${atsResult.summary}
-
-==================================================
-KEYWORD ANALYSIS
-==================================================
-
-Keyword Score:
-${atsResult.keywordMatch.score}
-
-Matched Keywords:
-${JSON.stringify(
-  atsResult.keywordMatch
-    .matchedKeywords,
-)}
-
-Missing Keywords:
-${JSON.stringify(
-  atsResult.keywordMatch
-    .missingKeywords,
-)}
-
-==================================================
-SKILL ANALYSIS
-==================================================
-
-Skills Score:
-${atsResult.skills.score}
-
-Matched Skills:
-${JSON.stringify(
-  atsResult.skills
-    .matchedSkills,
-)}
-
-Missing Skills:
-${JSON.stringify(
-  atsResult.skills
-    .missingSkills,
-)}
-
-==================================================
-EXPERIENCE ANALYSIS
-==================================================
-
-Experience Score:
-${atsResult.experience.score}
-
-Strengths:
-${JSON.stringify(
-  atsResult.experience
-    .strengths,
-)}
-
-Weaknesses:
-${JSON.stringify(
-  atsResult.experience
-    .weaknesses,
-)}
-
-==================================================
-FORMATTING ANALYSIS
-==================================================
-
-Formatting Score:
-${atsResult.formatting.score}
-
-Formatting Issues:
-${JSON.stringify(
-  atsResult.formatting
-    .issues,
-)}
-
-==================================================
-RECOMMENDATIONS
-==================================================
-
-${JSON.stringify(
-  atsResult.recommendations,
-)}
-
-==================================================
-JOB DESCRIPTION
-==================================================
-
-${
-  jobDescription.trim()
-    ? jobDescription
-    : "No job description provided. Optimize for general ATS compatibility."
-}
-
-==================================================
-OPTIMIZATION PROCESS
-==================================================
-
-Before generating the final JSON, internally perform
-the following process:
-
-STEP 1:
-Understand the complete original resume.
-
-STEP 2:
-Create an internal inventory of every factual item.
-
-STEP 3:
-Process every missing keyword individually.
-
-STEP 4:
-Process every missing skill individually.
-
-STEP 5:
-Process every ATS recommendation individually.
-
-STEP 6:
-Check the job description for relevant terminology.
-
-STEP 7:
-Only use supported keywords.
-
-STEP 8:
-Improve the professional summary.
-
-STEP 9:
-Improve weak experience statements.
-
-STEP 10:
-Improve project descriptions.
-
-STEP 11:
-Preserve all education information.
-
-STEP 12:
-Preserve all certifications.
-
-STEP 13:
-Preserve all achievements.
-
-STEP 14:
-Preserve all languages.
-
-STEP 15:
-Preserve all additional sections.
-
-STEP 16:
-Perform a final hallucination check.
-
-==================================================
-FINAL OUTPUT
-==================================================
-
-Return ONLY ONE valid JSON object.
-
-The JSON MUST follow this exact structure:
+The JSON must exactly represent:
 
 {
   "personal": {
@@ -1155,16 +779,13 @@ The JSON MUST follow this exact structure:
     "github": "",
     "website": ""
   },
-
   "professionalSummary": "",
-
   "skills": [
     {
       "category": "",
       "items": []
     }
   ],
-
   "experience": [
     {
       "company": "",
@@ -1175,7 +796,6 @@ The JSON MUST follow this exact structure:
       "responsibilities": []
     }
   ],
-
   "education": [
     {
       "institution": "",
@@ -1186,7 +806,6 @@ The JSON MUST follow this exact structure:
       "details": []
     }
   ],
-
   "projects": [
     {
       "name": "",
@@ -1195,7 +814,6 @@ The JSON MUST follow this exact structure:
       "url": ""
     }
   ],
-
   "certifications": [
     {
       "name": "",
@@ -1204,11 +822,8 @@ The JSON MUST follow this exact structure:
       "url": ""
     }
   ],
-
   "achievements": [],
-
   "languages": [],
-
   "additionalSections": [
     {
       "title": "",
@@ -1217,368 +832,116 @@ The JSON MUST follow this exact structure:
   ]
 }
 
-==================================================
-FINAL INTERNAL CHECK
-==================================================
-
-Before returning the JSON verify:
-
-- All personal information preserved.
-- All experience entries preserved.
-- All responsibilities preserved.
-- All education entries preserved.
-- All education details preserved.
-- All projects preserved.
-- All project technologies preserved.
-- All certifications preserved.
-- All achievements preserved.
-- All languages preserved.
-- All skills preserved.
-- All additional sections preserved.
-- Dates preserved.
-- Companies preserved.
-- Job titles preserved.
-- No unsupported technology added.
-- No unsupported certification added.
-- No unsupported experience added.
-- No fabricated metric added.
-- No fabricated achievement added.
-- No fabricated responsibility added.
-- No keyword stuffing.
-- No factual information removed.
-
-RETURN ONLY JSON.
+Return ONLY the JSON object.
 `;
 }
 
-/* ==========================================================
-   JSON REPAIR
-========================================================== */
-
-async function repairResumeResponse(
-  rawResponse: string,
-  validationError: string,
-  model: string,
-): Promise<ResumeData | null> {
-  const repairPrompt = `
-You are HirePro's resume JSON repair engine.
-
-Repair the following invalid JSON so that it
-matches ResumeSchema exactly.
-
-This is NOT a resume rewriting task.
-
-Do NOT invent information.
-
-Do NOT improve the resume.
-
-Do NOT remove factual information.
-
-Preserve the existing information.
-
-==================================================
-INVALID RESPONSE
-==================================================
-
-${rawResponse}
-
-==================================================
-VALIDATION ERROR
-==================================================
-
-${validationError}
-
-==================================================
-REQUIRED STRUCTURE
-==================================================
-
-{
-  "personal": {
-    "name": "",
-    "email": "",
-    "phone": "",
-    "location": "",
-    "linkedin": "",
-    "github": "",
-    "website": ""
-  },
-
-  "professionalSummary": "",
-
-  "skills": [
-    {
-      "category": "",
-      "items": []
-    }
-  ],
-
-  "experience": [
-    {
-      "company": "",
-      "role": "",
-      "location": "",
-      "startDate": "",
-      "endDate": "",
-      "responsibilities": []
-    }
-  ],
-
-  "education": [
-    {
-      "institution": "",
-      "degree": "",
-      "field": "",
-      "startDate": "",
-      "endDate": "",
-      "details": []
-    }
-  ],
-
-  "projects": [
-    {
-      "name": "",
-      "description": "",
-      "technologies": [],
-      "url": ""
-    }
-  ],
-
-  "certifications": [
-    {
-      "name": "",
-      "issuer": "",
-      "date": "",
-      "url": ""
-    }
-  ],
-
-  "achievements": [],
-
-  "languages": [],
-
-  "additionalSections": [
-    {
-      "title": "",
-      "items": []
-    }
-  ]
-}
-
-Rules:
-
-- Use empty strings instead of null.
-- Use empty arrays instead of null.
-- Preserve all existing factual content.
-- Do not invent missing facts.
-- Return only valid JSON.
-`;
-
-  try {
-    const response =
-      await ai.models.generateContent(
-        {
-          model,
-          contents:
-            repairPrompt,
-          config: {
-            temperature: 0,
-            responseMimeType:
-              "application/json",
-          },
-        },
-      );
-
-    const raw =
-      response.text ?? "";
-
-    if (!raw.trim()) {
-      return null;
-    }
-
-    const cleaned =
-      cleanJsonResponse(raw);
-
-    const parsed =
-      JSON.parse(cleaned);
-
-    const normalized =
-      normalizeResume(parsed);
-
-    const validation =
-      ResumeSchema.safeParse(
-        normalized,
-      );
-
-    if (!validation.success) {
-      console.error(
-        "[ATS OPTIMIZER] Repair validation failed:",
-        validation.error.flatten(),
-      );
-
-      return null;
-    }
-
-    return validation.data;
-  } catch (error) {
-    console.error(
-      "[ATS OPTIMIZER] Repair failed:",
-      error,
-    );
-
-    return null;
-  }
-}
-
-/* ==========================================================
-   GENERATE WITH MODEL
-========================================================== */
-
-async function generateWithModel(
+async function callModel(
   model: string,
   prompt: string,
 ): Promise<ResumeData> {
-  let lastValidationError =
-    "";
+  const ai = getAI();
+
+  let lastError: unknown;
 
   for (
-    let attempt = 1;
-    attempt <= MAX_ATTEMPTS;
+    let attempt = 0;
+    attempt < MAX_MODEL_ATTEMPTS;
     attempt++
   ) {
     try {
-      console.log(
-        `[ATS OPTIMIZER] ${model} attempt ${attempt}`,
-      );
-
       const response =
-        await ai.models.generateContent(
-          {
-            model,
-            contents: prompt,
-            config: {
-              temperature: 0.1,
-              responseMimeType:
-                "application/json",
-            },
-          },
-        );
-
-      const raw =
-        response.text ?? "";
-
-      if (!raw.trim()) {
-        throw new Error(
-          "AI returned an empty response.",
-        );
-      }
-
-      const parsed =
-        parseResumeResponse(raw);
-
-      if (parsed.success) {
-        return parsed.resume;
-      }
-
-      lastValidationError =
-        parsed.error;
-
-      console.error(
-        `[ATS OPTIMIZER] Invalid structure from ${model}:`,
-        parsed.error,
-      );
-
-      const repaired =
-        await repairResumeResponse(
-          raw,
-          parsed.error,
+        await ai.models.generateContent({
           model,
-        );
+          contents: prompt,
+          config: {
+            responseMimeType:
+              "application/json",
+            maxOutputTokens: 12000,
+          },
+        });
 
-      if (repaired) {
-        console.log(
-          `[ATS OPTIMIZER] ${model} successfully repaired resume`,
-        );
+      const text =
+        response.text;
 
-        return repaired;
+      if (!text) {
+        throw new Error(
+          "Gemini returned an empty optimization response.",
+        );
       }
+
+      return parseResume(text);
     } catch (error) {
-      console.error(
-        `[ATS OPTIMIZER] ${model} attempt ${attempt} failed:`,
-        error,
-      );
+      lastError = error;
 
-      if (
-        attempt < MAX_ATTEMPTS
-      ) {
-        await new Promise(
-          (resolve) =>
-            setTimeout(
-              resolve,
-              1500,
-            ),
+      const message =
+        error instanceof Error
+          ? error.message.toLowerCase()
+          : String(error).toLowerCase();
+
+      const retryable =
+        message.includes("429") ||
+        message.includes("503") ||
+        message.includes("unavailable") ||
+        message.includes("overloaded") ||
+        message.includes(
+          "resource exhausted",
         );
+
+      if (!retryable) {
+        break;
       }
+
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            1500 *
+              (attempt + 1),
+          ),
+      );
     }
   }
 
-  throw new Error(
-    `AI returned an invalid optimized resume structure. ${
-      lastValidationError
-        ? `Validation error: ${lastValidationError}`
-        : ""
-    }`,
-  );
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(
+        "Resume optimization failed.",
+      );
 }
-
-/* ==========================================================
-   MAIN ATS OPTIMIZER
-========================================================== */
 
 export async function optimizeResumeForATS(
   resumeText: string,
   atsResult: ATSResult,
-  jobDescription: string,
+  jobDescription = "",
   pageCount: ResumePageCount = 2,
+  repairFeedback = "",
 ): Promise<ResumeData> {
-  if (
-    !process.env.GEMINI_API_KEY
-  ) {
-    throw new Error(
-      "GEMINI_API_KEY is not configured.",
-    );
-  }
-
   if (!resumeText.trim()) {
     throw new Error(
-      "Resume text is empty.",
+      "Resume text is required.",
     );
   }
 
-  const safePageCount: ResumePageCount =
-    pageCount === 1 ||
-    pageCount === 3
-      ? pageCount
-      : 2;
-
   const prompt =
-    buildOptimizationPrompt(
+    buildPrompt(
       resumeText,
       atsResult,
-      jobDescription,
-      safePageCount,
+      jobDescription.trim(),
+      pageCount,
+      repairFeedback,
     );
+
+  let lastError: unknown;
 
   const models = [
     PRIMARY_MODEL,
     ...FALLBACK_MODELS,
   ];
 
-  let lastError: unknown =
-    null;
-
   for (const model of models) {
     try {
-      return await generateWithModel(
+      return await callModel(
         model,
         prompt,
       );
@@ -1586,15 +949,15 @@ export async function optimizeResumeForATS(
       lastError = error;
 
       console.error(
-        `[ATS OPTIMIZER] Model ${model} failed:`,
+        `[ATS OPTIMIZER] ${model} failed:`,
         error,
       );
     }
   }
 
-  throw new Error(
-    lastError instanceof Error
-      ? lastError.message
-      : "Failed to optimize resume with AI.",
-  );
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(
+        "Unable to optimize resume.",
+      );
 }

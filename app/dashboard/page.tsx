@@ -128,6 +128,7 @@ export default function DashboardPage() {
 
     loadDashboard();
   }, []);
+  
 
   const userName = data?.user?.name || "there";
   const firstName = userName.split(" ")[0] || "there";

@@ -7,7 +7,11 @@ import {
 } from "unpdf";
 
 import { generateATSResult } from "@/lib/ai/ats-analyzer";
-import { ATSResultSchema } from "@/lib/ai/ats-schema";
+import {
+  ATSResultSchema,
+  type ATSResult,
+} from "@/lib/ai/ats-schema";
+
 import {
   ResumeSchema,
   type ResumeData,
@@ -27,8 +31,12 @@ function cleanText(text: string): string {
 }
 
 /**
- * Converts the optimized ResumeData object into plain text
- * so the SAME ATS analyzer can verify it again.
+ * Convert optimized ResumeData into text.
+ *
+ * IMPORTANT:
+ * Every supported section is included.
+ * This prevents education, projects, certifications,
+ * achievements, etc. from disappearing during verification.
  */
 function resumeDataToText(
   resume: ResumeData,
@@ -37,63 +45,60 @@ function resumeDataToText(
 
   const personal = resume.personal;
 
-  if (personal.name) {
+  if (personal?.name) {
     parts.push(personal.name);
   }
 
-  if (personal.email) {
+  if (personal?.email) {
     parts.push(personal.email);
   }
 
-  if (personal.phone) {
+  if (personal?.phone) {
     parts.push(personal.phone);
   }
 
-  if (personal.location) {
+  if (personal?.location) {
     parts.push(personal.location);
   }
 
-  if (personal.linkedin) {
+  if (personal?.linkedin) {
     parts.push(personal.linkedin);
   }
 
-  if (personal.github) {
+  if (personal?.github) {
     parts.push(personal.github);
   }
 
-  if (personal.website) {
+  if (personal?.website) {
     parts.push(personal.website);
   }
 
   // ------------------------------------------------------------
-  // PROFESSIONAL SUMMARY
+  // SUMMARY
   // ------------------------------------------------------------
 
   if (resume.professionalSummary) {
     parts.push("PROFESSIONAL SUMMARY");
-    parts.push(
-      resume.professionalSummary,
-    );
+    parts.push(resume.professionalSummary);
   }
 
   // ------------------------------------------------------------
   // SKILLS
   // ------------------------------------------------------------
 
-  if (resume.skills.length > 0) {
+  if (Array.isArray(resume.skills)) {
     parts.push("SKILLS");
 
-    for (const skillGroup of resume.skills) {
-      if (skillGroup.category) {
-        parts.push(
-          skillGroup.category,
-        );
+    for (const group of resume.skills) {
+      if (group.category) {
+        parts.push(group.category);
       }
 
-      if (skillGroup.items.length > 0) {
-        parts.push(
-          skillGroup.items.join(", "),
-        );
+      if (
+        Array.isArray(group.items) &&
+        group.items.length > 0
+      ) {
+        parts.push(group.items.join(", "));
       }
     }
   }
@@ -102,48 +107,42 @@ function resumeDataToText(
   // EXPERIENCE
   // ------------------------------------------------------------
 
-  if (resume.experience.length > 0) {
+  if (Array.isArray(resume.experience)) {
     parts.push("EXPERIENCE");
 
     for (const experience of resume.experience) {
       if (experience.role) {
-        parts.push(
-          experience.role,
-        );
+        parts.push(experience.role);
       }
 
       if (experience.company) {
-        parts.push(
-          experience.company,
-        );
+        parts.push(experience.company);
       }
 
       if (experience.location) {
-        parts.push(
-          experience.location,
-        );
+        parts.push(experience.location);
       }
 
       if (experience.startDate) {
-        parts.push(
-          experience.startDate,
-        );
+        parts.push(experience.startDate);
       }
 
       if (experience.endDate) {
-        parts.push(
-          experience.endDate,
-        );
+        parts.push(experience.endDate);
       }
 
-      for (
-        const responsibility
-        of experience.responsibilities
+      if (
+        Array.isArray(
+          experience.responsibilities,
+        )
       ) {
-        if (responsibility) {
-          parts.push(
-            responsibility,
-          );
+        for (
+          const responsibility of
+          experience.responsibilities
+        ) {
+          if (responsibility) {
+            parts.push(responsibility);
+          }
         }
       }
     }
@@ -153,46 +152,39 @@ function resumeDataToText(
   // EDUCATION
   // ------------------------------------------------------------
 
-  if (resume.education.length > 0) {
+  if (Array.isArray(resume.education)) {
     parts.push("EDUCATION");
 
     for (const education of resume.education) {
       if (education.institution) {
-        parts.push(
-          education.institution,
-        );
+        parts.push(education.institution);
       }
 
       if (education.degree) {
-        parts.push(
-          education.degree,
-        );
+        parts.push(education.degree);
       }
 
       if (education.field) {
-        parts.push(
-          education.field,
-        );
+        parts.push(education.field);
       }
 
       if (education.startDate) {
-        parts.push(
-          education.startDate,
-        );
+        parts.push(education.startDate);
       }
 
       if (education.endDate) {
-        parts.push(
-          education.endDate,
-        );
+        parts.push(education.endDate);
       }
 
-      for (
-        const detail
-        of education.details
+      if (
+        Array.isArray(education.details)
       ) {
-        if (detail) {
-          parts.push(detail);
+        for (
+          const detail of education.details
+        ) {
+          if (detail) {
+            parts.push(detail);
+          }
         }
       }
     }
@@ -202,7 +194,7 @@ function resumeDataToText(
   // PROJECTS
   // ------------------------------------------------------------
 
-  if (resume.projects.length > 0) {
+  if (Array.isArray(resume.projects)) {
     parts.push("PROJECTS");
 
     for (const project of resume.projects) {
@@ -211,12 +203,13 @@ function resumeDataToText(
       }
 
       if (project.description) {
-        parts.push(
-          project.description,
-        );
+        parts.push(project.description);
       }
 
       if (
+        Array.isArray(
+          project.technologies,
+        ) &&
         project.technologies.length > 0
       ) {
         parts.push(
@@ -235,36 +228,30 @@ function resumeDataToText(
   // ------------------------------------------------------------
 
   if (
-    resume.certifications.length > 0
+    Array.isArray(
+      resume.certifications,
+    )
   ) {
     parts.push("CERTIFICATIONS");
 
     for (
-      const certification
-      of resume.certifications
+      const certification of
+      resume.certifications
     ) {
       if (certification.name) {
-        parts.push(
-          certification.name,
-        );
+        parts.push(certification.name);
       }
 
       if (certification.issuer) {
-        parts.push(
-          certification.issuer,
-        );
+        parts.push(certification.issuer);
       }
 
       if (certification.date) {
-        parts.push(
-          certification.date,
-        );
+        parts.push(certification.date);
       }
 
       if (certification.url) {
-        parts.push(
-          certification.url,
-        );
+        parts.push(certification.url);
       }
     }
   }
@@ -273,12 +260,16 @@ function resumeDataToText(
   // ACHIEVEMENTS
   // ------------------------------------------------------------
 
-  if (resume.achievements.length > 0) {
+  if (
+    Array.isArray(
+      resume.achievements,
+    )
+  ) {
     parts.push("ACHIEVEMENTS");
 
     for (
-      const achievement
-      of resume.achievements
+      const achievement of
+      resume.achievements
     ) {
       if (achievement) {
         parts.push(achievement);
@@ -290,9 +281,11 @@ function resumeDataToText(
   // LANGUAGES
   // ------------------------------------------------------------
 
-  if (resume.languages.length > 0) {
+  if (
+    Array.isArray(resume.languages) &&
+    resume.languages.length > 0
+  ) {
     parts.push("LANGUAGES");
-
     parts.push(
       resume.languages.join(", "),
     );
@@ -303,24 +296,27 @@ function resumeDataToText(
   // ------------------------------------------------------------
 
   if (
-    resume.additionalSections.length > 0
+    Array.isArray(
+      resume.additionalSections,
+    )
   ) {
     for (
-      const section
-      of resume.additionalSections
+      const section of
+      resume.additionalSections
     ) {
       if (section.title) {
-        parts.push(
-          section.title,
-        );
+        parts.push(section.title);
       }
 
-      for (
-        const item
-        of section.items
+      if (
+        Array.isArray(section.items)
       ) {
-        if (item) {
-          parts.push(item);
+        for (
+          const item of section.items
+        ) {
+          if (item) {
+            parts.push(item);
+          }
         }
       }
     }
@@ -333,12 +329,6 @@ function resumeDataToText(
   );
 }
 
-/**
- * Extract text from an uploaded PDF.
- *
- * ATS remains independent:
- * users can upload any PDF resume.
- */
 async function extractPdfText(
   file: File,
 ): Promise<string> {
@@ -358,8 +348,7 @@ async function extractPdfText(
     file.name.toLowerCase();
 
   if (
-    file.type !==
-      "application/pdf" &&
+    file.type !== "application/pdf" &&
     !fileName.endsWith(".pdf")
   ) {
     throw new Error(
@@ -372,12 +361,6 @@ async function extractPdfText(
       await file.arrayBuffer(),
     );
 
-  /**
-   * IMPORTANT:
-   * Use getDocumentProxy first.
-   * This is the working unpdf pattern
-   * used by /api/ats/check.
-   */
   const pdf =
     await getDocumentProxy(
       pdfData,
@@ -395,12 +378,129 @@ async function extractPdfText(
   );
 }
 
+/**
+ * Safely extract a usable ATS result.
+ *
+ * Some AI providers may return numbers as strings.
+ * This normalizes those values before Zod validation.
+ */
+function normalizeATSResult(
+  value: unknown,
+): unknown {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
+    return value;
+  }
+
+  const input =
+    value as Record<string, unknown>;
+
+  const output: Record<
+    string,
+    unknown
+  > = {
+    ...input,
+  };
+
+  function numberValue(
+    value: unknown,
+  ): unknown {
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === "string" &&
+      value.trim() !== ""
+    ) {
+      const parsed =
+        Number(value);
+
+      if (
+        Number.isFinite(parsed)
+      ) {
+        return parsed;
+      }
+    }
+
+    return value;
+  }
+
+  output.overallScore =
+    numberValue(
+      input.overallScore,
+    );
+
+  for (
+    const sectionName of [
+      "keywordMatch",
+      "formatting",
+      "experience",
+      "skills",
+    ]
+  ) {
+    const section =
+      input[sectionName];
+
+    if (
+      section &&
+      typeof section === "object"
+    ) {
+      const sectionObject =
+        section as Record<
+          string,
+          unknown
+        >;
+
+      output[sectionName] = {
+        ...sectionObject,
+        score: numberValue(
+          sectionObject.score,
+        ),
+      };
+    }
+  }
+
+  return output;
+}
+
+/**
+ * Make sure the analyzer result is actually usable.
+ */
+function validateATSResult(
+  value: unknown,
+): ATSResult | null {
+  const normalized =
+    normalizeATSResult(value);
+
+  const parsed =
+    ATSResultSchema.safeParse(
+      normalized,
+    );
+
+  if (!parsed.success) {
+    console.error(
+      "ATS verification schema error:",
+      parsed.error.flatten(),
+    );
+
+    return null;
+  }
+
+  return parsed.data;
+}
+
 export async function POST(
   request: Request,
 ) {
   try {
     // ============================================================
-    // 1. AUTHENTICATION
+    // AUTH
     // ============================================================
 
     const supabase =
@@ -429,7 +529,7 @@ export async function POST(
     }
 
     // ============================================================
-    // 2. DETECT REQUEST TYPE
+    // REQUEST
     // ============================================================
 
     const contentType =
@@ -439,12 +539,6 @@ export async function POST(
 
     let resumeText = "";
     let jobDescription = "";
-
-    // ============================================================
-    // 3. JSON REQUEST
-    //
-    // This is what improveResume() currently sends.
-    // ============================================================
 
     if (
       contentType.includes(
@@ -467,7 +561,6 @@ export async function POST(
         );
       }
 
-      // Validate optimized ResumeData
       const parsedResume =
         ResumeSchema.safeParse(
           body.resume,
@@ -477,7 +570,7 @@ export async function POST(
         !parsedResume.success
       ) {
         console.error(
-          "ATS verification ResumeSchema validation failed:",
+          "Optimized resume validation failed:",
           parsedResume.error.flatten(),
         );
 
@@ -495,7 +588,6 @@ export async function POST(
         );
       }
 
-      // Convert structured resume into text
       resumeText =
         resumeDataToText(
           parsedResume.data,
@@ -510,16 +602,7 @@ export async function POST(
             body.jobDescription,
           );
       }
-    }
-
-    // ============================================================
-    // 4. MULTIPART PDF REQUEST
-    //
-    // This keeps ATS independently usable for normal
-    // uploaded PDF resumes.
-    // ============================================================
-
-    else if (
+    } else if (
       contentType.includes(
         "multipart/form-data",
       )
@@ -528,11 +611,9 @@ export async function POST(
         await request.formData();
 
       const resumeFile =
-        formData.get(
-          "resume",
-        );
+        formData.get("resume");
 
-      const jobDescriptionValue =
+      const jd =
         formData.get(
           "jobDescription",
         );
@@ -552,49 +633,18 @@ export async function POST(
         );
       }
 
-      try {
-        resumeText =
-          await extractPdfText(
-            resumeFile,
-          );
-      } catch (
-        pdfError
-      ) {
-        console.error(
-          "ATS verification PDF extraction error:",
-          pdfError,
+      resumeText =
+        await extractPdfText(
+          resumeFile,
         );
-
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              pdfError instanceof Error
-                ? pdfError.message
-                : "We could not read this PDF.",
-          },
-          {
-            status: 422,
-          },
-        );
-      }
 
       if (
-        typeof jobDescriptionValue ===
-        "string"
+        typeof jd === "string"
       ) {
         jobDescription =
-          cleanText(
-            jobDescriptionValue,
-          );
+          cleanText(jd);
       }
-    }
-
-    // ============================================================
-    // 5. UNSUPPORTED REQUEST
-    // ============================================================
-
-    else {
+    } else {
       return NextResponse.json(
         {
           success: false,
@@ -607,10 +657,6 @@ export async function POST(
       );
     }
 
-    // ============================================================
-    // 6. CHECK EXTRACTED/GENERATED TEXT
-    // ============================================================
-
     if (
       !resumeText ||
       resumeText.length < 50
@@ -619,7 +665,7 @@ export async function POST(
         {
           success: false,
           error:
-            "We could not extract enough readable resume content for ATS verification.",
+            "Not enough readable resume content was available for verification.",
         },
         {
           status: 422,
@@ -628,10 +674,10 @@ export async function POST(
     }
 
     // ============================================================
-    // 7. RUN ATS AI ANALYZER
+    // ATS ANALYSIS
     // ============================================================
 
-    let rawResult;
+    let rawResult: unknown;
 
     try {
       rawResult =
@@ -639,21 +685,19 @@ export async function POST(
           resumeText,
           jobDescription,
         );
-    } catch (
-      analysisError
-    ) {
+    } catch (error) {
       console.error(
         "ATS verification analyzer error:",
-        analysisError,
+        error,
       );
 
       return NextResponse.json(
         {
           success: false,
           error:
-            analysisError instanceof Error
-              ? analysisError.message
-              : "The ATS analyzer could not calculate the score.",
+            error instanceof Error
+              ? error.message
+              : "The ATS analyzer could not calculate the optimized score.",
         },
         {
           status: 502,
@@ -662,29 +706,20 @@ export async function POST(
     }
 
     // ============================================================
-    // 8. VALIDATE AI RESULT
+    // VALIDATE
     // ============================================================
 
-    const validation =
-      ATSResultSchema.safeParse(
+    const result =
+      validateATSResult(
         rawResult,
       );
 
-    if (
-      !validation.success
-    ) {
-      console.error(
-        "ATS verification result validation failed:",
-        validation.error.flatten(),
-      );
-
+    if (!result) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "The ATS analyzer returned an invalid score result.",
-          details:
-            validation.error.flatten(),
+            "The ATS analyzer returned an invalid verification result.",
         },
         {
           status: 502,
@@ -692,43 +727,45 @@ export async function POST(
       );
     }
 
-    const result =
-      validation.data;
-
     // ============================================================
-    // 9. RETURN VERIFIED SCORE
+    // SUCCESS
     // ============================================================
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json(
+      {
+        success: true,
 
-      score:
-        result.overallScore,
+        result,
 
-      result,
+        score:
+          result.overallScore,
 
-      meta: {
-        verified: true,
+        overallScore:
+          result.overallScore,
 
-        source:
-          contentType.includes(
-            "application/json",
-          )
-            ? "optimized-resume-data"
-            : "pdf",
+        meta: {
+          verified: true,
+          source:
+            contentType.includes(
+              "application/json",
+            )
+              ? "optimized-resume"
+              : "pdf",
 
-        hasJobDescription:
-          Boolean(
-            jobDescription,
-          ),
+          hasJobDescription:
+            Boolean(
+              jobDescription,
+            ),
 
-        resumeCharacters:
-          resumeText.length,
+          resumeCharacters:
+            resumeText.length,
+        },
       },
-    });
-  } catch (
-    error
-  ) {
+      {
+        status: 200,
+      },
+    );
+  } catch (error) {
     console.error(
       "ATS verification fatal error:",
       error,
