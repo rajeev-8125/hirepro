@@ -1,59 +1,120 @@
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
+function safeNext(
+  value: unknown,
+) {
+  if (
+    typeof value !== "string"
+  ) {
+    return "/dashboard";
+  }
 
-  const formData = await request.formData();
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//")
+  ) {
+    return "/dashboard";
+  }
 
-  const nextValue = formData.get("next");
+  return value;
+}
 
-  const next =
-    typeof nextValue === "string" && nextValue.startsWith("/")
-      ? nextValue
-      : "/dashboard";
+export async function POST(
+  request: Request,
+) {
+  try {
+    const supabase =
+      await createClient();
 
-  const requestUrl = new URL(request.url);
+    const formData =
+      await request.formData();
 
-  const callbackUrl = new URL("/auth/callback", requestUrl.origin);
+    const next =
+      safeNext(
+        formData.get("next"),
+      );
 
-  callbackUrl.searchParams.set("next", next);
+    const requestUrl =
+      new URL(request.url);
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: callbackUrl.toString(),
-    },
-  });
+    const callbackUrl =
+      new URL(
+        "/auth/callback",
+        requestUrl.origin,
+      );
 
-  if (error) {
-    console.error("Google sign-in error:", error);
+    callbackUrl.searchParams.set(
+      "next",
+      next,
+    );
+
+    const {
+      data,
+      error,
+    } =
+      await supabase.auth.signInWithOAuth(
+        {
+          provider: "google",
+
+          options: {
+            redirectTo:
+              callbackUrl.toString(),
+          },
+        },
+      );
+
+    if (error) {
+      console.error(
+        "[Auth] Google OAuth error:",
+        error,
+      );
+
+      return NextResponse.redirect(
+        new URL(
+          `/login?error=${encodeURIComponent(
+            "Unable to start Google sign-in.",
+          )}`,
+          requestUrl.origin,
+        ),
+        303,
+      );
+    }
+
+    if (!data.url) {
+      return NextResponse.redirect(
+        new URL(
+          `/login?error=${encodeURIComponent(
+            "Google sign-in URL was not generated.",
+          )}`,
+          requestUrl.origin,
+        ),
+        303,
+      );
+    }
+
+    /*
+     * 303 is intentional.
+     *
+     * Browser changes POST -> GET.
+     */
+    return NextResponse.redirect(
+      data.url,
+      303,
+    );
+  } catch (error) {
+    console.error(
+      "[Auth] Sign-in route error:",
+      error,
+    );
 
     return NextResponse.redirect(
       new URL(
-        `/login?error=${encodeURIComponent(
-          "Unable to start Google sign-in"
-        )}`,
-        requestUrl.origin
+        "/login?error=authentication_failed",
+        request.url,
       ),
-      303
+      303,
     );
   }
-
-  if (!data.url) {
-    return NextResponse.redirect(
-      new URL(
-        `/login?error=${encodeURIComponent(
-          "Google sign-in URL was not generated"
-        )}`,
-        requestUrl.origin
-      ),
-      303
-    );
-  }
-
-  // IMPORTANT:
-  // Use 303 so the browser changes the POST into a GET
-  // when navigating to the Supabase OAuth authorize URL.
-  return NextResponse.redirect(data.url, 303);
 }

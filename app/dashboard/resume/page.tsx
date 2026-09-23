@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type ReactNode,
 } from "react";
 
 import {
@@ -13,14 +12,12 @@ import {
   BriefcaseBusiness,
   Check,
   ChevronDown,
-  ChevronRight,
   Download,
   FileText,
   FolderKanban,
   GraduationCap,
   Image as ImageIcon,
   Languages,
-  LayoutTemplate,
   Loader2,
   Plus,
   RotateCcw,
@@ -29,34 +26,20 @@ import {
   User,
   Wand2,
   X,
-  AlignLeft,
 } from "lucide-react";
+
+import { useRouter } from "next/navigation";
 
 import type { ResumeData } from "@/lib/ai/resume-schema";
 import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
 
-/* -------------------------------------------------------------------------- */
-/* Types                                                                      */
-/* -------------------------------------------------------------------------- */
+import { createClient } from "@/lib/supabase/client";
 
 type TemplateType =
   | "ats"
   | "professional"
   | "modern"
   | "executive";
-
-type PhotoSize = "small" | "medium" | "large";
-type PhotoShape = "circle" | "rounded" | "square";
-type PhotoHorizontal = "left" | "center" | "right";
-type PhotoVertical = "top" | "center" | "bottom";
-
-type PhotoSettings = {
-  size: PhotoSize;
-  zoom: number;
-  horizontal: PhotoHorizontal;
-  vertical: PhotoVertical;
-  shape: PhotoShape;
-};
 
 type SectionName =
   | "personal"
@@ -69,11 +52,7 @@ type SectionName =
   | "achievements"
   | "languages";
 
-/* -------------------------------------------------------------------------- */
-/* Empty Resume                                                               */
-/* -------------------------------------------------------------------------- */
-
-function createEmptyResume(): ResumeData {
+function emptyResume(): ResumeData {
   return {
     personal: {
       name: "",
@@ -84,24 +63,29 @@ function createEmptyResume(): ResumeData {
       github: "",
       website: "",
     },
+
     professionalSummary: "",
+
     skills: [],
+
     experience: [],
+
     education: [],
+
     projects: [],
+
     certifications: [],
+
     achievements: [],
+
     languages: [],
+
     additionalSections: [],
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Normalization                                                              */
-/* -------------------------------------------------------------------------- */
-
-function normalizeResumeData(data: any): ResumeData {
-  const empty = createEmptyResume();
+function normalizeResume(data: any): ResumeData {
+  const empty = emptyResume();
 
   return {
     personal: {
@@ -116,88 +100,302 @@ function normalizeResumeData(data: any): ResumeData {
 
     skills: Array.isArray(data?.skills)
       ? data.skills.map((item: any) => ({
-          category: item?.category ?? "",
+          category:
+            typeof item?.category === "string"
+              ? item.category
+              : "",
+
           items: Array.isArray(item?.items)
-            ? item.items
+            ? item.items.filter(
+                (x: any) => typeof x === "string",
+              )
             : [],
         }))
       : [],
 
     experience: Array.isArray(data?.experience)
       ? data.experience.map((item: any) => ({
-          company: item?.company ?? "",
-          role: item?.role ?? "",
-          location: item?.location ?? "",
-          startDate: item?.startDate ?? "",
-          endDate: item?.endDate ?? "",
-          responsibilities: Array.isArray(
-            item?.responsibilities
-          )
-            ? item.responsibilities
-            : [],
+          company:
+            typeof item?.company === "string"
+              ? item.company
+              : "",
+
+          role:
+            typeof item?.role === "string"
+              ? item.role
+              : "",
+
+          location:
+            typeof item?.location === "string"
+              ? item.location
+              : "",
+
+          startDate:
+            typeof item?.startDate === "string"
+              ? item.startDate
+              : "",
+
+          endDate:
+            typeof item?.endDate === "string"
+              ? item.endDate
+              : "",
+
+          responsibilities:
+            Array.isArray(item?.responsibilities)
+              ? item.responsibilities.filter(
+                  (x: any) =>
+                    typeof x === "string",
+                )
+              : [],
         }))
       : [],
 
     education: Array.isArray(data?.education)
       ? data.education.map((item: any) => ({
-          institution: item?.institution ?? "",
-          degree: item?.degree ?? "",
-          field: item?.field ?? "",
-          startDate: item?.startDate ?? "",
-          endDate: item?.endDate ?? "",
-          details: Array.isArray(item?.details)
-            ? item.details
-            : [],
+          institution:
+            typeof item?.institution === "string"
+              ? item.institution
+              : "",
+
+          degree:
+            typeof item?.degree === "string"
+              ? item.degree
+              : "",
+
+          field:
+            typeof item?.field === "string"
+              ? item.field
+              : "",
+
+          startDate:
+            typeof item?.startDate === "string"
+              ? item.startDate
+              : "",
+
+          endDate:
+            typeof item?.endDate === "string"
+              ? item.endDate
+              : "",
+
+          details:
+            Array.isArray(item?.details)
+              ? item.details.filter(
+                  (x: any) =>
+                    typeof x === "string",
+                )
+              : [],
         }))
       : [],
 
     projects: Array.isArray(data?.projects)
       ? data.projects.map((item: any) => ({
-          name: item?.name ?? "",
-          description: item?.description ?? "",
-          technologies: Array.isArray(
-            item?.technologies
-          )
-            ? item.technologies
-            : [],
-          url: item?.url ?? "",
+          name:
+            typeof item?.name === "string"
+              ? item.name
+              : "",
+
+          description:
+            typeof item?.description === "string"
+              ? item.description
+              : "",
+
+          technologies:
+            Array.isArray(item?.technologies)
+              ? item.technologies.filter(
+                  (x: any) =>
+                    typeof x === "string",
+                )
+              : [],
+
+          url:
+            typeof item?.url === "string"
+              ? item.url
+              : "",
         }))
       : [],
 
     certifications: Array.isArray(
-      data?.certifications
+      data?.certifications,
     )
       ? data.certifications.map((item: any) => ({
-          name: item?.name ?? "",
-          issuer: item?.issuer ?? "",
-          date: item?.date ?? "",
-          url: item?.url ?? "",
+          name:
+            typeof item?.name === "string"
+              ? item.name
+              : "",
+
+          issuer:
+            typeof item?.issuer === "string"
+              ? item.issuer
+              : "",
+
+          date:
+            typeof item?.date === "string"
+              ? item.date
+              : "",
+
+          url:
+            typeof item?.url === "string"
+              ? item.url
+              : "",
         }))
       : [],
 
     achievements: Array.isArray(data?.achievements)
-      ? data.achievements
+      ? data.achievements.filter(
+          (x: any) => typeof x === "string",
+        )
       : [],
 
     languages: Array.isArray(data?.languages)
-      ? data.languages
+      ? data.languages.filter(
+          (x: any) => typeof x === "string",
+        )
       : [],
 
     additionalSections: Array.isArray(
-      data?.additionalSections
+      data?.additionalSections,
     )
-      ? data.additionalSections
+      ? data.additionalSections.map((item: any) => ({
+          title:
+            typeof item?.title === "string"
+              ? item.title
+              : "",
+
+          items:
+            Array.isArray(item?.items)
+              ? item.items.filter(
+                  (x: any) =>
+                    typeof x === "string",
+                )
+              : [],
+        }))
       : [],
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Main Component                                                             */
-/* -------------------------------------------------------------------------- */
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
 
-export default function ResumeGeneratorPage() {
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 5,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+
+      <textarea
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+      />
+    </label>
+  );
+}
+
+function SectionCard({
+  icon,
+  title,
+  description,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-slate-50"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            {icon}
+          </div>
+
+          <div>
+            <h2 className="font-bold text-slate-900">
+              {title}
+            </h2>
+
+            <p className="text-xs text-slate-500">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        <ChevronDown
+          className={`h-5 w-5 text-slate-400 transition ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100 p-5">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function ResumeBuilderPage() {
+  const router = useRouter();
+
   const [resume, setResume] =
-    useState<ResumeData>(createEmptyResume());
+    useState<ResumeData>(emptyResume());
 
   const [design, setDesign] =
     useState<ResumeDesign | null>(null);
@@ -205,7 +403,7 @@ export default function ResumeGeneratorPage() {
   const [template, setTemplate] =
     useState<TemplateType>("professional");
 
-  const [resumeDesignDescription, setResumeDesignDescription] =
+  const [designDescription, setDesignDescription] =
     useState("");
 
   const [profilePhoto, setProfilePhoto] =
@@ -214,17 +412,11 @@ export default function ResumeGeneratorPage() {
   const [profilePhotoFile, setProfilePhotoFile] =
     useState<File | null>(null);
 
-  const [photoSettings, setPhotoSettings] =
-    useState<PhotoSettings>({
-      size: "medium",
-      zoom: 100,
-      horizontal: "center",
-      vertical: "center",
-      shape: "circle",
-    });
-
   const [openSection, setOpenSection] =
-    useState<SectionName | null>("personal");
+    useState<SectionName>("personal");
+
+  const [isCheckingAuth, setIsCheckingAuth] =
+    useState(true);
 
   const [isGenerating, setIsGenerating] =
     useState(false);
@@ -241,29 +433,73 @@ export default function ResumeGeneratorPage() {
   const photoInputRef =
     useRef<HTMLInputElement | null>(null);
 
-  /* ---------------------------------------------------------------------- */
-  /* Load latest resume                                                     */
-  /* ---------------------------------------------------------------------- */
+  /* ============================================================
+     AUTH
+  ============================================================ */
 
   useEffect(() => {
-    async function loadLatestResume() {
-      try {
-        const response = await fetch(
-          "/api/resume/latest",
-          {
-            cache: "no-store",
-          }
-        );
+    let mounted = true;
 
-        if (!response.ok) {
+    async function checkAuth() {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.replace(
+            `/login?next=${encodeURIComponent(
+              "/dashboard/resume",
+            )}`,
+          );
           return;
         }
+
+        if (!mounted) return;
+
+        setIsCheckingAuth(false);
+      } catch {
+        router.replace(
+          `/login?next=${encodeURIComponent(
+            "/dashboard/resume",
+          )}`,
+        );
+      }
+    }
+
+    checkAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  /* ============================================================
+     LOAD LATEST SAVED RESUME
+  ============================================================ */
+
+  useEffect(() => {
+    if (isCheckingAuth) return;
+
+    async function loadLatest() {
+      try {
+        const response = await fetch(
+          "/api/resume/generate",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) return;
 
         const data = await response.json();
 
         if (data?.resume) {
           setResume(
-            normalizeResumeData(data.resume)
+            normalizeResume(data.resume),
           );
         }
 
@@ -277,24 +513,24 @@ export default function ResumeGeneratorPage() {
 
         if (data?.profileImageUrl) {
           setProfilePhoto(
-            data.profileImageUrl
+            data.profileImageUrl,
           );
         }
       } catch {
-        // A missing latest resume is not an error.
+        // No saved resume is fine.
       }
     }
 
-    loadLatestResume();
-  }, []);
+    loadLatest();
+  }, [isCheckingAuth]);
 
-  /* ---------------------------------------------------------------------- */
-  /* Resume state helpers                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* ============================================================
+     STATE HELPERS
+  ============================================================ */
 
   function updateResume<K extends keyof ResumeData>(
     key: K,
-    value: ResumeData[K]
+    value: ResumeData[K],
   ) {
     setResume((current) => ({
       ...current,
@@ -304,10 +540,11 @@ export default function ResumeGeneratorPage() {
 
   function updatePersonal(
     key: keyof ResumeData["personal"],
-    value: string
+    value: string,
   ) {
     setResume((current) => ({
       ...current,
+
       personal: {
         ...current.personal,
         [key]: value,
@@ -315,33 +552,38 @@ export default function ResumeGeneratorPage() {
     }));
   }
 
-  function toggleSection(section: SectionName) {
+  function toggleSection(
+    section: SectionName,
+  ) {
     setOpenSection((current) =>
-      current === section ? null : section
+      current === section
+        ? (null as any)
+        : section,
     );
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Photo                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* ============================================================
+     PHOTO
+  ============================================================ */
 
   function handlePhotoChange(
-    event: ChangeEvent<HTMLInputElement>
+    event: ChangeEvent<HTMLInputElement>,
   ) {
-    const file = event.target.files?.[0];
+    const file =
+      event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file.");
+      setError(
+        "Please select a valid image file.",
+      );
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setError(
-        "Profile photo must be smaller than 5 MB."
+        "Profile photo must be smaller than 5 MB.",
       );
       return;
     }
@@ -352,8 +594,13 @@ export default function ResumeGeneratorPage() {
     const reader = new FileReader();
 
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setProfilePhoto(reader.result);
+      if (
+        typeof reader.result ===
+        "string"
+      ) {
+        setProfilePhoto(
+          reader.result,
+        );
       }
     };
 
@@ -365,19 +612,431 @@ export default function ResumeGeneratorPage() {
     setProfilePhotoFile(null);
 
     if (photoInputRef.current) {
-      photoInputRef.current.value = "";
+      photoInputRef.current.value =
+        "";
     }
   }
 
-  function getObjectPosition() {
-    return `${photoSettings.horizontal} ${photoSettings.vertical}`;
+  async function fileToBase64(
+    file: File,
+  ) {
+    return new Promise<string>(
+      (resolve, reject) => {
+        const reader =
+          new FileReader();
+
+        reader.onload = () =>
+          resolve(
+            typeof reader.result ===
+              "string"
+              ? reader.result
+              : "",
+          );
+
+        reader.onerror = reject;
+
+        reader.readAsDataURL(file);
+      },
+    );
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Add / Remove                                                           */
-  /* ---------------------------------------------------------------------- */
+  /* ============================================================
+     AI INPUT
+  ============================================================ */
 
-  function addSkill() {
+  function buildUserInformation() {
+    const lines: string[] = [];
+
+    lines.push(
+      `Name: ${resume.personal.name}`,
+    );
+
+    lines.push(
+      `Email: ${resume.personal.email}`,
+    );
+
+    lines.push(
+      `Phone: ${resume.personal.phone}`,
+    );
+
+    lines.push(
+      `Location: ${resume.personal.location}`,
+    );
+
+    lines.push(
+      `LinkedIn: ${resume.personal.linkedin}`,
+    );
+
+    lines.push(
+      `GitHub: ${resume.personal.github}`,
+    );
+
+    lines.push(
+      `Website: ${resume.personal.website}`,
+    );
+
+    lines.push(
+      `Professional Summary: ${resume.professionalSummary}`,
+    );
+
+    if (resume.skills.length) {
+      lines.push(
+        "Skills:",
+        JSON.stringify(
+          resume.skills,
+        ),
+      );
+    }
+
+    if (resume.experience.length) {
+      lines.push(
+        "Experience:",
+        JSON.stringify(
+          resume.experience,
+        ),
+      );
+    }
+
+    if (resume.education.length) {
+      lines.push(
+        "Education:",
+        JSON.stringify(
+          resume.education,
+        ),
+      );
+    }
+
+    if (resume.projects.length) {
+      lines.push(
+        "Projects:",
+        JSON.stringify(
+          resume.projects,
+        ),
+      );
+    }
+
+    if (
+      resume.certifications.length
+    ) {
+      lines.push(
+        "Certifications:",
+        JSON.stringify(
+          resume.certifications,
+        ),
+      );
+    }
+
+    if (resume.achievements.length) {
+      lines.push(
+        "Achievements:",
+        JSON.stringify(
+          resume.achievements,
+        ),
+      );
+    }
+
+    if (resume.languages.length) {
+      lines.push(
+        "Languages:",
+        JSON.stringify(
+          resume.languages,
+        ),
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  /* ============================================================
+     GENERATE
+  ============================================================ */
+
+  async function generateResume() {
+    setIsGenerating(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push(
+          `/login?next=${encodeURIComponent(
+            "/dashboard/resume",
+          )}`,
+        );
+        return;
+      }
+
+      const userInformation =
+        buildUserInformation();
+
+      if (
+        !resume.personal.name.trim()
+      ) {
+        throw new Error(
+          "Please enter your name before generating your resume.",
+        );
+      }
+
+      const response = await fetch(
+        "/api/resume/generate",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          credentials: "include",
+
+          body: JSON.stringify({
+            userInformation,
+            template,
+            resumeDesignDescription:
+              designDescription,
+
+            profilePhoto:
+              profilePhotoFile
+                ? await fileToBase64(
+                    profilePhotoFile,
+                  )
+                : null,
+
+            profilePhotoName:
+              profilePhotoFile?.name ??
+              null,
+
+            profilePhotoType:
+              profilePhotoFile?.type ??
+              null,
+          }),
+        },
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        if (
+          response.status === 401
+        ) {
+          router.push(
+            `/login?next=${encodeURIComponent(
+              "/dashboard/resume",
+            )}`,
+          );
+          return;
+        }
+
+        throw new Error(
+          data?.error ||
+            "Failed to generate resume.",
+        );
+      }
+
+      if (!data?.resume) {
+        throw new Error(
+          "The AI did not return a resume.",
+        );
+      }
+
+      setResume(
+        normalizeResume(
+          data.resume,
+        ),
+      );
+
+      if (data.design) {
+        setDesign(data.design);
+      }
+
+      if (
+        data.profileImageUrl
+      ) {
+        setProfilePhoto(
+          data.profileImageUrl,
+        );
+      }
+
+      setMessage(
+        "Resume generated and saved successfully.",
+      );
+
+      setOpenSection(
+        "personal",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while generating the resume.",
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  /* ============================================================
+     PDF
+  ============================================================ */
+
+  async function downloadPDF() {
+    if (!design) {
+      setError(
+        "Generate the resume before downloading the PDF.",
+      );
+      return;
+    }
+
+    setIsDownloading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push(
+          `/login?next=${encodeURIComponent(
+            "/dashboard/resume",
+          )}`,
+        );
+        return;
+      }
+
+      const response = await fetch(
+        "/api/resume/pdf",
+        {
+          method: "POST",
+
+          credentials: "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            resume,
+            design,
+            profilePhoto,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const data =
+          await response
+            .json()
+            .catch(() => null);
+
+        if (
+          response.status === 401
+        ) {
+          router.push(
+            `/login?next=${encodeURIComponent(
+              "/dashboard/resume",
+            )}`,
+          );
+          return;
+        }
+
+        throw new Error(
+          data?.error ||
+            "Failed to generate PDF.",
+        );
+      }
+
+      const blob =
+        await response.blob();
+
+      const url =
+        window.URL.createObjectURL(
+          blob,
+        );
+
+      const anchor =
+        document.createElement(
+          "a",
+        );
+
+      anchor.href = url;
+
+      const safeName =
+        resume.personal.name
+          .trim()
+          .replace(
+            /[^a-zA-Z0-9]+/g,
+            "-",
+          )
+          .replace(
+            /^-+|-+$/g,
+            "",
+          ) ||
+        "Resume";
+
+      anchor.download =
+        `${safeName}-Resume.pdf`;
+
+      document.body.appendChild(
+        anchor,
+      );
+
+      anchor.click();
+
+      anchor.remove();
+
+      window.URL.revokeObjectURL(
+        url,
+      );
+
+      setMessage(
+        "Resume PDF downloaded successfully.",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to download PDF.",
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
+  /* ============================================================
+     RESET
+  ============================================================ */
+
+  function resetResume() {
+    setResume(emptyResume());
+    setDesign(null);
+    setProfilePhoto(null);
+    setProfilePhotoFile(null);
+    setDesignDescription("");
+    setMessage(null);
+    setError(null);
+
+    if (photoInputRef.current) {
+      photoInputRef.current.value =
+        "";
+    }
+  }
+
+  /* ============================================================
+     ARRAY HELPERS
+  ============================================================ */
+
+  function addSkillGroup() {
     updateResume("skills", [
       ...resume.skills,
       {
@@ -385,15 +1044,6 @@ export default function ResumeGeneratorPage() {
         items: [""],
       },
     ]);
-  }
-
-  function removeSkill(index: number) {
-    updateResume(
-      "skills",
-      resume.skills.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
   }
 
   function addExperience() {
@@ -410,15 +1060,6 @@ export default function ResumeGeneratorPage() {
     ]);
   }
 
-  function removeExperience(index: number) {
-    updateResume(
-      "experience",
-      resume.experience.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
-  }
-
   function addEducation() {
     updateResume("education", [
       ...resume.education,
@@ -433,15 +1074,6 @@ export default function ResumeGeneratorPage() {
     ]);
   }
 
-  function removeEducation(index: number) {
-    updateResume(
-      "education",
-      resume.education.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
-  }
-
   function addProject() {
     updateResume("projects", [
       ...resume.projects,
@@ -452,15 +1084,6 @@ export default function ResumeGeneratorPage() {
         url: "",
       },
     ]);
-  }
-
-  function removeProject(index: number) {
-    updateResume(
-      "projects",
-      resume.projects.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
   }
 
   function addCertification() {
@@ -475,29 +1098,11 @@ export default function ResumeGeneratorPage() {
     ]);
   }
 
-  function removeCertification(index: number) {
-    updateResume(
-      "certifications",
-      resume.certifications.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
-  }
-
   function addAchievement() {
     updateResume("achievements", [
       ...resume.achievements,
       "",
     ]);
-  }
-
-  function removeAchievement(index: number) {
-    updateResume(
-      "achievements",
-      resume.achievements.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
-    );
   }
 
   function addLanguage() {
@@ -507,419 +1112,50 @@ export default function ResumeGeneratorPage() {
     ]);
   }
 
-  function removeLanguage(index: number) {
-    updateResume(
-      "languages",
-      resume.languages.filter(
-        (_, itemIndex) => itemIndex !== index
-      )
+  /* ============================================================
+     LOADING
+  ============================================================ */
+
+  if (isCheckingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+          <span className="font-semibold text-slate-700">
+            Checking your HirePro session...
+          </span>
+        </div>
+      </main>
     );
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Build AI input                                                         */
-  /* ---------------------------------------------------------------------- */
-
-  function buildUserInformation() {
-    const lines: string[] = [];
-
-    lines.push(`Name: ${resume.personal.name}`);
-    lines.push(`Email: ${resume.personal.email}`);
-    lines.push(`Phone: ${resume.personal.phone}`);
-    lines.push(
-      `Location: ${resume.personal.location}`
-    );
-    lines.push(
-      `LinkedIn: ${resume.personal.linkedin}`
-    );
-    lines.push(
-      `GitHub: ${resume.personal.github}`
-    );
-    lines.push(
-      `Website: ${resume.personal.website}`
-    );
-
-    lines.push(
-      `Professional Summary: ${resume.professionalSummary}`
-    );
-
-    if (resume.skills.length > 0) {
-      lines.push(
-        "Skills:",
-        JSON.stringify(resume.skills)
-      );
-    }
-
-    if (resume.experience.length > 0) {
-      lines.push(
-        "Experience:",
-        JSON.stringify(resume.experience)
-      );
-    }
-
-    if (resume.education.length > 0) {
-      lines.push(
-        "Education:",
-        JSON.stringify(resume.education)
-      );
-    }
-
-    if (resume.projects.length > 0) {
-      lines.push(
-        "Projects:",
-        JSON.stringify(resume.projects)
-      );
-    }
-
-    if (resume.certifications.length > 0) {
-      lines.push(
-        "Certifications:",
-        JSON.stringify(
-          resume.certifications
-        )
-      );
-    }
-
-    if (resume.achievements.length > 0) {
-      lines.push(
-        "Achievements:",
-        JSON.stringify(
-          resume.achievements
-        )
-      );
-    }
-
-    if (resume.languages.length > 0) {
-      lines.push(
-        "Languages:",
-        JSON.stringify(resume.languages)
-      );
-    }
-
-    return lines.join("\n");
-  }
-
-  async function fileToBase64(file: File) {
-    return new Promise<string>(
-      (resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => {
-          resolve(
-            typeof reader.result === "string"
-              ? reader.result
-              : ""
-          );
-        };
-
-        reader.onerror = reject;
-
-        reader.readAsDataURL(file);
-      }
-    );
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* AI Generation                                                          */
-  /* ---------------------------------------------------------------------- */
-
-  async function generateResume() {
-    setIsGenerating(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const userInformation =
-        buildUserInformation();
-
-      if (
-        !userInformation.trim() &&
-        !resume.personal.name.trim()
-      ) {
-        throw new Error(
-          "Please enter your basic information before generating your resume."
-        );
-      }
-
-      const response = await fetch(
-        "/api/resume/generate",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userInformation,
-            template,
-            resumeDesignDescription,
-            profilePhoto: profilePhotoFile
-              ? await fileToBase64(
-                  profilePhotoFile
-                )
-              : null,
-            profilePhotoName:
-              profilePhotoFile?.name ?? null,
-            profilePhotoType:
-              profilePhotoFile?.type ?? null,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            "Failed to generate resume."
-        );
-      }
-
-      if (data?.resume) {
-        setResume(
-          normalizeResumeData(data.resume)
-        );
-      }
-
-      if (data?.design) {
-        setDesign(data.design);
-      }
-
-      setMessage(
-        "Your resume has been generated successfully."
-      );
-
-      setOpenSection("personal");
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong."
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* PDF                                                                    */
-  /* ---------------------------------------------------------------------- */
-
-  async function downloadPDF() {
-    setIsDownloading(true);
-    setError(null);
-
-    try {
-      if (!design) {
-        throw new Error(
-          "Please generate your resume first."
-        );
-      }
-
-      const response = await fetch(
-        "/api/resume/pdf",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            resume,
-            design,
-            profilePhoto,
-            photoSettings,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data =
-          await response.json().catch(
-            () => null
-          );
-
-        throw new Error(
-          data?.error ||
-            "Failed to generate PDF."
-        );
-      }
-
-      const blob = await response.blob();
-
-      const url =
-        window.URL.createObjectURL(blob);
-
-      const anchor =
-        document.createElement("a");
-
-      anchor.href = url;
-
-      const cleanName =
-        resume.personal.name
-          ?.trim()
-          .replace(
-            /[^a-zA-Z0-9]+/g,
-            "-"
-          )
-          .replace(
-            /^-+|-+$/g,
-            ""
-          ) || "Resume";
-
-      anchor.download =
-        `${cleanName}-Resume.pdf`;
-
-      document.body.appendChild(anchor);
-
-      anchor.click();
-
-      anchor.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      setMessage(
-        "Resume PDF downloaded successfully."
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to download PDF."
-      );
-    } finally {
-      setIsDownloading(false);
-    }
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* Reset                                                                  */
-  /* ---------------------------------------------------------------------- */
-
-  function resetResume() {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to clear the current resume?"
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setResume(createEmptyResume());
-    setDesign(null);
-    setProfilePhoto(null);
-    setProfilePhotoFile(null);
-    setResumeDesignDescription("");
-    setMessage(null);
-    setError(null);
-    setOpenSection("personal");
-
-    if (photoInputRef.current) {
-      photoInputRef.current.value = "";
-    }
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* Template                                                               */
-  /* ---------------------------------------------------------------------- */
-
-  const templateInfo: Record<
-    TemplateType,
-    {
-      name: string;
-      description: string;
-      accent: string;
-    }
-  > = {
-    ats: {
-      name: "ATS Standard",
-      description:
-        "Optimized for automated resume screening.",
-      accent: "slate",
-    },
-    professional: {
-      name: "Professional",
-      description:
-        "Elegant corporate presentation with refined hierarchy.",
-      accent: "purple",
-    },
-    modern: {
-      name: "Modern",
-      description:
-        "Contemporary layout with a polished visual structure.",
-      accent: "blue",
-    },
-    executive: {
-      name: "Executive",
-      description:
-        "Premium leadership-focused presentation.",
-      accent: "amber",
-    },
-  };
-
-  const currentTemplate =
-    templateInfo[template];
-
-  const completionItems = [
-    Boolean(resume.personal.name),
-    Boolean(resume.personal.email),
-    Boolean(
-      resume.professionalSummary
-    ),
-    resume.skills.length > 0,
-    resume.education.length > 0,
-    resume.projects.length > 0,
-  ];
-
-  const completionCount =
-    completionItems.filter(Boolean).length;
-
-  const completionPercent = Math.round(
-    (completionCount /
-      completionItems.length) *
-      100
-  );
-
-  /* ---------------------------------------------------------------------- */
-  /* Render                                                                 */
-  /* ---------------------------------------------------------------------- */
+  /* ============================================================
+     UI
+  ============================================================ */
 
   return (
-    <main className="min-h-screen bg-[#f7f8fc] text-slate-900">
-      {/* ------------------------------------------------------------------ */}
-      {/* Header                                                             */}
-      {/* ------------------------------------------------------------------ */}
+    <main className="min-h-screen bg-[#f6f8fc] text-slate-900">
+      {/* HEADER */}
 
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-[1500px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-lg shadow-slate-950/10">
-              <FileText size={19} />
-            </div>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+              HirePro
+            </p>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-[15px] font-bold tracking-tight text-slate-950">
-                  Resume Builder
-                </h1>
-
-                <span className="hidden rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-purple-600 sm:inline-flex">
-                  AI Powered
-                </span>
-              </div>
-
-              <p className="hidden text-xs text-slate-400 sm:block">
-                Create a polished professional resume
-              </p>
-            </div>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl">
+              Resume Builder
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={resetResume}
-              className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex"
+              className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:flex"
             >
-              <RotateCcw size={14} />
+              <RotateCcw className="h-4 w-4" />
               Reset
             </button>
 
@@ -927,2493 +1163,1640 @@ export default function ResumeGeneratorPage() {
               type="button"
               onClick={downloadPDF}
               disabled={
-                isDownloading || !design
+                isDownloading ||
+                !design
               }
-              className="flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isDownloading ? (
-                <Loader2
-                  size={15}
-                  className="animate-spin"
-                />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Download size={15} />
+                <Download className="h-4 w-4" />
               )}
 
-              <span>
-                {isDownloading
-                  ? "Preparing..."
-                  : "Download PDF"}
-              </span>
+              Download PDF
             </button>
           </div>
         </div>
       </header>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Page                                                               */}
-      {/* ------------------------------------------------------------------ */}
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+        {/* EDITOR */}
 
-      <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-        {/* Notifications */}
+        <div className="space-y-4">
+          {/* HERO */}
 
-        {message && (
-          <div className="mb-5 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
-                <Check size={14} />
-              </div>
-
-              <span className="font-medium">
-                {message}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setMessage(null)
-              }
-              className="rounded-lg p-1 hover:bg-emerald-100"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-5 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100">
-                <X size={14} />
-              </div>
-
-              <span className="font-medium">
-                {error}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setError(null)
-              }
-              className="rounded-lg p-1 hover:bg-red-100"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        )}
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Hero                                                             */}
-        {/* ---------------------------------------------------------------- */}
-
-        <section className="relative mb-6 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-purple-100/60 blur-3xl" />
-
-          <div className="absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-blue-100/40 blur-3xl" />
-
-          <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_330px] lg:p-10">
-            <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-purple-700">
-                <Sparkles size={13} />
-                AI Resume Studio
-              </div>
-
-              <h2 className="max-w-3xl text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
-                Build a resume that
-                <span className="text-purple-600">
-                  {" "}
-                  represents you.
-                </span>
-              </h2>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 sm:text-[15px]">
-                Add your professional information,
-                describe the visual style you want,
-                and let AI transform your content
-                into a refined resume.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <StatusPill
-                  icon={<Sparkles size={13} />}
-                  label="AI content generation"
-                />
-
-                <StatusPill
-                  icon={<LayoutTemplate size={13} />}
-                  label="Custom design"
-                />
-
-                <StatusPill
-                  icon={<Download size={13} />}
-                  label="PDF export"
-                />
-              </div>
-            </div>
-
-            {/* Completion card */}
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                    Resume progress
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-slate-950">
-                    {completionPercent}%
-                  </p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+              <div>
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI-powered resume builder
                 </div>
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-                  <Check size={18} />
-                </div>
+                <h2 className="text-2xl font-black tracking-tight">
+                  Build a professional resume
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  HirePro generates structured resume content,
+                  keeps your facts intact, and produces a
+                  clean recruiter-friendly PDF.
+                </p>
               </div>
 
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
-                <div
-                  className="h-full rounded-full bg-purple-600 transition-all duration-500"
-                  style={{
-                    width: `${completionPercent}%`,
-                  }}
-                />
-              </div>
+              <button
+                type="button"
+                onClick={generateResume}
+                disabled={isGenerating}
+                className="flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-5 w-5" />
+                )}
 
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                Complete your key sections before
-                generating for the strongest result.
-              </p>
+                {isGenerating
+                  ? "Generating..."
+                  : "Generate with AI"}
+              </button>
             </div>
           </div>
-        </section>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Workspace                                                        */}
-        {/* ---------------------------------------------------------------- */}
-
-        <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-          {/* Sidebar */}
-
-          <aside>
-            <div className="sticky top-[92px] space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="px-3 pb-3 pt-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-slate-400">
-                    Build your resume
-                  </p>
-                </div>
-
-                <SectionNavButton
-                  icon={<User size={16} />}
-                  label="Personal"
-                  description="Contact & identity"
-                  active={
-                    openSection === "personal"
-                  }
-                  onClick={() =>
-                    toggleSection("personal")
-                  }
-                />
-
-                <SectionNavButton
-                  icon={
-                    <AlignLeft size={16} />
-                  }
-                  label="Summary"
-                  description="Professional profile"
-                  active={
-                    openSection === "summary"
-                  }
-                  onClick={() =>
-                    toggleSection("summary")
-                  }
-                />
-
-                <SectionNavButton
-                  icon={<Sparkles size={16} />}
-                  label="Skills"
-                  description="Core capabilities"
-                  active={
-                    openSection === "skills"
-                  }
-                  onClick={() =>
-                    toggleSection("skills")
-                  }
-                />
-
-                <SectionNavButton
-                  icon={
-                    <BriefcaseBusiness
-                      size={16}
-                    />
-                  }
-                  label="Experience"
-                  description="Work history"
-                  active={
-                    openSection === "experience"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "experience"
-                    )
-                  }
-                />
-
-                <SectionNavButton
-                  icon={
-                    <GraduationCap
-                      size={16}
-                    />
-                  }
-                  label="Education"
-                  description="Academic background"
-                  active={
-                    openSection === "education"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "education"
-                    )
-                  }
-                />
-
-                <SectionNavButton
-                  icon={
-                    <FolderKanban
-                      size={16}
-                    />
-                  }
-                  label="Projects"
-                  description="Work you've built"
-                  active={
-                    openSection === "projects"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "projects"
-                    )
-                  }
-                />
-
-                <SectionNavButton
-                  icon={<Award size={16} />}
-                  label="Certifications"
-                  description="Credentials"
-                  active={
-                    openSection ===
-                    "certifications"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "certifications"
-                    )
-                  }
-                />
-
-                <SectionNavButton
-                  icon={<Award size={16} />}
-                  label="Achievements"
-                  description="Highlights"
-                  active={
-                    openSection ===
-                    "achievements"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "achievements"
-                    )
-                  }
-                />
-
-                <SectionNavButton
-                  icon={
-                    <Languages size={16} />
-                  }
-                  label="Languages"
-                  description="Communication"
-                  active={
-                    openSection ===
-                    "languages"
-                  }
-                  onClick={() =>
-                    toggleSection(
-                      "languages"
-                    )
-                  }
-                />
-              </div>
-
-              {/* Template card */}
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                    <LayoutTemplate
-                      size={16}
-                    />
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">
-                      Resume style
-                    </p>
-
-                    <p className="text-[11px] text-slate-400">
-                      Choose a foundation
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <TemplateButton
-                    selected={
-                      template === "ats"
-                    }
-                    title="ATS Standard"
-                    description="Screening optimized"
-                    onClick={() =>
-                      setTemplate("ats")
-                    }
-                  />
-
-                  <TemplateButton
-                    selected={
-                      template ===
-                      "professional"
-                    }
-                    title="Professional"
-                    description="Elegant corporate"
-                    onClick={() =>
-                      setTemplate(
-                        "professional"
-                      )
-                    }
-                  />
-
-                  <TemplateButton
-                    selected={
-                      template === "modern"
-                    }
-                    title="Modern"
-                    description="Contemporary"
-                    onClick={() =>
-                      setTemplate("modern")
-                    }
-                  />
-
-                  <TemplateButton
-                    selected={
-                      template === "executive"
-                    }
-                    title="Executive"
-                    description="Premium leadership"
-                    onClick={() =>
-                      setTemplate(
-                        "executive"
-                      )
-                    }
-                  />
-                </div>
-              </div>
+          {message && (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+              <Check className="h-5 w-5" />
+              {message}
             </div>
-          </aside>
+          )}
 
-          {/* Main editor */}
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700">
+              {error}
+            </div>
+          )}
 
-          <section className="min-w-0 space-y-5">
-            {/* AI design panel */}
+          {/* PERSONAL */}
 
-            <div className="overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-sm">
-              <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-white px-5 py-5 sm:px-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-lg shadow-purple-600/20">
-                      <Wand2 size={18} />
-                    </div>
+          <SectionCard
+            icon={<User className="h-5 w-5" />}
+            title="Personal information"
+            description="Name, contact details and professional links"
+            open={openSection === "personal"}
+            onToggle={() =>
+              toggleSection("personal")
+            }
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Full name"
+                value={resume.personal.name}
+                onChange={(value) =>
+                  updatePersonal(
+                    "name",
+                    value,
+                  )
+                }
+                placeholder="Rajeev Thotakura"
+              />
 
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple-600">
-                        AI Design Direction
-                      </p>
+              <Input
+                label="Email"
+                value={resume.personal.email}
+                onChange={(value) =>
+                  updatePersonal(
+                    "email",
+                    value,
+                  )
+                }
+                type="email"
+                placeholder="you@example.com"
+              />
 
-                      <h3 className="mt-1 text-base font-bold text-slate-950">
-                        Describe your ideal resume
-                      </h3>
+              <Input
+                label="Phone"
+                value={resume.personal.phone}
+                onChange={(value) =>
+                  updatePersonal(
+                    "phone",
+                    value,
+                  )
+                }
+                placeholder="+91 XXXXX XXXXX"
+              />
 
-                      <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-                        Tell AI about the visual
-                        personality you want. Mention
-                        colors, typography, spacing,
-                        photo placement or overall feel.
-                      </p>
-                    </div>
-                  </div>
+              <Input
+                label="Location"
+                value={resume.personal.location}
+                onChange={(value) =>
+                  updatePersonal(
+                    "location",
+                    value,
+                  )
+                }
+                placeholder="Hyderabad, India"
+              />
 
-                  <div className="shrink-0 rounded-xl border border-purple-100 bg-white px-3 py-2">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Current style
-                    </p>
+              <Input
+                label="LinkedIn"
+                value={resume.personal.linkedin}
+                onChange={(value) =>
+                  updatePersonal(
+                    "linkedin",
+                    value,
+                  )
+                }
+                placeholder="https://linkedin.com/in/..."
+              />
 
-                    <p className="mt-0.5 text-xs font-bold text-purple-700">
-                      {currentTemplate.name}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <Input
+                label="GitHub"
+                value={resume.personal.github}
+                onChange={(value) =>
+                  updatePersonal(
+                    "github",
+                    value,
+                  )
+                }
+                placeholder="https://github.com/..."
+              />
 
-              <div className="p-5 sm:p-6">
-                <textarea
+              <div className="sm:col-span-2">
+                <Input
+                  label="Website / Portfolio"
                   value={
-                    resumeDesignDescription
+                    resume.personal.website
                   }
-                  onChange={(event) =>
-                    setResumeDesignDescription(
-                      event.target.value
+                  onChange={(value) =>
+                    updatePersonal(
+                      "website",
+                      value,
                     )
                   }
-                  rows={4}
-                  placeholder="Example: Create a sophisticated professional resume with dark navy headings, subtle purple accents, generous spacing, clean typography, strong section hierarchy and a professional profile photo on the right."
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
+                  placeholder="https://..."
                 />
+              </div>
+            </div>
 
-                <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="max-w-xl text-[11px] leading-5 text-slate-400">
-                    The AI will use your information
-                    and this direction to generate the
-                    resume content and visual design.
+            <div className="mt-6 border-t border-slate-100 pt-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-bold">
+                    Profile photo
+                  </h3>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Optional for professional,
+                    modern and executive resumes.
                   </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {profilePhoto && (
+                    <img
+                      src={profilePhoto}
+                      alt="Profile preview"
+                      className="h-14 w-14 rounded-full object-cover ring-2 ring-slate-100"
+                    />
+                  )}
+
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={
+                      handlePhotoChange
+                    }
+                    className="hidden"
+                  />
 
                   <button
                     type="button"
-                    onClick={generateResume}
-                    disabled={isGenerating}
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition hover:-translate-y-0.5 hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() =>
+                      photoInputRef.current?.click()
+                    }
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:bg-slate-50"
                   >
-                    {isGenerating ? (
-                      <>
-                        <Loader2
-                          size={16}
-                          className="animate-spin"
-                        />
-                        Generating resume...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={16} />
-                        Generate with AI
-                      </>
-                    )}
+                    <ImageIcon className="mr-2 inline h-4 w-4" />
+                    {profilePhoto
+                      ? "Change"
+                      : "Upload"}
                   </button>
+
+                  {profilePhoto && (
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
+          </SectionCard>
 
-            {/* Personal */}
+          {/* SUMMARY */}
 
-            <EditorSection
-              title="Personal Information"
-              description="Your contact details and professional identity"
-              icon={<User size={17} />}
-              open={
-                openSection === "personal"
+          <SectionCard
+            icon={
+              <FileText className="h-5 w-5" />
+            }
+            title="Professional summary"
+            description="A concise recruiter-facing introduction"
+            open={openSection === "summary"}
+            onToggle={() =>
+              toggleSection("summary")
+            }
+          >
+            <TextArea
+              label="Professional summary"
+              value={
+                resume.professionalSummary
               }
-              onToggle={() =>
-                toggleSection("personal")
+              onChange={(value) =>
+                updateResume(
+                  "professionalSummary",
+                  value,
+                )
               }
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <InputField
-                  label="Full name"
-                  value={
-                    resume.personal.name
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "name",
-                      value
-                    )
-                  }
-                  placeholder="Your full name"
-                />
+              rows={7}
+              placeholder="Describe your professional background, strongest skills, domain knowledge and career direction."
+            />
+          </SectionCard>
 
-                <InputField
-                  label="Email address"
-                  type="email"
-                  value={
-                    resume.personal.email
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "email",
-                      value
-                    )
-                  }
-                  placeholder="you@example.com"
-                />
+          {/* SKILLS */}
 
-                <InputField
-                  label="Phone"
-                  value={
-                    resume.personal.phone
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "phone",
-                      value
-                    )
-                  }
-                  placeholder="+91 XXXXX XXXXX"
-                />
+          <SectionCard
+            icon={
+              <Sparkles className="h-5 w-5" />
+            }
+            title="Skills"
+            description="Group technical and professional skills clearly"
+            open={openSection === "skills"}
+            onToggle={() =>
+              toggleSection("skills")
+            }
+          >
+            <div className="space-y-4">
+              {resume.skills.map(
+                (group, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Input
+                        label="Category"
+                        value={
+                          group.category
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.skills];
 
-                <InputField
-                  label="Location"
-                  value={
-                    resume.personal.location
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "location",
-                      value
-                    )
-                  }
-                  placeholder="City, State, Country"
-                />
+                          next[index] = {
+                            ...next[index],
+                            category: value,
+                          };
 
-                <InputField
-                  label="LinkedIn"
-                  value={
-                    resume.personal.linkedin
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "linkedin",
-                      value
-                    )
-                  }
-                  placeholder="linkedin.com/in/yourname"
-                />
+                          updateResume(
+                            "skills",
+                            next,
+                          );
+                        }}
+                        placeholder="Programming"
+                      />
 
-                <InputField
-                  label="GitHub"
-                  value={
-                    resume.personal.github
-                  }
-                  onChange={(value) =>
-                    updatePersonal(
-                      "github",
-                      value
-                    )
-                  }
-                  placeholder="github.com/username"
-                />
-
-                <div className="sm:col-span-2">
-                  <InputField
-                    label="Website / Portfolio"
-                    value={
-                      resume.personal.website
-                    }
-                    onChange={(value) =>
-                      updatePersonal(
-                        "website",
-                        value
-                      )
-                    }
-                    placeholder="yourwebsite.com"
-                  />
-                </div>
-              </div>
-
-              {/* Photo */}
-
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
-                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                  <div className="flex gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200">
-                      <ImageIcon size={18} />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateResume(
+                            "skills",
+                            resume.skills.filter(
+                              (_, i) =>
+                                i !== index,
+                            ),
+                          )
+                        }
+                        className="mt-7 rounded-xl p-3 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
 
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">
-                        Profile photo
-                      </p>
+                    <div className="mt-4">
+                      <TextArea
+                        label="Skills"
+                        value={
+                          group.items.join(
+                            ", ",
+                          )
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.skills];
 
-                      <p className="mt-1 max-w-lg text-xs leading-5 text-slate-500">
-                        Optional. Use a professional
-                        headshot for templates that
-                        support a photo.
-                      </p>
+                          next[index] = {
+                            ...next[index],
+                            items:
+                              value
+                                .split(",")
+                                .map(
+                                  (x) =>
+                                    x.trim(),
+                                )
+                                .filter(
+                                  Boolean,
+                                ),
+                          };
+
+                          updateResume(
+                            "skills",
+                            next,
+                          );
+                        }}
+                        rows={3}
+                        placeholder="Python, Java, JavaScript, React, SQL"
+                      />
                     </div>
                   </div>
+                ),
+              )}
 
-                  <div className="flex items-center gap-3">
-                    {profilePhoto && (
-                      <div
-                        className="h-14 w-14 overflow-hidden border-2 border-white bg-white shadow-md ring-1 ring-slate-200"
-                        style={{
-                          borderRadius:
-                            photoSettings.shape ===
-                            "circle"
-                              ? "9999px"
-                              : photoSettings.shape ===
-                                "rounded"
-                              ? "14px"
-                              : "0px",
-                        }}
+              <button
+                type="button"
+                onClick={addSkillGroup}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add skill category
+              </button>
+            </div>
+          </SectionCard>
+
+          {/* EXPERIENCE */}
+
+          <SectionCard
+            icon={
+              <BriefcaseBusiness className="h-5 w-5" />
+            }
+            title="Experience"
+            description="Work history and measurable responsibilities"
+            open={openSection === "experience"}
+            onToggle={() =>
+              toggleSection("experience")
+            }
+          >
+            <div className="space-y-5">
+              {resume.experience.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="font-bold">
+                        Experience{" "}
+                        {index + 1}
+                      </h3>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateResume(
+                            "experience",
+                            resume.experience.filter(
+                              (_, i) =>
+                                i !==
+                                index,
+                            ),
+                          )
+                        }
+                        className="rounded-lg p-2 text-red-500 hover:bg-red-50"
                       >
-                        <img
-                          src={profilePhoto}
-                          alt="Profile"
-                          className="h-full w-full object-cover"
-                          style={{
-                            objectPosition:
-                              getObjectPosition(),
-                            transform: `scale(${
-                              photoSettings.zoom /
-                              100
-                            })`,
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Job title"
+                        value={item.role}
+                        onChange={(value) => {
+                          const next =
+                            [...resume.experience];
+
+                          next[index] = {
+                            ...next[index],
+                            role: value,
+                          };
+
+                          updateResume(
+                            "experience",
+                            next,
+                          );
+                        }}
+                        placeholder="Software Engineer"
+                      />
+
+                      <Input
+                        label="Company"
+                        value={
+                          item.company
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.experience];
+
+                          next[index] = {
+                            ...next[index],
+                            company:
+                              value,
+                          };
+
+                          updateResume(
+                            "experience",
+                            next,
+                          );
+                        }}
+                        placeholder="Company name"
+                      />
+
+                      <Input
+                        label="Location"
+                        value={
+                          item.location
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.experience];
+
+                          next[index] = {
+                            ...next[index],
+                            location:
+                              value,
+                          };
+
+                          updateResume(
+                            "experience",
+                            next,
+                          );
+                        }}
+                        placeholder="Hyderabad, India"
+                      />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          label="Start"
+                          value={
+                            item.startDate
+                          }
+                          onChange={(value) => {
+                            const next =
+                              [...resume.experience];
+
+                            next[index] = {
+                              ...next[index],
+                              startDate:
+                                value,
+                            };
+
+                            updateResume(
+                              "experience",
+                              next,
+                            );
                           }}
+                          placeholder="Jun 2024"
+                        />
+
+                        <Input
+                          label="End"
+                          value={
+                            item.endDate
+                          }
+                          onChange={(value) => {
+                            const next =
+                              [...resume.experience];
+
+                            next[index] = {
+                              ...next[index],
+                              endDate:
+                                value,
+                            };
+
+                            updateResume(
+                              "experience",
+                              next,
+                            );
+                          }}
+                          placeholder="Present"
                         />
                       </div>
-                    )}
+                    </div>
 
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={
-                        handlePhotoChange
-                      }
-                      className="hidden"
-                    />
+                    <div className="mt-4">
+                      <TextArea
+                        label="Responsibilities / achievements"
+                        value={item.responsibilities.join(
+                          "\n",
+                        )}
+                        onChange={(value) => {
+                          const next =
+                            [...resume.experience];
+
+                          next[index] = {
+                            ...next[index],
+                            responsibilities:
+                              value
+                                .split("\n")
+                                .map(
+                                  (x) =>
+                                    x.trim(),
+                                )
+                                .filter(
+                                  Boolean,
+                                ),
+                          };
+
+                          updateResume(
+                            "experience",
+                            next,
+                          );
+                        }}
+                        rows={6}
+                        placeholder="One bullet per line."
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+
+              <button
+                type="button"
+                onClick={addExperience}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add experience
+              </button>
+            </div>
+          </SectionCard>
+
+          {/* EDUCATION */}
+
+          <SectionCard
+            icon={
+              <GraduationCap className="h-5 w-5" />
+            }
+            title="Education"
+            description="Degrees, institutions and academic details"
+            open={openSection === "education"}
+            onToggle={() =>
+              toggleSection("education")
+            }
+          >
+            <div className="space-y-5">
+              {resume.education.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="font-bold">
+                        Education{" "}
+                        {index + 1}
+                      </h3>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateResume(
+                            "education",
+                            resume.education.filter(
+                              (_, i) =>
+                                i !==
+                                index,
+                            ),
+                          )
+                        }
+                        className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Degree"
+                        value={
+                          item.degree
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.education];
+
+                          next[index] = {
+                            ...next[index],
+                            degree:
+                              value,
+                          };
+
+                          updateResume(
+                            "education",
+                            next,
+                          );
+                        }}
+                        placeholder="B.Tech"
+                      />
+
+                      <Input
+                        label="Field"
+                        value={
+                          item.field
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.education];
+
+                          next[index] = {
+                            ...next[index],
+                            field: value,
+                          };
+
+                          updateResume(
+                            "education",
+                            next,
+                          );
+                        }}
+                        placeholder="Computer Science"
+                      />
+
+                      <Input
+                        label="Institution"
+                        value={
+                          item.institution
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.education];
+
+                          next[index] = {
+                            ...next[index],
+                            institution:
+                              value,
+                          };
+
+                          updateResume(
+                            "education",
+                            next,
+                          );
+                        }}
+                        placeholder="University name"
+                      />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          label="Start"
+                          value={
+                            item.startDate
+                          }
+                          onChange={(value) => {
+                            const next =
+                              [...resume.education];
+
+                            next[index] = {
+                              ...next[index],
+                              startDate:
+                                value,
+                            };
+
+                            updateResume(
+                              "education",
+                              next,
+                            );
+                          }}
+                          placeholder="2021"
+                        />
+
+                        <Input
+                          label="End"
+                          value={
+                            item.endDate
+                          }
+                          onChange={(value) => {
+                            const next =
+                              [...resume.education];
+
+                            next[index] = {
+                              ...next[index],
+                              endDate:
+                                value,
+                            };
+
+                            updateResume(
+                              "education",
+                              next,
+                            );
+                          }}
+                          placeholder="2025"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <TextArea
+                        label="Academic details"
+                        value={item.details.join(
+                          "\n",
+                        )}
+                        onChange={(value) => {
+                          const next =
+                            [...resume.education];
+
+                          next[index] = {
+                            ...next[index],
+                            details:
+                              value
+                                .split("\n")
+                                .map(
+                                  (x) =>
+                                    x.trim(),
+                                )
+                                .filter(
+                                  Boolean,
+                                ),
+                          };
+
+                          updateResume(
+                            "education",
+                            next,
+                          );
+                        }}
+                        rows={4}
+                        placeholder="Relevant coursework, academic achievements, activities..."
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+
+              <button
+                type="button"
+                onClick={addEducation}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add education
+              </button>
+            </div>
+          </SectionCard>
+
+          {/* PROJECTS */}
+
+          <SectionCard
+            icon={
+              <FolderKanban className="h-5 w-5" />
+            }
+            title="Projects"
+            description="Projects that demonstrate practical ability"
+            open={openSection === "projects"}
+            onToggle={() =>
+              toggleSection("projects")
+            }
+          >
+            <div className="space-y-5">
+              {resume.projects.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="font-bold">
+                        Project{" "}
+                        {index + 1}
+                      </h3>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateResume(
+                            "projects",
+                            resume.projects.filter(
+                              (_, i) =>
+                                i !==
+                                index,
+                            ),
+                          )
+                        }
+                        className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Input
+                        label="Project name"
+                        value={
+                          item.name
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.projects];
+
+                          next[index] = {
+                            ...next[index],
+                            name: value,
+                          };
+
+                          updateResume(
+                            "projects",
+                            next,
+                          );
+                        }}
+                        placeholder="AI Career Platform"
+                      />
+
+                      <TextArea
+                        label="Description"
+                        value={
+                          item.description
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.projects];
+
+                          next[index] = {
+                            ...next[index],
+                            description:
+                              value,
+                          };
+
+                          updateResume(
+                            "projects",
+                            next,
+                          );
+                        }}
+                        rows={4}
+                        placeholder="Explain what you built and what problem it solves."
+                      />
+
+                      <Input
+                        label="Technologies"
+                        value={
+                          item.technologies.join(
+                            ", ",
+                          )
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.projects];
+
+                          next[index] = {
+                            ...next[index],
+                            technologies:
+                              value
+                                .split(",")
+                                .map(
+                                  (x) =>
+                                    x.trim(),
+                                )
+                                .filter(
+                                  Boolean,
+                                ),
+                          };
+
+                          updateResume(
+                            "projects",
+                            next,
+                          );
+                        }}
+                        placeholder="Next.js, Supabase, Gemini"
+                      />
+
+                      <Input
+                        label="Project URL"
+                        value={
+                          item.url
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [...resume.projects];
+
+                          next[index] = {
+                            ...next[index],
+                            url: value,
+                          };
+
+                          updateResume(
+                            "projects",
+                            next,
+                          );
+                        }}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+                ),
+              )}
+
+              <button
+                type="button"
+                onClick={addProject}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add project
+              </button>
+            </div>
+          </SectionCard>
+
+          {/* CERTIFICATIONS */}
+
+          <SectionCard
+            icon={
+              <Award className="h-5 w-5" />
+            }
+            title="Certifications"
+            description="Professional certifications and credentials"
+            open={
+              openSection ===
+              "certifications"
+            }
+            onToggle={() =>
+              toggleSection(
+                "certifications",
+              )
+            }
+          >
+            <div className="space-y-4">
+              {resume.certifications.map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Input
+                        label="Certification"
+                        value={
+                          item.name
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [
+                              ...resume.certifications,
+                            ];
+
+                          next[index] = {
+                            ...next[index],
+                            name: value,
+                          };
+
+                          updateResume(
+                            "certifications",
+                            next,
+                          );
+                        }}
+                        placeholder="AWS Certified..."
+                      />
+
+                      <Input
+                        label="Issuer"
+                        value={
+                          item.issuer
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [
+                              ...resume.certifications,
+                            ];
+
+                          next[index] = {
+                            ...next[index],
+                            issuer:
+                              value,
+                          };
+
+                          updateResume(
+                            "certifications",
+                            next,
+                          );
+                        }}
+                        placeholder="Amazon Web Services"
+                      />
+
+                      <Input
+                        label="Date"
+                        value={
+                          item.date
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [
+                              ...resume.certifications,
+                            ];
+
+                          next[index] = {
+                            ...next[index],
+                            date: value,
+                          };
+
+                          updateResume(
+                            "certifications",
+                            next,
+                          );
+                        }}
+                        placeholder="2026"
+                      />
+
+                      <Input
+                        label="URL"
+                        value={
+                          item.url
+                        }
+                        onChange={(value) => {
+                          const next =
+                            [
+                              ...resume.certifications,
+                            ];
+
+                          next[index] = {
+                            ...next[index],
+                            url: value,
+                          };
+
+                          updateResume(
+                            "certifications",
+                            next,
+                          );
+                        }}
+                        placeholder="https://..."
+                      />
+                    </div>
 
                     <button
                       type="button"
                       onClick={() =>
-                        photoInputRef.current?.click()
+                        updateResume(
+                          "certifications",
+                          resume.certifications.filter(
+                            (_, i) =>
+                              i !==
+                              index,
+                          ),
+                        )
                       }
-                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                      className="mt-3 text-sm font-semibold text-red-600"
                     >
-                      {profilePhoto
-                        ? "Change photo"
-                        : "Upload photo"}
+                      Remove certification
                     </button>
-
-                    {profilePhoto && (
-                      <button
-                        type="button"
-                        onClick={removePhoto}
-                        className="rounded-xl border border-red-200 bg-white p-2.5 text-red-500 transition hover:bg-red-50"
-                        aria-label="Remove photo"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
                   </div>
-                </div>
+                ),
+              )}
 
-                {profilePhoto &&
-                  template !== "ats" && (
-                    <PhotoAdjuster
-                      settings={photoSettings}
-                      onChange={
-                        setPhotoSettings
-                      }
-                    />
-                  )}
+              <button
+                type="button"
+                onClick={addCertification}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add certification
+              </button>
+            </div>
+          </SectionCard>
+
+          {/* ACHIEVEMENTS */}
+
+          <SectionCard
+            icon={
+              <Award className="h-5 w-5" />
+            }
+            title="Achievements"
+            description="Awards and notable accomplishments"
+            open={
+              openSection ===
+              "achievements"
+            }
+            onToggle={() =>
+              toggleSection(
+                "achievements",
+              )
+            }
+          >
+            <TextArea
+              label="Achievements"
+              value={resume.achievements.join(
+                "\n",
+              )}
+              onChange={(value) =>
+                updateResume(
+                  "achievements",
+                  value
+                    .split("\n")
+                    .map((x) =>
+                      x.trim(),
+                    )
+                    .filter(Boolean),
+                )
+              }
+              rows={5}
+              placeholder="One achievement per line."
+            />
+          </SectionCard>
+
+          {/* LANGUAGES */}
+
+          <SectionCard
+            icon={
+              <Languages className="h-5 w-5" />
+            }
+            title="Languages"
+            description="Languages you can communicate in"
+            open={
+              openSection === "languages"
+            }
+            onToggle={() =>
+              toggleSection("languages")
+            }
+          >
+            <Input
+              label="Languages"
+              value={resume.languages.join(
+                ", ",
+              )}
+              onChange={(value) =>
+                updateResume(
+                  "languages",
+                  value
+                    .split(",")
+                    .map((x) =>
+                      x.trim(),
+                    )
+                    .filter(Boolean),
+                )
+              }
+              placeholder="English, Telugu, Hindi"
+            />
+          </SectionCard>
+
+          {/* DESIGN */}
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Sparkles className="h-5 w-5" />
               </div>
-            </EditorSection>
 
-            {/* Summary */}
-
-            <EditorSection
-              title="Professional Summary"
-              description="A concise introduction to your professional profile"
-              icon={
-                <AlignLeft size={17} />
-              }
-              open={
-                openSection === "summary"
-              }
-              onToggle={() =>
-                toggleSection("summary")
-              }
-            >
-              <TextareaField
-                label="Professional summary"
-                value={
-                  resume.professionalSummary
-                }
-                onChange={(value) =>
-                  updateResume(
-                    "professionalSummary",
-                    value
-                  )
-                }
-                rows={7}
-                placeholder="Write a concise summary of your background, strengths, technical expertise and career direction..."
-              />
-            </EditorSection>
-
-            {/* Skills */}
-
-            <EditorSection
-              title="Skills"
-              description="Technical and professional capabilities"
-              icon={<Sparkles size={17} />}
-              open={
-                openSection === "skills"
-              }
-              onToggle={() =>
-                toggleSection("skills")
-              }
-              action={
-                <SmallActionButton
-                  onClick={addSkill}
-                  label="Add skill group"
-                />
-              }
-            >
-              {resume.skills.length === 0 ? (
-                <EmptyState
-                  title="No skills added yet"
-                  description="Create groups such as Programming Languages, Frameworks, Databases or Tools."
-                  button={
-                    <SmallActionButton
-                      onClick={addSkill}
-                      label="Add skill group"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-4">
-                  {resume.skills.map(
-                    (skill, index) => (
-                      <div
-                        key={index}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
-                      >
-                        <div className="mb-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
-                              Skill group{" "}
-                              {index + 1}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              Organize related skills
-                              together.
-                            </p>
-                          </div>
-
-                          <IconDeleteButton
-                            onClick={() =>
-                              removeSkill(
-                                index
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Category"
-                            value={
-                              skill.category
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.skills,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                category:
-                                  value,
-                              };
-
-                              updateResume(
-                                "skills",
-                                updated
-                              );
-                            }}
-                            placeholder="Programming Languages"
-                          />
-
-                          <InputField
-                            label="Skills"
-                            value={skill.items.join(
-                              ", "
-                            )}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.skills,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                items: value
-                                  .split(",")
-                                  .map(
-                                    (item) =>
-                                      item.trim()
-                                  )
-                                  .filter(
-                                    Boolean
-                                  ),
-                              };
-
-                              updateResume(
-                                "skills",
-                                updated
-                              );
-                            }}
-                            placeholder="Python, Java, SQL, React"
-                          />
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Experience */}
-
-            <EditorSection
-              title="Experience"
-              description="Work history, internships and professional responsibilities"
-              icon={
-                <BriefcaseBusiness
-                  size={17}
-                />
-              }
-              open={
-                openSection === "experience"
-              }
-              onToggle={() =>
-                toggleSection(
-                  "experience"
-                )
-              }
-              action={
-                <SmallActionButton
-                  onClick={addExperience}
-                  label="Add experience"
-                />
-              }
-            >
-              {resume.experience.length ===
-              0 ? (
-                <EmptyState
-                  title="No experience added"
-                  description="Add internships, employment, training or other relevant professional experience."
-                  button={
-                    <SmallActionButton
-                      onClick={
-                        addExperience
-                      }
-                      label="Add experience"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-5">
-                  {resume.experience.map(
-                    (item, index) => (
-                      <div
-                        key={index}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
-                      >
-                        <div className="mb-5 flex items-center justify-between">
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
-                              Experience{" "}
-                              {index + 1}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              Add measurable impact
-                              where possible.
-                            </p>
-                          </div>
-
-                          <IconDeleteButton
-                            onClick={() =>
-                              removeExperience(
-                                index
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Company"
-                            value={
-                              item.company
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.experience,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                company:
-                                  value,
-                              };
-
-                              updateResume(
-                                "experience",
-                                updated
-                              );
-                            }}
-                            placeholder="Company name"
-                          />
-
-                          <InputField
-                            label="Role"
-                            value={item.role}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.experience,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                role: value,
-                              };
-
-                              updateResume(
-                                "experience",
-                                updated
-                              );
-                            }}
-                            placeholder="Software Engineer"
-                          />
-
-                          <InputField
-                            label="Location"
-                            value={
-                              item.location
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.experience,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                location:
-                                  value,
-                              };
-
-                              updateResume(
-                                "experience",
-                                updated
-                              );
-                            }}
-                            placeholder="Hyderabad, India"
-                          />
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <InputField
-                              label="Start date"
-                              value={
-                                item.startDate
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated = [
-                                  ...resume.experience,
-                                ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  startDate:
-                                    value,
-                                };
-
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Jun 2025"
-                            />
-
-                            <InputField
-                              label="End date"
-                              value={
-                                item.endDate
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated = [
-                                  ...resume.experience,
-                                ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  endDate:
-                                    value,
-                                };
-
-                                updateResume(
-                                  "experience",
-                                  updated
-                                );
-                              }}
-                              placeholder="Present"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-5">
-                          <TextareaField
-                            label="Responsibilities & achievements"
-                            value={item.responsibilities.join(
-                              "\n"
-                            )}
-                            onChange={(value) => {
-                              const updated = [
-                                ...resume.experience,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                responsibilities:
-                                  value
-                                    .split(
-                                      "\n"
-                                    )
-                                    .filter(
-                                      (line) =>
-                                        line.trim()
-                                    ),
-                              };
-
-                              updateResume(
-                                "experience",
-                                updated
-                              );
-                            }}
-                            rows={6}
-                            placeholder="Write one responsibility or achievement per line..."
-                            hint="Use action verbs and measurable results where possible."
-                          />
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Education */}
-
-            <EditorSection
-              title="Education"
-              description="Academic qualifications and educational background"
-              icon={
-                <GraduationCap
-                  size={17}
-                />
-              }
-              open={
-                openSection === "education"
-              }
-              onToggle={() =>
-                toggleSection(
-                  "education"
-                )
-              }
-              action={
-                <SmallActionButton
-                  onClick={addEducation}
-                  label="Add education"
-                />
-              }
-            >
-              {resume.education.length ===
-              0 ? (
-                <EmptyState
-                  title="No education added"
-                  description="Add your degree, college, dates and relevant academic details."
-                  button={
-                    <SmallActionButton
-                      onClick={
-                        addEducation
-                      }
-                      label="Add education"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-5">
-                  {resume.education.map(
-                    (item, index) => (
-                      <div
-                        key={index}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
-                      >
-                        <div className="mb-5 flex items-center justify-between">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
-                            Education{" "}
-                            {index + 1}
-                          </p>
-
-                          <IconDeleteButton
-                            onClick={() =>
-                              removeEducation(
-                                index
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Institution"
-                            value={
-                              item.institution
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.education,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                institution:
-                                  value,
-                              };
-
-                              updateResume(
-                                "education",
-                                updated
-                              );
-                            }}
-                            placeholder="University / College"
-                          />
-
-                          <InputField
-                            label="Degree"
-                            value={
-                              item.degree
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.education,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                degree: value,
-                              };
-
-                              updateResume(
-                                "education",
-                                updated
-                              );
-                            }}
-                            placeholder="B.Tech"
-                          />
-
-                          <InputField
-                            label="Field of study"
-                            value={
-                              item.field
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.education,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                field: value,
-                              };
-
-                              updateResume(
-                                "education",
-                                updated
-                              );
-                            }}
-                            placeholder="Computer Science"
-                          />
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <InputField
-                              label="Start"
-                              value={
-                                item.startDate
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated = [
-                                  ...resume.education,
-                                ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  startDate:
-                                    value,
-                                };
-
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="2021"
-                            />
-
-                            <InputField
-                              label="End"
-                              value={
-                                item.endDate
-                              }
-                              onChange={(
-                                value
-                              ) => {
-                                const updated = [
-                                  ...resume.education,
-                                ];
-
-                                updated[
-                                  index
-                                ] = {
-                                  ...updated[
-                                    index
-                                  ],
-                                  endDate:
-                                    value,
-                                };
-
-                                updateResume(
-                                  "education",
-                                  updated
-                                );
-                              }}
-                              placeholder="2025"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-5">
-                          <TextareaField
-                            label="Details"
-                            value={item.details.join(
-                              "\n"
-                            )}
-                            onChange={(value) => {
-                              const updated = [
-                                ...resume.education,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                details:
-                                  value
-                                    .split(
-                                      "\n"
-                                    )
-                                    .filter(
-                                      (line) =>
-                                        line.trim()
-                                    ),
-                              };
-
-                              updateResume(
-                                "education",
-                                updated
-                              );
-                            }}
-                            rows={5}
-                            placeholder="Relevant coursework, achievements, activities, GPA or academic highlights..."
-                          />
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Projects */}
-
-            <EditorSection
-              title="Projects"
-              description="Personal, academic and professional work that demonstrates your skills"
-              icon={
-                <FolderKanban
-                  size={17}
-                />
-              }
-              open={
-                openSection === "projects"
-              }
-              onToggle={() =>
-                toggleSection("projects")
-              }
-              action={
-                <SmallActionButton
-                  onClick={addProject}
-                  label="Add project"
-                />
-              }
-            >
-              {resume.projects.length ===
-              0 ? (
-                <EmptyState
-                  title="No projects added"
-                  description="Showcase practical work that demonstrates your technical and problem-solving abilities."
-                  button={
-                    <SmallActionButton
-                      onClick={addProject}
-                      label="Add project"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-5">
-                  {resume.projects.map(
-                    (item, index) => (
-                      <div
-                        key={index}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
-                      >
-                        <div className="mb-5 flex items-center justify-between">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
-                            Project{" "}
-                            {index + 1}
-                          </p>
-
-                          <IconDeleteButton
-                            onClick={() =>
-                              removeProject(
-                                index
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Project name"
-                            value={item.name}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.projects,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                name: value,
-                              };
-
-                              updateResume(
-                                "projects",
-                                updated
-                              );
-                            }}
-                            placeholder="AI Portfolio Generator"
-                          />
-
-                          <InputField
-                            label="Project URL"
-                            value={item.url}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.projects,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                url: value,
-                              };
-
-                              updateResume(
-                                "projects",
-                                updated
-                              );
-                            }}
-                            placeholder="https://..."
-                          />
-                        </div>
-
-                        <div className="mt-5">
-                          <InputField
-                            label="Technologies"
-                            value={item.technologies.join(
-                              ", "
-                            )}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.projects,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                technologies:
-                                  value
-                                    .split(
-                                      ","
-                                    )
-                                    .map(
-                                      (tech) =>
-                                        tech.trim()
-                                    )
-                                    .filter(
-                                      Boolean
-                                    ),
-                              };
-
-                              updateResume(
-                                "projects",
-                                updated
-                              );
-                            }}
-                            placeholder="React, Node.js, Supabase"
-                          />
-                        </div>
-
-                        <div className="mt-5">
-                          <TextareaField
-                            label="Project description"
-                            value={
-                              item.description
-                            }
-                            onChange={(value) => {
-                              const updated = [
-                                ...resume.projects,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                description:
-                                  value,
-                              };
-
-                              updateResume(
-                                "projects",
-                                updated
-                              );
-                            }}
-                            rows={6}
-                            placeholder="Explain what you built, how you built it, the problem it solves and the impact..."
-                          />
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Certifications */}
-
-            <EditorSection
-              title="Certifications"
-              description="Professional certifications and credentials"
-              icon={<Award size={17} />}
-              open={
-                openSection ===
-                "certifications"
-              }
-              onToggle={() =>
-                toggleSection(
-                  "certifications"
-                )
-              }
-              action={
-                <SmallActionButton
-                  onClick={
-                    addCertification
-                  }
-                  label="Add certification"
-                />
-              }
-            >
-              {resume.certifications.length ===
-              0 ? (
-                <EmptyState
-                  title="No certifications added"
-                  description="Add certifications that are relevant to your target role."
-                  button={
-                    <SmallActionButton
-                      onClick={
-                        addCertification
-                      }
-                      label="Add certification"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-4">
-                  {resume.certifications.map(
-                    (item, index) => (
-                      <div
-                        key={index}
-                        className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5"
-                      >
-                        <div className="mb-5 flex items-center justify-between">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-purple-500">
-                            Certification{" "}
-                            {index + 1}
-                          </p>
-
-                          <IconDeleteButton
-                            onClick={() =>
-                              removeCertification(
-                                index
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <InputField
-                            label="Certification"
-                            value={
-                              item.name
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.certifications,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                name: value,
-                              };
-
-                              updateResume(
-                                "certifications",
-                                updated
-                              );
-                            }}
-                            placeholder="Certification name"
-                          />
-
-                          <InputField
-                            label="Issuer"
-                            value={
-                              item.issuer
-                            }
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.certifications,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                issuer:
-                                  value,
-                              };
-
-                              updateResume(
-                                "certifications",
-                                updated
-                              );
-                            }}
-                            placeholder="Issuing organization"
-                          />
-
-                          <InputField
-                            label="Date"
-                            value={item.date}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.certifications,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                date: value,
-                              };
-
-                              updateResume(
-                                "certifications",
-                                updated
-                              );
-                            }}
-                            placeholder="2026"
-                          />
-
-                          <InputField
-                            label="Credential URL"
-                            value={item.url}
-                            onChange={(
-                              value
-                            ) => {
-                              const updated = [
-                                ...resume.certifications,
-                              ];
-
-                              updated[index] = {
-                                ...updated[
-                                  index
-                                ],
-                                url: value,
-                              };
-
-                              updateResume(
-                                "certifications",
-                                updated
-                              );
-                            }}
-                            placeholder="https://..."
-                          />
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Achievements */}
-
-            <EditorSection
-              title="Achievements"
-              description="Awards, accomplishments and notable highlights"
-              icon={<Award size={17} />}
-              open={
-                openSection ===
-                "achievements"
-              }
-              onToggle={() =>
-                toggleSection(
-                  "achievements"
-                )
-              }
-              action={
-                <SmallActionButton
-                  onClick={addAchievement}
-                  label="Add achievement"
-                />
-              }
-            >
-              {resume.achievements.length ===
-              0 ? (
-                <EmptyState
-                  title="No achievements added"
-                  description="Add awards, rankings, competitions or notable accomplishments."
-                  button={
-                    <SmallActionButton
-                      onClick={
-                        addAchievement
-                      }
-                      label="Add achievement"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-3">
-                  {resume.achievements.map(
-                    (achievement, index) => (
-                      <div
-                        key={index}
-                        className="flex gap-3"
-                      >
-                        <input
-                          value={achievement}
-                          onChange={(event) => {
-                            const updated = [
-                              ...resume.achievements,
-                            ];
-
-                            updated[index] =
-                              event.target.value;
-
-                            updateResume(
-                              "achievements",
-                              updated
-                            );
-                          }}
-                          placeholder="Describe an achievement..."
-                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                        />
-
-                        <IconDeleteButton
-                          onClick={() =>
-                            removeAchievement(
-                              index
-                            )
-                          }
-                        />
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Languages */}
-
-            <EditorSection
-              title="Languages"
-              description="Languages you can communicate in"
-              icon={
-                <Languages size={17} />
-              }
-              open={
-                openSection === "languages"
-              }
-              onToggle={() =>
-                toggleSection(
-                  "languages"
-                )
-              }
-              action={
-                <SmallActionButton
-                  onClick={addLanguage}
-                  label="Add language"
-                />
-              }
-            >
-              {resume.languages.length ===
-              0 ? (
-                <EmptyState
-                  title="No languages added"
-                  description="Add languages and proficiency levels that are relevant to your profile."
-                  button={
-                    <SmallActionButton
-                      onClick={addLanguage}
-                      label="Add language"
-                    />
-                  }
-                />
-              ) : (
-                <div className="space-y-3">
-                  {resume.languages.map(
-                    (language, index) => (
-                      <div
-                        key={index}
-                        className="flex gap-3"
-                      >
-                        <input
-                          value={language}
-                          onChange={(event) => {
-                            const updated = [
-                              ...resume.languages,
-                            ];
-
-                            updated[index] =
-                              event.target.value;
-
-                            updateResume(
-                              "languages",
-                              updated
-                            );
-                          }}
-                          placeholder="English — Professional"
-                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                        />
-
-                        <IconDeleteButton
-                          onClick={() =>
-                            removeLanguage(
-                              index
-                            )
-                          }
-                        />
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </EditorSection>
-
-            {/* Final generation CTA */}
-
-            <section className="overflow-hidden rounded-[24px] bg-slate-950 shadow-xl shadow-slate-950/10">
-              <div className="relative p-6 sm:p-8">
-                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-purple-600/20 blur-3xl" />
-
-                <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-purple-300">
-                      <Sparkles size={12} />
-                      Ready when you are
-                    </div>
-
-                    <h3 className="text-xl font-bold tracking-tight text-white">
-                      Generate your finished resume
-                    </h3>
-
-                    <p className="mt-2 max-w-xl text-xs leading-5 text-slate-400">
-                      AI will organize your content,
-                      improve presentation and apply the
-                      selected design direction.
-                    </p>
-                  </div>
-
+              <div>
+                <h2 className="font-bold">
+                  Resume design
+                </h2>
+
+                <p className="text-xs text-slate-500">
+                  Tell HirePro how you want the final document to feel.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-4">
+              {(
+                [
+                  [
+                    "ats",
+                    "ATS",
+                  ],
+                  [
+                    "professional",
+                    "Professional",
+                  ],
+                  [
+                    "modern",
+                    "Modern",
+                  ],
+                  [
+                    "executive",
+                    "Executive",
+                  ],
+                ] as const
+              ).map(
+                ([value, label]) => (
                   <button
+                    key={value}
                     type="button"
-                    onClick={generateResume}
-                    disabled={isGenerating}
-                    className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-6 text-sm font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() =>
+                      setTemplate(
+                        value,
+                      )
+                    }
+                    className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                      template ===
+                      value
+                        ? "border-blue-600 bg-blue-50 text-blue-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
                   >
-                    {isGenerating ? (
-                      <>
-                        <Loader2
-                          size={16}
-                          className="animate-spin"
-                        />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 size={16} />
-                        Generate Resume
-                      </>
+                    {template ===
+                      value && (
+                      <Check className="mr-1 inline h-4 w-4" />
                     )}
-                  </button>
-                </div>
-              </div>
-            </section>
 
-            <div className="pb-8 text-center">
-              <p className="text-[11px] text-slate-400">
-                Your information is used to create
-                your personalized resume.
-              </p>
+                    {label}
+                  </button>
+                ),
+              )}
+            </div>
+
+            <div className="mt-5">
+              <TextArea
+                label="Additional design instructions"
+                value={
+                  designDescription
+                }
+                onChange={
+                  setDesignDescription
+                }
+                rows={4}
+                placeholder="Example: clean corporate resume, dark blue accents, strong section hierarchy, compact but readable spacing, similar to a premium recruiter resume."
+              />
             </div>
           </section>
+
+          {/* MOBILE ACTION */}
+
+          <div className="sticky bottom-4 z-30 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:hidden">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={generateResume}
+                disabled={isGenerating}
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                Generate
+              </button>
+
+              <button
+                type="button"
+                onClick={downloadPDF}
+                disabled={
+                  isDownloading ||
+                  !design
+                }
+                className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-bold text-white disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                PDF
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* PREVIEW */}
+
+        <aside className="hidden lg:block">
+          <div className="sticky top-28">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Live preview
+                    </p>
+
+                    <h2 className="mt-1 font-black">
+                      Resume
+                    </h2>
+                  </div>
+
+                  <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                    {design
+                      ? "Generated"
+                      : "Draft"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-[calc(100vh-170px)] overflow-auto bg-slate-100 p-5">
+                <div className="mx-auto min-h-[1000px] w-full max-w-[390px] bg-white p-7 shadow-md">
+                  <div className="border-b-2 border-slate-800 pb-4 text-center">
+                    {profilePhoto &&
+                      template !==
+                        "ats" && (
+                        <img
+                          src={
+                            profilePhoto
+                          }
+                          alt=""
+                          className="mx-auto mb-3 h-16 w-16 rounded-full object-cover"
+                        />
+                      )}
+
+                    <h1 className="text-2xl font-black uppercase tracking-tight">
+                      {resume
+                        .personal
+                        .name ||
+                        "YOUR NAME"}
+                    </h1>
+
+                    {resume
+                      .experience[0]
+                      ?.role && (
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {
+                          resume
+                            .experience[0]
+                            .role
+                        }
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[9px] text-slate-500">
+                      {[
+                        resume
+                          .personal
+                          .phone,
+
+                        resume
+                          .personal
+                          .email,
+
+                        resume
+                          .personal
+                          .location,
+                      ]
+                        .filter(
+                          Boolean,
+                        )
+                        .map(
+                          (
+                            value,
+                            index,
+                          ) => (
+                            <span
+                              key={
+                                index
+                              }
+                            >
+                              {
+                                value
+                              }
+                              {index <
+                                2
+                                ? " • "
+                                : ""}
+                            </span>
+                          ),
+                        )}
+                    </div>
+                  </div>
+
+                  {resume.professionalSummary && (
+                    <PreviewSection title="SUMMARY">
+                      <p>
+                        {
+                          resume.professionalSummary
+                        }
+                      </p>
+                    </PreviewSection>
+                  )}
+
+                  {resume.skills.length > 0 && (
+                    <PreviewSection title="SKILLS">
+                      {resume.skills.map(
+                        (
+                          group,
+                          index,
+                        ) => (
+                          <p
+                            key={
+                              index
+                            }
+                            className="mb-1"
+                          >
+                            <strong>
+                              {
+                                group.category
+                              }
+                              :
+                            </strong>{" "}
+                            {group.items.join(
+                              ", ",
+                            )}
+                          </p>
+                        ),
+                      )}
+                    </PreviewSection>
+                  )}
+
+                  {resume.experience.length > 0 && (
+                    <PreviewSection title="EXPERIENCE">
+                      {resume.experience.map(
+                        (
+                          item,
+                          index,
+                        ) => (
+                          <div
+                            key={
+                              index
+                            }
+                            className="mb-3"
+                          >
+                            <div className="flex justify-between gap-2">
+                              <strong>
+                                {
+                                  item.role
+                                }
+                              </strong>
+
+                              <span className="text-right text-[8px] text-slate-500">
+                                {
+                                  item.startDate
+                                }{" "}
+                                —{" "}
+                                {
+                                  item.endDate
+                                }
+                              </span>
+                            </div>
+
+                            <p className="text-slate-600">
+                              {
+                                item.company
+                              }
+                            </p>
+
+                            {item.responsibilities.map(
+                              (
+                                bullet,
+                                bulletIndex,
+                              ) => (
+                                <p
+                                  key={
+                                    bulletIndex
+                                  }
+                                  className="mt-1"
+                                >
+                                  •{" "}
+                                  {
+                                    bullet
+                                  }
+                                </p>
+                              ),
+                            )}
+                          </div>
+                        ),
+                      )}
+                    </PreviewSection>
+                  )}
+
+                  {resume.projects.length > 0 && (
+                    <PreviewSection title="PROJECTS">
+                      {resume.projects.map(
+                        (
+                          project,
+                          index,
+                        ) => (
+                          <div
+                            key={
+                              index
+                            }
+                            className="mb-3"
+                          >
+                            <strong>
+                              {
+                                project.name
+                              }
+                            </strong>
+
+                            <p className="mt-1">
+                              {
+                                project.description
+                              }
+                            </p>
+
+                            {project
+                              .technologies
+                              .length >
+                              0 && (
+                              <p className="mt-1 font-semibold text-slate-500">
+                                {
+                                  project.technologies.join(
+                                    ", ",
+                                  )
+                                }
+                              </p>
+                            )}
+                          </div>
+                        ),
+                      )}
+                    </PreviewSection>
+                  )}
+
+                  {resume.education.length > 0 && (
+                    <PreviewSection title="EDUCATION">
+                      {resume.education.map(
+                        (
+                          item,
+                          index,
+                        ) => (
+                          <div
+                            key={
+                              index
+                            }
+                            className="mb-3"
+                          >
+                            <strong>
+                              {
+                                item.degree
+                              }
+                              {item.field
+                                ? ` — ${item.field}`
+                                : ""}
+                            </strong>
+
+                            <p className="text-slate-600">
+                              {
+                                item.institution
+                              }
+                            </p>
+
+                            <p className="text-slate-500">
+                              {
+                                item.startDate
+                              }{" "}
+                              —{" "}
+                              {
+                                item.endDate
+                              }
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </PreviewSection>
+                  )}
+
+                  {resume.certifications.length > 0 && (
+                    <PreviewSection title="CERTIFICATIONS">
+                      {resume.certifications.map(
+                        (
+                          item,
+                          index,
+                        ) => (
+                          <p
+                            key={
+                              index
+                            }
+                            className="mb-1"
+                          >
+                            <strong>
+                              {
+                                item.name
+                              }
+                            </strong>
+                            {item.issuer
+                              ? ` — ${item.issuer}`
+                              : ""}
+                          </p>
+                        ),
+                      )}
+                    </PreviewSection>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </main>
   );
 }
 
-/* ========================================================================== */
-/* UI Components                                                              */
-/* ========================================================================== */
-
-function StatusPill({
-  icon,
-  label,
-}: {
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-600 shadow-sm">
-      <span className="text-purple-500">
-        {icon}
-      </span>
-      {label}
-    </span>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Sidebar navigation                                                         */
-/* -------------------------------------------------------------------------- */
-
-function SectionNavButton({
-  icon,
-  label,
-  description,
-  active,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  description: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
-        active
-          ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
-          : "text-slate-600 hover:bg-slate-50"
-      }`}
-    >
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          active
-            ? "bg-white/10 text-purple-300"
-            : "bg-slate-100 text-slate-400"
-        }`}
-      >
-        {icon}
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span
-          className={`block text-xs font-bold ${
-            active
-              ? "text-white"
-              : "text-slate-700"
-          }`}
-        >
-          {label}
-        </span>
-
-        <span
-          className={`mt-0.5 block truncate text-[10px] ${
-            active
-              ? "text-slate-400"
-              : "text-slate-400"
-          }`}
-        >
-          {description}
-        </span>
-      </span>
-
-      {active ? (
-        <ChevronDown
-          size={15}
-          className="shrink-0 text-slate-400"
-        />
-      ) : (
-        <ChevronRight
-          size={15}
-          className="shrink-0 text-slate-300"
-        />
-      )}
-    </button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Editor section                                                             */
-/* -------------------------------------------------------------------------- */
-
-function EditorSection({
+function PreviewSection({
   title,
-  description,
-  icon,
-  open,
-  onToggle,
   children,
-  action,
 }: {
   title: string;
-  description: string;
-  icon: ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-  action?: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      <div
-        className={`flex items-center gap-3 px-5 py-4 sm:px-6 ${
-          open
-            ? "border-b border-slate-100"
-            : ""
-        }`}
-      >
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
-        >
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-              open
-                ? "bg-purple-50 text-purple-600"
-                : "bg-slate-100 text-slate-500"
-            }`}
-          >
-            {icon}
-          </div>
-
-          <div className="min-w-0">
-            <h3 className="text-sm font-bold text-slate-950">
-              {title}
-            </h3>
-
-            <p className="mt-0.5 truncate text-[11px] text-slate-400">
-              {description}
-            </p>
-          </div>
-
-          <span className="ml-auto shrink-0 text-slate-300">
-            {open ? (
-              <ChevronDown size={18} />
-            ) : (
-              <ChevronRight size={18} />
-            )}
-          </span>
-        </button>
-
-        {open && action}
-      </div>
-
-      {open && (
-        <div className="p-5 sm:p-6">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Input                                                                      */
-/* -------------------------------------------------------------------------- */
-
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-        {label}
-      </label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        placeholder={placeholder}
-        className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
-      />
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Textarea                                                                   */
-/* -------------------------------------------------------------------------- */
-
-function TextareaField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  rows = 5,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  rows?: number;
-  hint?: string;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-          {label}
-        </label>
-
-        {hint && (
-          <span className="text-[10px] text-slate-400">
-            {hint}
-          </span>
-        )}
-      </div>
-
-      <textarea
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        rows={rows}
-        placeholder={placeholder}
-        className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
-      />
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Small action                                                               */
-/* -------------------------------------------------------------------------- */
-
-function SmallActionButton({
-  onClick,
-  label,
-}: {
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
-    >
-      <Plus size={14} />
-      {label}
-    </button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Delete button                                                              */
-/* -------------------------------------------------------------------------- */
-
-function IconDeleteButton({
-  onClick,
-}: {
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl border border-red-100 bg-white p-2 text-red-400 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-      aria-label="Delete"
-    >
-      <Trash2 size={15} />
-    </button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Empty state                                                                */
-/* -------------------------------------------------------------------------- */
-
-function EmptyState({
-  title,
-  description,
-  button,
-}: {
-  title: string;
-  description: string;
-  button: ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-5 py-10 text-center">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
-        <Plus size={18} />
-      </div>
-
-      <p className="mt-4 text-sm font-bold text-slate-700">
+    <section className="mt-4 text-[9px] leading-[1.45]">
+      <h3 className="border-b border-slate-700 pb-1 text-[10px] font-black tracking-wide">
         {title}
-      </p>
+      </h3>
 
-      <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-400">
-        {description}
-      </p>
-
-      <div className="mt-4 flex justify-center">
-        {button}
+      <div className="pt-2">
+        {children}
       </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Template button                                                            */
-/* -------------------------------------------------------------------------- */
-
-function TemplateButton({
-  selected,
-  title,
-  description,
-  onClick,
-}: {
-  selected: boolean;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border p-3 text-left transition ${
-        selected
-          ? "border-purple-300 bg-purple-50"
-          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className={`text-xs font-bold ${
-            selected
-              ? "text-purple-700"
-              : "text-slate-700"
-          }`}
-        >
-          {title}
-        </span>
-
-        {selected && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-white">
-            <Check size={11} />
-          </span>
-        )}
-      </div>
-
-      <p className="mt-1 text-[10px] leading-4 text-slate-400">
-        {description}
-      </p>
-    </button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Photo adjuster                                                             */
-/* -------------------------------------------------------------------------- */
-
-function PhotoAdjuster({
-  settings,
-  onChange,
-}: {
-  settings: PhotoSettings;
-  onChange: (settings: PhotoSettings) => void;
-}) {
-  return (
-    <div className="mt-5 border-t border-slate-200 pt-5">
-      <div className="mb-4">
-        <p className="text-xs font-bold text-slate-700">
-          Photo positioning
-        </p>
-
-        <p className="mt-1 text-[11px] text-slate-400">
-          Fine-tune how your photo will be placed in
-          the generated resume.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SelectControl
-          label="Size"
-          value={settings.size}
-          options={[
-            ["small", "Small"],
-            ["medium", "Medium"],
-            ["large", "Large"],
-          ]}
-          onChange={(value) =>
-            onChange({
-              ...settings,
-              size: value as PhotoSize,
-            })
-          }
-        />
-
-        <SelectControl
-          label="Shape"
-          value={settings.shape}
-          options={[
-            ["circle", "Circle"],
-            ["rounded", "Rounded"],
-            ["square", "Square"],
-          ]}
-          onChange={(value) =>
-            onChange({
-              ...settings,
-              shape: value as PhotoShape,
-            })
-          }
-        />
-
-        <SelectControl
-          label="Horizontal"
-          value={settings.horizontal}
-          options={[
-            ["left", "Left"],
-            ["center", "Center"],
-            ["right", "Right"],
-          ]}
-          onChange={(value) =>
-            onChange({
-              ...settings,
-              horizontal:
-                value as PhotoHorizontal,
-            })
-          }
-        />
-
-        <SelectControl
-          label="Vertical"
-          value={settings.vertical}
-          options={[
-            ["top", "Top"],
-            ["center", "Center"],
-            ["bottom", "Bottom"],
-          ]}
-          onChange={(value) =>
-            onChange({
-              ...settings,
-              vertical:
-                value as PhotoVertical,
-            })
-          }
-        />
-      </div>
-
-      <div className="mt-5">
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-            Zoom
-          </label>
-
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500">
-            {settings.zoom}%
-          </span>
-        </div>
-
-        <input
-          type="range"
-          min="50"
-          max="200"
-          step="5"
-          value={settings.zoom}
-          onChange={(event) =>
-            onChange({
-              ...settings,
-              zoom: Number(
-                event.target.value
-              ),
-            })
-          }
-          className="w-full accent-purple-600"
-        />
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Select                                                                      */
-/* -------------------------------------------------------------------------- */
-
-function SelectControl({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: [string, string][];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-        {label}
-      </label>
-
-      <select
-        value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-      >
-        {options.map(
-          ([optionValue, optionLabel]) => (
-            <option
-              key={optionValue}
-              value={optionValue}
-            >
-              {optionLabel}
-            </option>
-          )
-        )}
-      </select>
-    </div>
+    </section>
   );
 }
