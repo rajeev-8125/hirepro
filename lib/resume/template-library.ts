@@ -1,610 +1,585 @@
+import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
 import type {
-  ResumeTemplate,
+  ResumeAiTemplate,
+  ResumeTemplateDefinition,
   ResumeTemplateId,
 } from "./template-types";
 
-const NAVY = "#052445";
-const DARK_NAVY = "#172142";
-const BLUE = "#264472";
-const LIGHT_BLUE = "#F2F6FF";
-const TEAL = "#6A9999";
-const PEACH = "#EBC8BA";
+/* ============================================================
+   BASE AI DESIGNS
 
-export const RESUME_TEMPLATES: ResumeTemplate[] = [
-  {
-    id: "shawn-blue-sidebar",
-    name: "Shawn Blue Sidebar",
-    description:
-      "Blue corporate resume with a strong left sidebar, profile photo, contact information, skills and a clean content area.",
-    category: "Professional",
-    sourcePdf:
-      "White and Blue Minimalist Professional Corporate ATS Resume (2).pdf",
-    previewLabel: "Blue Sidebar",
+   These are the internal design systems used by the resume
+   builder. Individual PDF templates override the accent color,
+   while the user can further customize typography, spacing,
+   colors, etc. from the Styling section.
+   ============================================================ */
+
+const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
+  /* ----------------------------------------------------------
+     ATS
+     ---------------------------------------------------------- */
+  ats: {
+    layout: "single-column",
+
+    density: "compact",
+
+    style: "ats",
+
     colors: {
-      primary: NAVY,
-      secondary: "#FFFFFF",
-      accent: "#5A8FC7",
-      text: "#1F2937",
+      primary: "#1D4ED8",
+      secondary: "#1E40AF",
+      text: "#111827",
+      mutedText: "#64748B",
+      background: "#FFFFFF",
+      border: "#CBD5E1",
+    },
+
+    typography: {
+      headingFont: "Arial",
+      bodyFont: "Arial",
+      headingSize: "medium",
+      bodySize: "small",
+    },
+
+    header: {
+      alignment: "left",
+
+      photo: {
+        enabled: false,
+        position: "right",
+        shape: "square",
+        size: "small",
+      },
+    },
+
+    sections: {
+      order: [
+        "summary",
+        "skills",
+        "experience",
+        "education",
+        "projects",
+        "certifications",
+        "achievements",
+        "languages",
+      ],
+
+      emphasis: [
+        "experience",
+        "skills",
+        "education",
+      ],
+    },
+
+    sidebar: {
+      enabled: false,
+
+      sections: [
+        "skills",
+        "education",
+        "certifications",
+        "languages",
+        "achievements",
+      ],
+    },
+
+    visual: {
+      borderStyle: "subtle",
+      cardStyle: "none",
+      accentStyle: "line",
+    },
+
+    ats: {
+      safe: true,
+      tablesUsed: false,
+      graphicsUsed: false,
+      recommendedForATS: true,
+    },
+  },
+
+  /* ----------------------------------------------------------
+     PROFESSIONAL
+     ---------------------------------------------------------- */
+  professional: {
+    layout: "two-column",
+
+    density: "balanced",
+
+    style: "professional",
+
+    colors: {
+      primary: "#2563EB",
+      secondary: "#1D4ED8",
+      text: "#172033",
+      mutedText: "#64748B",
+      background: "#FFFFFF",
+      border: "#D7DEE8",
+    },
+
+    typography: {
+      headingFont: "Arial",
+      bodyFont: "Arial",
+      headingSize: "medium",
+      bodySize: "medium",
+    },
+
+    header: {
+      alignment: "left",
+
+      photo: {
+        enabled: false,
+        position: "left",
+        shape: "circle",
+        size: "medium",
+      },
+    },
+
+    sections: {
+      order: [
+        "summary",
+        "experience",
+        "skills",
+        "education",
+        "projects",
+        "certifications",
+        "achievements",
+        "languages",
+      ],
+
+      emphasis: [
+        "summary",
+        "experience",
+        "skills",
+      ],
+    },
+
+    sidebar: {
+      enabled: true,
+
+      sections: [
+        "skills",
+        "education",
+        "certifications",
+        "languages",
+        "achievements",
+      ],
+    },
+
+    visual: {
+      borderStyle: "subtle",
+      cardStyle: "flat",
+      accentStyle: "line",
+    },
+
+    ats: {
+      safe: true,
+      tablesUsed: false,
+      graphicsUsed: false,
+      recommendedForATS: true,
+    },
+  },
+
+  /* ----------------------------------------------------------
+     MODERN
+     ---------------------------------------------------------- */
+  modern: {
+    layout: "two-column",
+
+    density: "balanced",
+
+    style: "modern",
+
+    colors: {
+      primary: "#0F4C81",
+      secondary: "#2563EB",
+      text: "#172033",
+      mutedText: "#64748B",
+      background: "#FFFFFF",
+      border: "#CBD5E1",
+    },
+
+    typography: {
+      headingFont: "Arial",
+      bodyFont: "Arial",
+      headingSize: "large",
+      bodySize: "medium",
+    },
+
+    header: {
+      alignment: "left",
+
+      photo: {
+        enabled: false,
+        position: "left",
+        shape: "rounded",
+        size: "medium",
+      },
+    },
+
+    sections: {
+      order: [
+        "summary",
+        "experience",
+        "skills",
+        "projects",
+        "education",
+        "certifications",
+        "achievements",
+        "languages",
+      ],
+
+      emphasis: [
+        "summary",
+        "experience",
+        "projects",
+        "skills",
+      ],
+    },
+
+    sidebar: {
+      enabled: true,
+
+      sections: [
+        "skills",
+        "education",
+        "languages",
+        "certifications",
+      ],
+    },
+
+    visual: {
+      borderStyle: "subtle",
+      cardStyle: "soft",
+      accentStyle: "background",
+    },
+
+    ats: {
+      safe: true,
+      tablesUsed: false,
+      graphicsUsed: false,
+      recommendedForATS: true,
+    },
+  },
+
+  /* ----------------------------------------------------------
+     EXECUTIVE
+     ---------------------------------------------------------- */
+  executive: {
+    layout: "single-column",
+
+    density: "balanced",
+
+    style: "executive",
+
+    colors: {
+      primary: "#111827",
+      secondary: "#374151",
+      text: "#111827",
       mutedText: "#6B7280",
       background: "#FFFFFF",
-      sidebar: NAVY,
-      sidebarText: "#FFFFFF",
-      divider: "#D9E1EA",
-      cardBackground: "#FFFFFF",
+      border: "#D1D5DB",
     },
+
     typography: {
-      fontFamily: "Arial",
-      bodySize: 9.5,
-      nameSize: 25,
-      jobTitleSize: 11,
-      sectionTitleSize: 9,
-      headingSize: 12,
-      lineHeight: 1.35,
-      letterSpacing: 0.2,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
+      headingFont: "Georgia",
+      bodyFont: "Arial",
+      headingSize: "large",
+      bodySize: "medium",
     },
-    spacing: {
-      pageMarginTop: 28,
-      pageMarginRight: 30,
-      pageMarginBottom: 28,
-      pageMarginLeft: 30,
-      sectionGap: 16,
-      headingGap: 7,
-      itemGap: 10,
-      bulletGap: 2,
-      contentGap: 16,
-      columnGap: 22,
+
+    header: {
+      alignment: "center",
+
+      photo: {
+        enabled: false,
+        position: "center",
+        shape: "circle",
+        size: "medium",
+      },
     },
-    layout: {
-      columns: 2,
-      sidebar: "left",
-      sidebarWidth: 30,
-      header: "simple",
-      headerHeight: 105,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: true,
-      photoPosition: "sidebar",
-      photoShape: "circle",
-      photoSize: 72,
-      sectionDividers: true,
-      sectionDividerStyle: "line",
-      bullets: "dash",
-      dates: "block",
-      skillDisplay: "text",
+
+    sections: {
+      order: [
+        "summary",
+        "experience",
+        "education",
+        "skills",
+        "projects",
+        "certifications",
+        "achievements",
+        "languages",
+      ],
+
+      emphasis: [
+        "summary",
+        "experience",
+        "education",
+      ],
     },
-    sections: [
-      "contact",
-      "summary",
-      "experience",
-      "education",
-      "skills",
-      "languages",
-      "projects",
-      "certifications",
-      "additional",
-    ],
-    supportsPhoto: true,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+
+    sidebar: {
+      enabled: false,
+
+      sections: [
+        "skills",
+        "education",
+        "certifications",
+        "languages",
+        "achievements",
+      ],
+    },
+
+    visual: {
+      borderStyle: "strong",
+      cardStyle: "none",
+      accentStyle: "line",
+    },
+
+    ats: {
+      safe: true,
+      tablesUsed: false,
+      graphicsUsed: false,
+      recommendedForATS: true,
+    },
+  },
+};
+
+/* ============================================================
+   RESUME PDF TEMPLATES
+
+   These correspond to the PDF templates you placed inside:
+
+   public/resume-templates/
+
+   Each template has:
+   - PDF reference
+   - preview image
+   - category
+   - AI design family
+   - accent color
+   - layout
+   - photo support
+   ============================================================ */
+
+export const RESUME_TEMPLATES: ResumeTemplateDefinition[] = [
+  {
+    id: "blue-01",
+    name: "Blue Corporate ATS",
+    shortName: "Blue ATS 01",
+    description:
+      "Clean white-and-blue corporate resume designed for strong ATS readability.",
+    category: "ats",
+    aiTemplate: "ats",
+    referencePdf: "/resume-templates/blue-01.pdf",
+    previewImage: "/resume-templates/blue-01.png",
+    accent: "#1D4ED8",
+    background: "#FFFFFF",
+    layout: "single",
+    photo: false,
   },
 
   {
-    id: "pedro-blue-header",
-    name: "Pedro Blue Header",
+    id: "blue-02",
+    name: "Blue Corporate Executive",
+    shortName: "Blue Executive",
     description:
-      "Blue header resume with circular profile image, dark information panel and structured professional sections.",
-    category: "Professional",
-    sourcePdf:
-      "White and Blue Minimalist Professional Corporate ATS Resume (4).pdf",
-    previewLabel: "Blue Header",
-    colors: {
-      primary: BLUE,
-      secondary: "#FFFFFF",
-      accent: "#5A8FC7",
-      text: "#1E293B",
-      mutedText: "#64748B",
-      background: "#FFFFFF",
-      sidebar: NAVY,
-      sidebarText: "#FFFFFF",
-      divider: "#CBD5E1",
-      cardBackground: "#FFFFFF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 9.2,
-      nameSize: 24,
-      jobTitleSize: 10,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.35,
-      letterSpacing: 0.8,
-      wordSpacing: 0,
-      nameWeight: 600,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 0,
-      pageMarginRight: 28,
-      pageMarginBottom: 28,
-      pageMarginLeft: 28,
-      sectionGap: 14,
-      headingGap: 6,
-      itemGap: 9,
-      bulletGap: 2,
-      contentGap: 18,
-      columnGap: 20,
-    },
-    layout: {
-      columns: 2,
-      sidebar: "left",
-      sidebarWidth: 29,
-      header: "blue",
-      headerHeight: 105,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: true,
-      photoPosition: "header",
-      photoShape: "circle",
-      photoSize: 70,
-      sectionDividers: true,
-      sectionDividerStyle: "bar",
-      bullets: "disc",
-      dates: "right",
-      skillDisplay: "percentage",
-    },
-    sections: [
-      "contact",
-      "summary",
-      "experience",
-      "education",
-      "skills",
-      "languages",
-      "additional",
-    ],
-    supportsPhoto: true,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+      "Professional corporate layout with a refined hierarchy and strong visual structure.",
+    category: "professional",
+    aiTemplate: "professional",
+    referencePdf: "/resume-templates/blue-02.pdf",
+    previewImage: "/resume-templates/blue-02.png",
+    accent: "#2563EB",
+    background: "#FFFFFF",
+    layout: "split",
+    photo: false,
   },
 
   {
-    id: "francisco-blue-corporate",
-    name: "Francisco Blue Corporate",
+    id: "blue-03",
+    name: "Blue Marketing",
+    shortName: "Blue Marketing",
     description:
-      "Corporate two-column resume with blue-gray sidebar, circular profile photo and highlighted content blocks.",
-    category: "Professional",
-    sourcePdf:
-      "White and Blue Minimalist Professional Corporate ATS Resume (3).pdf",
-    previewLabel: "Blue Corporate",
-    colors: {
-      primary: "#4D6181",
-      secondary: "#FFFFFF",
-      accent: "#4D6181",
-      text: "#263238",
-      mutedText: "#64748B",
-      background: "#FFFFFF",
-      sidebar: "#4D6181",
-      sidebarText: "#FFFFFF",
-      divider: "#D6DEE8",
-      cardBackground: "#F2F6FF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 8.8,
-      nameSize: 23,
-      jobTitleSize: 10,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.35,
-      letterSpacing: 0.2,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 25,
-      pageMarginRight: 27,
-      pageMarginBottom: 25,
-      pageMarginLeft: 27,
-      sectionGap: 14,
-      headingGap: 6,
-      itemGap: 9,
-      bulletGap: 2,
-      contentGap: 17,
-      columnGap: 20,
-    },
-    layout: {
-      columns: 2,
-      sidebar: "left",
-      sidebarWidth: 31,
-      header: "simple",
-      headerHeight: 90,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: true,
-      photoPosition: "sidebar",
-      photoShape: "circle",
-      photoSize: 68,
-      sectionDividers: true,
-      sectionDividerStyle: "accent",
-      bullets: "disc",
-      dates: "right",
-      skillDisplay: "stars",
-    },
-    sections: [
-      "contact",
-      "summary",
-      "skills",
-      "languages",
-      "experience",
-      "education",
-      "references",
-    ],
-    supportsPhoto: true,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+      "Professional blue layout emphasizing skills, experience and education.",
+    category: "professional",
+    aiTemplate: "professional",
+    referencePdf: "/resume-templates/blue-03.pdf",
+    previewImage: "/resume-templates/blue-03.png",
+    accent: "#2563EB",
+    background: "#FFFFFF",
+    layout: "sidebar",
+    photo: false,
   },
 
   {
-    id: "adam-ats",
-    name: "Adam ATS",
+    id: "blue-04",
+    name: "Blue Skills Focus",
+    shortName: "Blue Skills",
     description:
-      "Clean single-column ATS-focused resume with horizontal section bars and compact professional content.",
-    category: "ATS",
-    sourcePdf:
-      "Black and White Simple Infographic Resume (1).pdf",
-    previewLabel: "ATS Professional",
-    colors: {
-      primary: "#222222",
-      secondary: "#FFFFFF",
-      accent: "#C7D0D9",
-      text: "#222222",
-      mutedText: "#555555",
-      background: "#FFFFFF",
-      sidebar: "#FFFFFF",
-      sidebarText: "#222222",
-      divider: "#C7D0D9",
-      cardBackground: "#FFFFFF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 9.2,
-      nameSize: 20,
-      jobTitleSize: 9,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.3,
-      letterSpacing: 0.3,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 27,
-      pageMarginRight: 35,
-      pageMarginBottom: 27,
-      pageMarginLeft: 35,
-      sectionGap: 12,
-      headingGap: 5,
-      itemGap: 8,
-      bulletGap: 2,
-      contentGap: 14,
-      columnGap: 18,
-    },
-    layout: {
-      columns: 1,
-      sidebar: "none",
-      header: "simple",
-      headerHeight: 65,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: false,
-      photoPosition: "content",
-      photoShape: "none",
-      photoSize: 0,
-      sectionDividers: true,
-      sectionDividerStyle: "bar",
-      bullets: "disc",
-      dates: "right",
-      skillDisplay: "tags",
-      compact: true,
-    },
-    sections: [
-      "summary",
-      "skills",
-      "experience",
-      "education",
-      "achievements",
-      "additional",
-    ],
-    supportsPhoto: false,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+      "Modern blue resume layout emphasizing technical skills and professional experience.",
+    category: "professional",
+    aiTemplate: "modern",
+    referencePdf: "/resume-templates/blue-04.pdf",
+    previewImage: "/resume-templates/blue-04.png",
+    accent: "#0F4C81",
+    background: "#FFFFFF",
+    layout: "sidebar",
+    photo: false,
   },
 
   {
-    id: "emaa-accounting",
-    name: "Emaa Accounting",
+    id: "student",
+    name: "Student CV",
+    shortName: "Student",
     description:
-      "Professional accounting layout with compact sidebar information, experience-focused content and references.",
-    category: "Professional",
-    sourcePdf:
-      "White and Blue Minimalist Professional Corporate ATS Resume (1).pdf",
-    previewLabel: "Accounting",
-    colors: {
-      primary: "#333132",
-      secondary: "#FFFFFF",
-      accent: "#333132",
-      text: "#252525",
-      mutedText: "#666666",
-      background: "#FFFFFF",
-      sidebar: "#FFFFFF",
-      sidebarText: "#252525",
-      divider: "#333132",
-      cardBackground: "#FFFFFF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 9,
-      nameSize: 21,
-      jobTitleSize: 10,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.3,
-      letterSpacing: 0.2,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 28,
-      pageMarginRight: 30,
-      pageMarginBottom: 28,
-      pageMarginLeft: 30,
-      sectionGap: 13,
-      headingGap: 5,
-      itemGap: 8,
-      bulletGap: 2,
-      contentGap: 15,
-      columnGap: 22,
-    },
-    layout: {
-      columns: 2,
-      sidebar: "right",
-      sidebarWidth: 28,
-      header: "simple",
-      headerHeight: 70,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: false,
-      photoPosition: "content",
-      photoShape: "none",
-      photoSize: 0,
-      sectionDividers: true,
-      sectionDividerStyle: "line",
-      bullets: "disc",
-      dates: "right",
-      skillDisplay: "text",
-      compact: true,
-    },
-    sections: [
-      "summary",
-      "experience",
-      "education",
-      "skills",
-      "languages",
-      "references",
-    ],
-    supportsPhoto: false,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+      "Simple and structured resume template for students and early-career candidates.",
+    category: "student",
+    aiTemplate: "professional",
+    referencePdf: "/resume-templates/student.pdf",
+    previewImage: "/resume-templates/student.png",
+    accent: "#111827",
+    background: "#FFFFFF",
+    layout: "sidebar",
+    photo: false,
   },
 
   {
-    id: "daniel-ats",
-    name: "Daniel UX ATS",
+    id: "infographic-01",
+    name: "Infographic Black & White",
+    shortName: "Infographic 01",
     description:
-      "Minimal ATS-friendly single-column UX design resume with strong hierarchy and clean section dividers.",
-    category: "ATS",
-    sourcePdf:
-      "Black and White Simple Infographic Resume.pdf",
-    previewLabel: "UX ATS",
-    colors: {
-      primary: "#333333",
-      secondary: "#FFFFFF",
-      accent: "#D9D9D9",
-      text: "#222222",
-      mutedText: "#555555",
-      background: "#FFFFFF",
-      sidebar: "#FFFFFF",
-      sidebarText: "#222222",
-      divider: "#CFCFCF",
-      cardBackground: "#FFFFFF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 9,
-      nameSize: 21,
-      jobTitleSize: 10,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.32,
-      letterSpacing: 0.2,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 27,
-      pageMarginRight: 34,
-      pageMarginBottom: 27,
-      pageMarginLeft: 34,
-      sectionGap: 13,
-      headingGap: 6,
-      itemGap: 9,
-      bulletGap: 2,
-      contentGap: 15,
-      columnGap: 18,
-    },
-    layout: {
-      columns: 1,
-      sidebar: "none",
-      header: "simple",
-      headerHeight: 65,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: false,
-      photoPosition: "content",
-      photoShape: "none",
-      photoSize: 0,
-      sectionDividers: true,
-      sectionDividerStyle: "line",
-      bullets: "disc",
-      dates: "right",
-      skillDisplay: "text",
-      compact: false,
-    },
-    sections: [
-      "summary",
-      "skills",
-      "experience",
-      "education",
-      "additional",
-    ],
-    supportsPhoto: false,
-    supportsTwoPages: true,
-    atsFriendly: true,
-    aiRecommended: true,
+      "Black-and-white infographic-inspired professional resume.",
+    category: "creative",
+    aiTemplate: "modern",
+    referencePdf: "/resume-templates/infographic-01.pdf",
+    previewImage: "/resume-templates/infographic-01.png",
+    accent: "#111111",
+    background: "#FFFFFF",
+    layout: "split",
+    photo: false,
   },
 
   {
-    id: "olivia-student",
-    name: "Olivia Student",
+    id: "infographic-02",
+    name: "Infographic Marketing",
+    shortName: "Infographic 02",
     description:
-      "Student-focused resume with colored sidebar, profile photo, education-first structure and volunteer experience.",
-    category: "Student",
-    sourcePdf:
-      "White Simple Student CV Resume.pdf",
-    previewLabel: "Student",
-    colors: {
-      primary: TEAL,
-      secondary: "#FFFFFF",
-      accent: PEACH,
-      text: "#263238",
-      mutedText: "#687477",
-      background: "#FFFFFF",
-      sidebar: TEAL,
-      sidebarText: "#FFFFFF",
-      divider: "#D6D6D6",
-      cardBackground: "#FFFFFF",
-    },
-    typography: {
-      fontFamily: "Arial",
-      bodySize: 9.2,
-      nameSize: 23,
-      jobTitleSize: 10,
-      sectionTitleSize: 9,
-      headingSize: 11,
-      lineHeight: 1.35,
-      letterSpacing: 0.4,
-      wordSpacing: 0,
-      nameWeight: 700,
-      headingWeight: 700,
-      bodyWeight: 400,
-      uppercaseSectionTitles: true,
-    },
-    spacing: {
-      pageMarginTop: 25,
-      pageMarginRight: 28,
-      pageMarginBottom: 25,
-      pageMarginLeft: 28,
-      sectionGap: 15,
-      headingGap: 7,
-      itemGap: 10,
-      bulletGap: 2,
-      contentGap: 18,
-      columnGap: 20,
-    },
-    layout: {
-      columns: 2,
-      sidebar: "left",
-      sidebarWidth: 31,
-      header: "colored",
-      headerHeight: 100,
-      nameAlignment: "left",
-      bodyAlignment: "left",
-      photo: true,
-      photoPosition: "header",
-      photoShape: "circle",
-      photoSize: 75,
-      sectionDividers: false,
-      sectionDividerStyle: "none",
-      bullets: "arrow",
-      dates: "right",
-      skillDisplay: "text",
-    },
-    sections: [
-      "summary",
-      "contact",
-      "education",
-      "languages",
-      "skills",
-      "volunteer",
-      "experience",
-      "additional",
-    ],
-    supportsPhoto: true,
-    supportsTwoPages: true,
-    atsFriendly: false,
-    aiRecommended: false,
+      "Bold monochrome marketing-style infographic resume.",
+    category: "creative",
+    aiTemplate: "modern",
+    referencePdf: "/resume-templates/infographic-02.pdf",
+    previewImage: "/resume-templates/infographic-02.png",
+    accent: "#000000",
+    background: "#FFFFFF",
+    layout: "split",
+    photo: false,
   },
 ];
 
-export const DEFAULT_TEMPLATE_ID: ResumeTemplateId =
-  "shawn-blue-sidebar";
+/* ============================================================
+   GET TEMPLATE DEFINITION
+   ============================================================ */
 
-export function getResumeTemplate(
-  id: ResumeTemplateId | string | undefined,
-): ResumeTemplate {
-  return (
-    RESUME_TEMPLATES.find((template) => template.id === id) ??
-    RESUME_TEMPLATES.find(
-      (template) => template.id === DEFAULT_TEMPLATE_ID,
-    )!
+export function getTemplateDefinition(
+  id: ResumeTemplateId | string | null | undefined,
+): ResumeTemplateDefinition {
+  const found = RESUME_TEMPLATES.find(
+    (template) => template.id === id,
   );
+
+  return found ?? RESUME_TEMPLATES[0];
 }
 
+/* ============================================================
+   GET AI TEMPLATE FAMILY
+   ============================================================ */
+
+export function getAiTemplate(
+  id: ResumeTemplateId | string | null | undefined,
+): ResumeAiTemplate {
+  return getTemplateDefinition(id).aiTemplate;
+}
+
+/* ============================================================
+   GET TEMPLATE DESIGN
+   ============================================================ */
+
+export function getTemplateDesign(
+  id: ResumeTemplateId | string | null | undefined,
+): ResumeDesign {
+  const definition = getTemplateDefinition(id);
+
+  /*
+   * Important:
+   * We always have a valid fallback here.
+   *
+   * This prevents:
+   *
+   * Cannot read properties of undefined (reading 'colors')
+   */
+
+  const base =
+    TEMPLATE_DESIGNS[definition.aiTemplate] ??
+    TEMPLATE_DESIGNS.professional;
+
+  return {
+    ...base,
+
+    colors: {
+      ...base.colors,
+
+      primary: definition.accent,
+
+      secondary: definition.accent,
+
+      background: definition.background,
+    },
+
+    custom: {
+      ...(base.custom ?? {}),
+
+      templateId: definition.id,
+
+      primaryColor: definition.accent,
+
+      secondaryColor: definition.accent,
+
+      backgroundColor: definition.background,
+    },
+  };
+}
+
+/* ============================================================
+   GET ALL TEMPLATES BY CATEGORY
+   ============================================================ */
+
 export function getTemplatesByCategory(
-  category: ResumeTemplate["category"],
-): ResumeTemplate[] {
+  category: ResumeTemplateDefinition["category"],
+): ResumeTemplateDefinition[] {
   return RESUME_TEMPLATES.filter(
     (template) => template.category === category,
   );
 }
 
-export function getAtsTemplates(): ResumeTemplate[] {
-  return RESUME_TEMPLATES.filter((template) => template.atsFriendly);
+/* ============================================================
+   FIND TEMPLATE BY AI FAMILY
+   ============================================================ */
+
+export function getTemplatesByAiTemplate(
+  aiTemplate: ResumeAiTemplate,
+): ResumeTemplateDefinition[] {
+  return RESUME_TEMPLATES.filter(
+    (template) => template.aiTemplate === aiTemplate,
+  );
 }
 
-export function getPhotoTemplates(): ResumeTemplate[] {
-  return RESUME_TEMPLATES.filter((template) => template.supportsPhoto);
+/* ============================================================
+   CHECK TEMPLATE EXISTS
+   ============================================================ */
+
+export function isValidResumeTemplate(
+  id: string | null | undefined,
+): id is ResumeTemplateId {
+  return RESUME_TEMPLATES.some(
+    (template) => template.id === id,
+  );
 }
