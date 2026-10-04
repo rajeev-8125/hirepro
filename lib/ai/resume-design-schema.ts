@@ -134,6 +134,35 @@ export const ResumeDesignSchema = z.object({
     graphicsUsed: z.boolean(),
     recommendedForATS: z.boolean(),
   }),
+
+  custom: z
+    .object({
+      templateId: z.string().optional(),
+      headingFont: z.string().optional(),
+      bodyFont: z.string().optional(),
+      headingSizePx: z.number().min(8).max(30).optional(),
+      bodySizePx: z.number().min(7).max(20).optional(),
+      lineHeight: z.number().min(1).max(2.2).optional(),
+      letterSpacingPx: z.number().min(-1).max(4).optional(),
+      wordSpacingPx: z.number().min(0).max(12).optional(),
+      sectionGapPx: z.number().min(4).max(50).optional(),
+      itemGapPx: z.number().min(2).max(30).optional(),
+      pageMarginPx: z.number().min(16).max(80).optional(),
+      primaryColor: z.string().optional(),
+      secondaryColor: z.string().optional(),
+      textColor: z.string().optional(),
+      mutedColor: z.string().optional(),
+      backgroundColor: z.string().optional(),
+      borderColor: z.string().optional(),
+      headingCase: z.enum(["normal", "uppercase"]).optional(),
+      headingWeight: z.union([
+        z.literal(500),
+        z.literal(600),
+        z.literal(700),
+        z.literal(800),
+      ]).optional(),
+    })
+    .optional(),
 });
 
 export type ResumeDesign = z.infer<

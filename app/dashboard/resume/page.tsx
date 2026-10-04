@@ -30,6 +30,11 @@ import {
   Palette,
   SlidersHorizontal,
   Save,
+  Link2,
+  Upload,
+  History,
+  Eye,
+  MoreHorizontal,
 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
@@ -166,6 +171,245 @@ const DEMO_RESUME: ResumeData = {
   languages: ["English", "Spanish"],
   additionalSections: [],
 };
+
+/**
+ * Each template starts with its own demonstration resume content.
+ * This is presentation-only sample data. It is never saved to the
+ * user's account unless the user explicitly edits/generates/saves it.
+ * The content is based on the supplied template PDFs.
+ */
+const TEMPLATE_DEMO_RESUMES: Record<TemplateType, ResumeData> = {
+  "blue-01": {
+    personal: {
+      name: "Charlotte Newman",
+      email: "hello@reallygreatsite.com",
+      phone: "+123-456-7890",
+      location: "123 Anywhere St., Any City, ST 12345",
+      linkedin: "linkedin.com/in/charlottenewman",
+      github: "",
+      website: "www.reallygreatsite.com",
+    },
+    professionalSummary:
+      "Creative and detail-oriented graphic designer with over 5 years of experience creating visual solutions for brands and businesses. Passionate about transforming ideas into impactful designs while maintaining strong attention to detail and aesthetics.",
+    skills: [
+      { category: "Skills", items: ["Problem Solving", "Creative Thinking", "Adaptability", "Team Collaboration", "Time Management"] },
+    ],
+    experience: [
+      {
+        company: "Brightside Studio",
+        role: "Senior Graphic Designer",
+        location: "",
+        startDate: "2024",
+        endDate: "2026",
+        responsibilities: [
+          "Designed marketing materials for digital and print campaigns.",
+          "Developed branding concepts for small and medium businesses.",
+        ],
+      },
+      {
+        company: "Visionary Studio",
+        role: "Junior Graphic Designer",
+        location: "",
+        startDate: "2022",
+        endDate: "2024",
+        responsibilities: [
+          "Assisted senior designers in creating advertising materials.",
+          "Designed social media graphics and promotional content.",
+        ],
+      },
+    ],
+    education: [
+      { institution: "University of Northvale", degree: "Bachelor of Business Management", field: "", startDate: "2018", endDate: "2022", details: [] },
+      { institution: "University of Ashford Vale", degree: "Bachelor of Business Management", field: "", startDate: "2015", endDate: "2018", details: [] },
+    ],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: ["English", "Indonesian"],
+    additionalSections: [],
+  },
+  "blue-02": {
+    personal: {
+      name: "Shawn Garcia",
+      email: "hello@reallygreatsite.com",
+      phone: "+123-456-7890",
+      location: "123 Anywhere St., Any City",
+      linkedin: "linkedin.com/in/shawngarcia",
+      github: "",
+      website: "",
+    },
+    professionalSummary:
+      "Passionate designer and illustrator with experience across books, magazines, documents, social media, web design and visual content creation.",
+    skills: [
+      { category: "Programs", items: ["Web Design", "Social Media Design", "Poster Design", "Mobile App Design", "Content Creation"] },
+    ],
+    experience: [
+      {
+        company: "Content Company, S.L.",
+        role: "Content Creator",
+        location: "",
+        startDate: "September 2019",
+        endDate: "June 2021",
+        responsibilities: ["Social media management and design.", "Web design.", "Design of posters, flyers and visual materials.", "Mobile app design."],
+      },
+      {
+        company: "Networking Company, S.L.",
+        role: "Social Media Manager",
+        location: "",
+        startDate: "January 2017",
+        endDate: "April 2019",
+        responsibilities: ["Website and social media maintenance.", "Creation of banners and graphic content.", "Writing content for blogs."],
+      },
+    ],
+    education: [
+      { institution: "University of the Sea", degree: "Graphic Arts Studies", field: "", startDate: "September 2017", endDate: "2021", details: [] },
+      { institution: "San Juan Study Center", degree: "Animation Studies", field: "", startDate: "September 2015", endDate: "July 2017", details: [] },
+      { institution: "University of the Sun", degree: "Master's Degree in Graphic Arts", field: "", startDate: "", endDate: "Current", details: [] },
+    ],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: ["Spanish — High level", "English — Native"],
+    additionalSections: [],
+  },
+  "blue-03": {
+    personal: {
+      name: "Francisco Andrade",
+      email: "hello@reallygreatsite.com",
+      phone: "+123-456-7890",
+      location: "123 Anywhere St., Any City",
+      linkedin: "linkedin.com/in/franciscoandrade",
+      github: "",
+      website: "",
+    },
+    professionalSummary:
+      "Marketing professional with a strong foundation in project management, public relations, teamwork, leadership and effective communication.",
+    skills: [
+      { category: "Professional Skills", items: ["Project Management", "Public Relations", "Teamwork", "Time Management", "Leadership", "Effective Communication", "Critical Thinking"] },
+    ],
+    experience: [
+      {
+        company: "Really Great Industries",
+        role: "Marketing Manager",
+        location: "",
+        startDate: "2020",
+        endDate: "2023",
+        responsibilities: ["Managed marketing activities and coordinated cross-functional initiatives.", "Developed communication materials and supported business growth programs."],
+      },
+      {
+        company: "Really Great Industries",
+        role: "Marketing Manager",
+        location: "",
+        startDate: "2017",
+        endDate: "2019",
+        responsibilities: ["Supported marketing campaigns and maintained strong stakeholder communication."],
+      },
+      {
+        company: "Really Great Industries",
+        role: "Marketing Manager",
+        location: "",
+        startDate: "2019",
+        endDate: "2020",
+        responsibilities: ["Coordinated marketing projects and prepared campaign content."],
+      },
+    ],
+    education: [
+      { institution: "Borcelle Business School", degree: "Bachelor of Business Management", field: "", startDate: "2020", endDate: "2023", details: [] },
+      { institution: "Borcelle Business School", degree: "Bachelor of Business Management", field: "", startDate: "2016", endDate: "2020", details: [] },
+    ],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: ["English", "French", "Spanish"],
+    additionalSections: [],
+  },
+  "blue-04": {
+    personal: {
+      name: "Pedro Fernandes",
+      email: "hello@reallygreatsite.com",
+      phone: "+123-456-7890",
+      location: "123 Anywhere St., Any City",
+      linkedin: "linkedin.com/in/pedrofernandes",
+      github: "",
+      website: "www.reallygreatsite.com",
+    },
+    professionalSummary:
+      "Marketing Manager with experience in graphic design, copywriting, project management and digital marketing. Focused on clear communication and practical business outcomes.",
+    skills: [
+      { category: "Skills Summary", items: ["Management Skills", "Digital Marketing", "Critical Thinking", "Project Management", "Graphic Design", "Copywriting"] },
+    ],
+    experience: [
+      { company: "Fradel and Spies", role: "Marketing Manager", location: "", startDate: "2020", endDate: "2022", responsibilities: ["Managed marketing activities and coordinated campaign delivery."] },
+      { company: "Aldenaire & Partners", role: "Marketing Manager", location: "", startDate: "2015", endDate: "2020", responsibilities: ["Supported marketing projects and communication activities."] },
+      { company: "Ingoude Company", role: "Marketing Manager", location: "", startDate: "2012", endDate: "2015", responsibilities: ["Supported marketing and creative initiatives."] },
+    ],
+    education: [
+      { institution: "Borcelle University", degree: "Bachelor of Business Management", field: "", startDate: "2014", endDate: "2023", details: [] },
+      { institution: "Borcelle University", degree: "Master of Business Management", field: "", startDate: "2014", endDate: "2018", details: [] },
+    ],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: ["English", "Spanish", "Germany — Basic"],
+    additionalSections: [],
+  },
+  student: {
+    personal: {
+      name: "Olivia Wilson",
+      email: "hello@reallygreatsite.com",
+      phone: "(123) 456-7890",
+      location: "123 Anywhere St., Any City, State, Country 12345",
+      linkedin: "linkedin.com/in/oliviawilson",
+      github: "",
+      website: "",
+    },
+    professionalSummary:
+      "Business Administration student. I consider myself a responsible and orderly person and I am looking forward to my first work experience.",
+    skills: [{ category: "Computer Skills", items: ["Text processor", "Spreadsheet", "Slide presentation"] }],
+    experience: [],
+    education: [{ institution: "Milemora University", degree: "Business Administration", field: "", startDate: "", endDate: "In progress", details: [] }, { institution: "Brayershire College", degree: "Business Administration", field: "", startDate: "2020", endDate: "2024", details: [] }],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: ["Native English", "Advanced Spanish"],
+    additionalSections: [{ title: "Volunteer Experience", items: ["Velveral Foods Inc. — Participation in collections to distribute in low-income schools."] }],
+  },
+  "infographic-01": {
+    personal: { name: "Adam Fletcher", email: "hello@reallygreatsite.com", phone: "", location: "123 Anywhere St., Any City", linkedin: "linkedin.com/in/adamfletcher", github: "", website: "www.reallygreatsite.com" },
+    professionalSummary: "Results-driven Digital Marketer with expertise in SEO, paid media and content strategy. Proven ability to grow brand awareness, drive qualified leads and optimize campaigns for maximum ROI.",
+    skills: [{ category: "Professional Skills", items: ["SEO & SEM", "Content Marketing", "Social Media Strategy", "Email Marketing", "Web Analytics", "Paid Advertising"] }],
+    experience: [
+      { company: "Creative Agency", role: "Senior Digital Marketing Manager", location: "", startDate: "Jan 2023", endDate: "Present", responsibilities: ["Managed a $1.5M ad budget across various platforms, achieving 35% YoY growth.", "Executed content strategies that boosted organic traffic by 200% in a year.", "Led a team of 5 marketers, mentoring juniors and streamlining workflows."] },
+      { company: "Digital Agency", role: "Digital Marketing Specialist", location: "", startDate: "Feb 2021", endDate: "Dec 2022", responsibilities: ["Executed social media campaigns, increasing followers by 80%.", "Enhanced email marketing funnels, raising open rates by 25% and conversion rates by 18%.", "Performed A/B testing on landing pages, boosting lead capture by 40%."] },
+    ],
+    education: [{ institution: "Business School", degree: "Master of Science in Digital Marketing", field: "Data-Driven Marketing and Consumer Behavior", startDate: "Aug 2016", endDate: "Oct 2019", details: ["Capstone project on AI-Powered Personalization in E-commerce Marketing"] }, { institution: "University of Southern California", degree: "Bachelor of Arts in Marketing & Communications", field: "Brand Management and Digital Analytics", startDate: "May 2014", endDate: "May 2016", details: [] }],
+    projects: [],
+    certifications: [{ name: "Search Ads Certified", issuer: "", date: "", url: "" }, { name: "Inbound Marketing Certified", issuer: "", date: "", url: "" }, { name: "Social Media Ads Certified", issuer: "", date: "", url: "" }],
+    achievements: ["Brand Growth Campaign — increased brand awareness by 150% and generated 10,000+ qualified leads in 6 months.", "E-commerce Optimization — achieved a 4.5x return on ad spend and 60% increase in monthly revenue."],
+    languages: ["English", "French", "Spanish"],
+    additionalSections: [],
+  },
+  "infographic-02": {
+    personal: { name: "Daniel Gallego", email: "hello@reallygreatsite.com", phone: "", location: "123 Anywhere St., Any City", linkedin: "linkedin.com/in/danielgallego", github: "", website: "www.reallygreatsite.com" },
+    professionalSummary: "UX Designer focused on delivering impactful results, applying creativity to craft intuitive user experiences and using project management, user-centric problem-solving and collaboration to elevate user satisfaction.",
+    skills: [{ category: "Technical Skills", items: ["Prototyping Tools", "User Research", "Information Architecture", "Interaction Design", "Visual Design", "Usability Heuristics", "Accessibility", "User Testing Tools"] }],
+    experience: [
+      { company: "XarrowAI Industries", role: "System UX Engineer", location: "", startDate: "Feb 2021", endDate: "Dec 2022", responsibilities: ["Designed and optimised a robotic control system, realizing a 12% performance improvement.", "Coordinated testing and validation, ensuring compliance with industry standards.", "Provided technical expertise, contributing to a 15% reduction in system failures."] },
+      { company: "Morcelle Program", role: "UX Designer", location: "", startDate: "Jan 2023", endDate: "Present", responsibilities: ["Led development of an advanced automation system, achieving a 15% increase in operational efficiency.", "Streamlined manufacturing processes, reducing production costs by 10%.", "Implemented preventive maintenance strategies, resulting in a 20% decrease in equipment downtime."] },
+    ],
+    education: [{ institution: "Engineering University", degree: "Bachelor of Design in Process Engineering", field: "Structural Design and Project Management", startDate: "May 2014", endDate: "May 2016", details: [] }, { institution: "University of Engineering UX Cohort", degree: "UX Industrial Basics and General Application", field: "Automotive Technology", startDate: "Aug 2016", endDate: "Oct 2019", details: ["Thesis on Technological Advancements within the current Mechatronics Industry"] }],
+    projects: [],
+    certifications: [{ name: "Professional Design Engineer (PDE) License", issuer: "", date: "", url: "" }, { name: "Project Management Tech (PMT)", issuer: "", date: "", url: "" }],
+    achievements: ["Most Innovative Employer of the Year (2021)", "Overall Best Employee Division Two (2024)", "Onboarding Project Lead (2023)"],
+    languages: ["English", "French", "Mandarin"],
+    additionalSections: [],
+  },
+};
+
+function getTemplateDemoResume(template: TemplateType): ResumeData {
+  return normalizeResume(TEMPLATE_DEMO_RESUMES[template] ?? DEMO_RESUME);
+}
+
 
 function normalizeResume(data: any): ResumeData {
   const empty = emptyResume();
@@ -531,6 +775,33 @@ export default function ResumeBuilderPage() {
   const [isHydrated, setIsHydrated] =
     useState(false);
 
+  const [currentUserId, setCurrentUserId] =
+    useState<string | null>(null);
+
+  const [resumeId, setResumeId] =
+    useState<string | null>(null);
+
+  const [hasSavedResume, setHasSavedResume] =
+    useState(false);
+
+  const [isSamplePreview, setIsSamplePreview] =
+    useState(true);
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [isLinkedInOpen, setIsLinkedInOpen] =
+    useState(false);
+
+  const [linkedinUrl, setLinkedinUrl] =
+    useState("");
+
+  const [linkedinText, setLinkedinText] =
+    useState("");
+
+  const [isImportingLinkedIn, setIsImportingLinkedIn] =
+    useState(false);
+
   const [template, setTemplate] =
     useState<TemplateType>("blue-02");
 
@@ -545,6 +816,34 @@ export default function ResumeBuilderPage() {
 
   const [openSection, setOpenSection] =
     useState<SectionName>("personal");
+
+  const [isHistoryOpen, setIsHistoryOpen] =
+    useState(false);
+
+  const [historyItems, setHistoryItems] =
+    useState<
+      Array<{
+        id: string;
+        version_number: number;
+        version_name: string | null;
+        template: string;
+        created_at: string;
+        resume_data: ResumeData;
+        design_config: ResumeDesign;
+      }>
+    >([]);
+
+  const [isHistoryLoading, setIsHistoryLoading] =
+    useState(false);
+
+  const [historyError, setHistoryError] =
+    useState<string | null>(null);
+
+  const [isRestoringVersion, setIsRestoringVersion] =
+    useState(false);
+
+  const [activeHistoryPreview, setActiveHistoryPreview] =
+    useState<string | null>(null);
 
   const [activeTab, setActiveTab] =
     useState<"information" | "styling">("information");
@@ -580,6 +879,13 @@ export default function ResumeBuilderPage() {
       ...nextDesign,
       custom,
     });
+
+    // New users see the actual selected template's sample resume.
+    // Once they have started editing/importing, switching templates
+    // keeps their information and changes only the design.
+    if (isSamplePreview) {
+      setResume(getTemplateDemoResume(nextTemplate));
+    }
   }
 
   function updateCustomDesign(
@@ -615,6 +921,143 @@ export default function ResumeBuilderPage() {
     });
   }
 
+
+  /* ============================================================
+     VERSION HISTORY
+  ============================================================ */
+
+  async function loadHistory() {
+    if (!resumeId) {
+      setHistoryItems([]);
+      return;
+    }
+
+    setIsHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const response = await fetch(
+        `/api/resume/history?resumeId=${encodeURIComponent(resumeId)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Failed to load resume history.",
+        );
+      }
+
+      setHistoryItems(data.versions ?? []);
+    } catch (historyLoadError) {
+      setHistoryError(
+        historyLoadError instanceof Error
+          ? historyLoadError.message
+          : "Failed to load resume history.",
+      );
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  async function openHistory() {
+    setIsHistoryOpen(true);
+    await loadHistory();
+  }
+
+  async function restoreHistoryVersion(
+    version: (typeof historyItems)[number],
+  ) {
+    if (!resumeId) return;
+
+    const confirmed = window.confirm(
+      `Restore "${version.version_name || `Version ${version.version_number}`}"?\n\nYour current resume will be preserved as the current state before the restore.`,
+    );
+
+    if (!confirmed) return;
+
+    setIsRestoringVersion(true);
+    setHistoryError(null);
+
+    try {
+      const response = await fetch(
+        "/api/resume/manage",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            action: "restore",
+            resumeId,
+            versionId: version.id,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Failed to restore this version.",
+        );
+      }
+
+      if (data.resume) {
+        setResume(normalizeResume(data.resume));
+      }
+
+      if (data.design) {
+        setDesign(data.design);
+      }
+
+      if (isTemplateId(data.template)) {
+        setTemplate(data.template);
+      }
+
+      setIsSamplePreview(false);
+      setHasSavedResume(true);
+      setMessage("Resume version restored successfully.");
+
+      await loadHistory();
+    } catch (restoreError) {
+      setHistoryError(
+        restoreError instanceof Error
+          ? restoreError.message
+          : "Failed to restore this version.",
+      );
+    } finally {
+      setIsRestoringVersion(false);
+    }
+  }
+
+  function previewHistoryVersion(
+    version: (typeof historyItems)[number],
+  ) {
+    setActiveHistoryPreview(version.id);
+
+    setResume(normalizeResume(version.resume_data));
+
+    if (version.design_config) {
+      setDesign(version.design_config);
+    }
+
+    if (isTemplateId(version.template)) {
+      setTemplate(version.template);
+    }
+
+    setIsSamplePreview(false);
+    setMessage(
+      `Previewing ${version.version_name || `Version ${version.version_number}`}. Click Restore to make it your current resume.`,
+    );
+  }
+
   /* ============================================================
      AUTH
   ============================================================ */
@@ -641,6 +1084,7 @@ export default function ResumeBuilderPage() {
 
         if (!mounted) return;
 
+        setCurrentUserId(user.id);
         setIsCheckingAuth(false);
       } catch {
         router.replace(
@@ -659,107 +1103,178 @@ export default function ResumeBuilderPage() {
   }, [router]);
 
   /* ============================================================
-     LOAD LATEST SAVED RESUME
-  ============================================================ */
+     LOAD USER-SCOPED RESUME / DRAFT / TEMPLATE SAMPLE
+
+     Priority:
+     1. This authenticated user's Supabase resume
+     2. This authenticated user's local draft
+     3. Selected template's sample resume
+
+     A previous account can never become the new account's preview.
+     ============================================================ */
 
   useEffect(() => {
-    if (isCheckingAuth) return;
+    if (isCheckingAuth || !currentUserId) return;
 
-    async function loadLatest() {
+    let cancelled = false;
+
+    async function loadResumeState() {
+      setIsHydrated(false);
+      setHasSavedResume(false);
+      setResumeId(null);
+      setIsSamplePreview(true);
+
       try {
         const response = await fetch(
           "/api/resume/generate",
           {
             method: "GET",
             cache: "no-store",
+            credentials: "include",
           },
         );
 
-        if (!response.ok) return;
+        const data = response.ok
+          ? await response.json()
+          : null;
 
-        const data = await response.json();
+        if (cancelled) return;
 
-        if (data?.resume) {
+        if (data?.resume && hasResumeContent(data.resume)) {
           const loadedResume = normalizeResume(data.resume);
-          if (hasResumeContent(loadedResume)) {
-            setResume(loadedResume);
-          }
-        }
-
-        if (data?.template) {
           const loadedTemplate = isTemplateId(data.template)
             ? data.template
-            : data.template === "ats"
-              ? "blue-01"
-              : data.template === "modern"
-                ? "blue-04"
-                : data.template === "executive"
-                  ? "blue-03"
-                  : "blue-02";
+            : "blue-02";
+
+          setResume(loadedResume);
+          setResumeId(data.resumeId ?? null);
+          setHasSavedResume(true);
+          setIsSamplePreview(false);
           setTemplate(loadedTemplate);
+
+          if (data.design) {
+            setDesign({
+              ...data.design,
+              custom: {
+                ...getDefaultCustomDesign(loadedTemplate),
+                ...((data.design as ResumeDesign & { custom?: object }).custom ?? {}),
+              },
+            });
+          } else {
+            setDesign({
+              ...getTemplateDesign(loadedTemplate),
+              custom: getDefaultCustomDesign(loadedTemplate),
+            });
+          }
+
+          if (data.profileImageUrl) {
+            setProfilePhoto(data.profileImageUrl);
+          }
+
+          setIsHydrated(true);
+          return;
         }
 
-        if (data?.design) {
+        /* No saved resume for THIS account. */
+        const storageKey = `hirepro-resume-draft-v4:${currentUserId}`;
+        let loadedDraft = false;
+
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+
+          if (raw) {
+            const draft = JSON.parse(raw);
+            if (draft?.resume && hasResumeContent(draft.resume)) {
+              const draftTemplate = isTemplateId(draft.template)
+                ? draft.template
+                : "blue-02";
+
+              setResume(normalizeResume(draft.resume));
+              setTemplate(draftTemplate);
+              setDesign(
+                draft.design ?? {
+                  ...getTemplateDesign(draftTemplate),
+                  custom: getDefaultCustomDesign(draftTemplate),
+                },
+              );
+              setDesignDescription(
+                typeof draft.designDescription === "string"
+                  ? draft.designDescription
+                  : "",
+              );
+              setProfilePhoto(
+                typeof draft.profilePhoto === "string"
+                  ? draft.profilePhoto
+                  : null,
+              );
+              setIsSamplePreview(false);
+              loadedDraft = true;
+            }
+          }
+        } catch {
+          // Ignore malformed user-scoped local draft.
+        }
+
+        if (!loadedDraft) {
+          const firstTemplate: TemplateType = "blue-02";
+          setTemplate(firstTemplate);
+          setResume(getTemplateDemoResume(firstTemplate));
           setDesign({
-            ...data.design,
-            custom: {
-              ...getDefaultCustomDesign(
-                isTemplateId(data?.template) ? data.template : "blue-01",
-              ),
-              ...((data.design as ResumeDesign & { custom?: object }).custom ?? {}),
-            },
+            ...getTemplateDesign(firstTemplate),
+            custom: getDefaultCustomDesign(firstTemplate),
           });
-        }
-
-        if (data?.profileImageUrl) {
-          setProfilePhoto(
-            data.profileImageUrl,
-          );
+          setDesignDescription("");
+          setProfilePhoto(null);
+          setProfilePhotoFile(null);
+          setIsSamplePreview(true);
         }
       } catch {
-        // No saved resume is fine.
+        if (!cancelled) {
+          setTemplate("blue-02");
+          setResume(getTemplateDemoResume("blue-02"));
+          setDesign({
+            ...getTemplateDesign("blue-02"),
+            custom: getDefaultCustomDesign("blue-02"),
+          });
+          setIsSamplePreview(true);
+        }
       } finally {
-        setIsHydrated(true);
+        if (!cancelled) setIsHydrated(true);
       }
     }
 
-    loadLatest();
-  }, [isCheckingAuth]);
+    loadResumeState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCheckingAuth, currentUserId]);
+
+  /* ============================================================
+     USER-SCOPED LOCAL RECOVERY DRAFT
+     ============================================================ */
 
   useEffect(() => {
-    if (isCheckingAuth) return;
-
-    try {
-      const raw = window.localStorage.getItem("hirepro-resume-draft-v3");
-      if (!raw) return;
-
-      const draft = JSON.parse(raw);
-      if (draft?.resume) {
-        const localResume = normalizeResume(draft.resume);
-        if (hasResumeContent(localResume)) setResume(localResume);
-      }
-      if (draft?.template && isTemplateId(draft.template)) setTemplate(draft.template);
-      if (draft?.design) setDesign(draft.design);
-      if (typeof draft?.designDescription === "string") setDesignDescription(draft.designDescription);
-      if (typeof draft?.profilePhoto === "string") setProfilePhoto(draft.profilePhoto);
-    } catch {
-      // Ignore malformed local drafts.
+    if (
+      isCheckingAuth ||
+      !isHydrated ||
+      !currentUserId ||
+      isSamplePreview
+    ) {
+      return;
     }
-  }, [isCheckingAuth]);
-
-  useEffect(() => {
-    if (isCheckingAuth || !isHydrated) return;
 
     const timer = window.setTimeout(() => {
       try {
         window.localStorage.setItem(
-          "hirepro-resume-draft-v3",
+          `hirepro-resume-draft-v4:${currentUserId}`,
           JSON.stringify({
             resume,
             design,
             template,
             designDescription,
             profilePhoto,
+            resumeId,
             savedAt: new Date().toISOString(),
           }),
         );
@@ -769,7 +1284,86 @@ export default function ResumeBuilderPage() {
     }, 500);
 
     return () => window.clearTimeout(timer);
-  }, [resume, design, template, designDescription, profilePhoto, isCheckingAuth, isHydrated]);
+  }, [
+    resume,
+    design,
+    template,
+    designDescription,
+    profilePhoto,
+    resumeId,
+    currentUserId,
+    isCheckingAuth,
+    isHydrated,
+    isSamplePreview,
+  ]);
+
+  /* ============================================================
+     SUPABASE PERSISTENT EDITING
+
+     Sample data is never saved automatically.
+     ============================================================ */
+
+  useEffect(() => {
+    if (
+      isCheckingAuth ||
+      !isHydrated ||
+      !currentUserId ||
+      isSamplePreview ||
+      !resume.personal.name.trim()
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsSaving(true);
+
+      try {
+        const response = await fetch(
+          "/api/resume/generate",
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              resumeId,
+              resume,
+              design,
+              templateId: template,
+            }),
+          },
+        );
+
+        const data = await response.json().catch(() => null);
+
+        if (response.ok && data?.resumeId) {
+          setResumeId(data.resumeId);
+          setHasSavedResume(true);
+        } else if (response.status === 401) {
+          router.replace(
+            `/login?next=${encodeURIComponent("/dashboard/resume")}`,
+          );
+        }
+      } catch {
+        // Local draft remains available if network save fails.
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    resume,
+    design,
+    template,
+    resumeId,
+    currentUserId,
+    isCheckingAuth,
+    isHydrated,
+    isSamplePreview,
+    router,
+  ]);
 
   /* ============================================================
      STATE HELPERS
@@ -779,6 +1373,7 @@ export default function ResumeBuilderPage() {
     key: K,
     value: ResumeData[K],
   ) {
+    setIsSamplePreview(false);
     setResume((current) => ({
       ...current,
       [key]: value,
@@ -789,6 +1384,7 @@ export default function ResumeBuilderPage() {
     key: keyof ResumeData["personal"],
     value: string,
   ) {
+    setIsSamplePreview(false);
     setResume((current) => ({
       ...current,
 
@@ -1099,6 +1695,9 @@ export default function ResumeBuilderPage() {
           data.resume,
         ),
       );
+      setIsSamplePreview(false);
+      setHasSavedResume(true);
+      setResumeId(data.resumeId ?? null);
 
       if (data.design) {
         setDesign({
@@ -1272,8 +1871,11 @@ export default function ResumeBuilderPage() {
   ============================================================ */
 
   function resetResume() {
-    setResume(DEMO_RESUME);
     setTemplate("blue-02");
+    setResume(getTemplateDemoResume("blue-02"));
+    setIsSamplePreview(true);
+    setHasSavedResume(false);
+    setResumeId(null);
     setDesign({
       ...getTemplateDesign("blue-02"),
       colors: {
@@ -1294,7 +1896,9 @@ export default function ResumeBuilderPage() {
     setError(null);
 
     try {
-      window.localStorage.removeItem("hirepro-resume-draft-v3");
+      if (currentUserId) {
+        window.localStorage.removeItem(`hirepro-resume-draft-v4:${currentUserId}`);
+      }
     } catch {}
 
     if (photoInputRef.current) {
@@ -1546,6 +2150,23 @@ export default function ResumeBuilderPage() {
               toggleSection("personal")
             }
           >
+            <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-black text-slate-900">Import your information</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Start from your LinkedIn profile instead of entering every section manually.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLinkedInOpen(true)}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0A66C2] px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-[#084f96]"
+              >
+                <Link2 className="h-4 w-4" />
+                Import from LinkedIn
+              </button>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Full name"
@@ -2663,7 +3284,7 @@ export default function ResumeBuilderPage() {
               </div>
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                 <Save className="h-3.5 w-3.5" />
-                Autosaved locally
+                {isSaving ? "Saving to HirePro..." : isSamplePreview ? "Template sample" : "Saved to HirePro"}
               </div>
             </div>
 
@@ -2681,24 +3302,46 @@ export default function ResumeBuilderPage() {
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="relative h-72 overflow-hidden bg-slate-100">
-                      <img
-                        src={item.previewImage}
-                        alt={`${item.name} resume template preview`}
-                        className="h-full w-full object-contain object-top transition duration-300 group-hover:scale-[1.02]"
-                      />
+                    <div className="relative h-[390px] overflow-hidden bg-slate-100 p-3">
+                      <div className="flex h-full items-start justify-center overflow-hidden rounded-xl bg-slate-200 shadow-inner">
+                        <img
+                          src={item.previewImage}
+                          alt={`${item.name} resume template preview`}
+                          loading="lazy"
+                          className="h-auto min-h-full w-full object-contain object-top bg-white transition duration-300 group-hover:scale-[1.015]"
+                          onError={(event) => {
+                            const image = event.currentTarget;
+                            image.style.display = "none";
+                            const fallback = image.parentElement?.querySelector(
+                              `[data-template-fallback=\"${item.id}\"]`,
+                            ) as HTMLElement | null;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                        <div
+                          data-template-fallback={item.id}
+                          className="absolute inset-3 hidden flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center"
+                        >
+                          <LayoutTemplate className="mb-3 h-9 w-9 text-slate-300" />
+                          <p className="text-sm font-black text-slate-700">{item.name}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Template preview unavailable in this deployment. Commit the PNG from public/resume-templates to Git.</p>
+                        </div>
+                      </div>
                       {selected && (
-                        <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
+                        <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
                           <Check className="h-3 w-3" /> Selected
                         </span>
                       )}
                     </div>
-                    <div className="p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold">{item.name}</p>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{item.category}</span>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-slate-900">{item.name}</p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-500">{item.category}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">{item.layout}</span>
                       </div>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">{item.description}</p>
                     </div>
                   </button>
                 );
@@ -2769,6 +3412,130 @@ export default function ResumeBuilderPage() {
           </>
           )}
 
+          {isLinkedInOpen && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+                <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0A66C2]">HirePro Import</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-900">Import from LinkedIn</h2>
+                    <p className="mt-1 text-sm text-slate-500">Use your profile URL or paste your LinkedIn profile text.</p>
+                  </div>
+                  <button type="button" onClick={() => setIsLinkedInOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-5 p-6">
+                  <Input
+                    label="LinkedIn profile URL"
+                    value={linkedinUrl}
+                    onChange={setLinkedinUrl}
+                    placeholder="https://www.linkedin.com/in/your-profile"
+                  />
+
+                  <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-slate-400">
+                    <span className="h-px flex-1 bg-slate-200" />
+                    OR PASTE PROFILE TEXT
+                    <span className="h-px flex-1 bg-slate-200" />
+                  </div>
+
+                  <TextArea
+                    label="LinkedIn profile information"
+                    value={linkedinText}
+                    onChange={setLinkedinText}
+                    rows={9}
+                    placeholder="Copy the About, Experience, Education, Skills and other relevant information from your LinkedIn profile and paste it here."
+                  />
+
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                    LinkedIn can block automated access to public profiles. If the profile URL cannot be read, paste the profile text here and HirePro will structure it for you.
+                  </div>
+
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsLinkedInOpen(false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isImportingLinkedIn || (!linkedinUrl.trim() && !linkedinText.trim())}
+                      onClick={async () => {
+                        setIsImportingLinkedIn(true);
+                        setError(null);
+                        setMessage(null);
+
+                        try {
+                          const response = await fetch("/api/resume/linkedin", {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              linkedinUrl: linkedinUrl.trim(),
+                              profileText: linkedinText.trim(),
+                              templateId: template,
+                            }),
+                          });
+
+                          const data = await response.json().catch(() => null);
+
+                          if (!response.ok) {
+                            if (response.status === 401) {
+                              router.replace(`/login?next=${encodeURIComponent("/dashboard/resume")}`);
+                              return;
+                            }
+                            throw new Error(data?.error || "LinkedIn import failed.");
+                          }
+
+                          if (!data?.resume) {
+                            throw new Error("LinkedIn information could not be converted into resume data.");
+                          }
+
+                          setResume(normalizeResume(data.resume));
+                          setIsSamplePreview(false);
+                          setHasSavedResume(true);
+                          setResumeId(data.resumeId ?? null);
+
+                          if (data.template && isTemplateId(data.template)) {
+                            setTemplate(data.template);
+                          }
+
+                          if (data.design) {
+                            const importedTemplate = data.template && isTemplateId(data.template) ? data.template : template;
+                            setDesign({
+                              ...data.design,
+                              custom: {
+                                ...getDefaultCustomDesign(importedTemplate),
+                                ...((data.design as ResumeDesign & { custom?: object }).custom ?? {}),
+                              },
+                            });
+                          }
+
+                          setMessage("LinkedIn information imported successfully. Review and edit your resume before generating the final version.");
+                          setLinkedinUrl("");
+                          setLinkedinText("");
+                          setIsLinkedInOpen(false);
+                          setOpenSection("personal");
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "LinkedIn import failed.");
+                        } finally {
+                          setIsImportingLinkedIn(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#0A66C2] px-5 py-2.5 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isImportingLinkedIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {isImportingLinkedIn ? "Importing..." : "Import Profile"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* MOBILE ACTION */}
 
           <div className="sticky bottom-4 z-30 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur lg:hidden">
@@ -2812,6 +3579,9 @@ export default function ResumeBuilderPage() {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Live preview</p>
                   <h2 className="text-sm font-black">{getTemplateDefinition(template).name}</h2>
+                  <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                    {isSamplePreview ? "Template sample — replace with your information" : "Your resume — edits update live"}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
                   <SlidersHorizontal className="h-3 w-3" /> Live
@@ -2831,6 +3601,145 @@ export default function ResumeBuilderPage() {
           </div>
         </aside>
       </div>
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/30 backdrop-blur-[2px]">
+          <button
+            type="button"
+            aria-label="Close history"
+            onClick={() => setIsHistoryOpen(false)}
+            className="absolute inset-0 cursor-default"
+          />
+
+          <aside className="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">
+                  Resume History
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Review previous saved versions and restore one when needed.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsHistoryOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {isHistoryLoading ? (
+                <div className="flex min-h-[240px] items-center justify-center">
+                  <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Loading history...
+                  </div>
+                </div>
+              ) : historyError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {historyError}
+                  <button
+                    type="button"
+                    onClick={loadHistory}
+                    className="ml-2 font-bold underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : historyItems.length === 0 ? (
+                <div className="flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 text-center">
+                  <History className="mb-3 h-8 w-8 text-slate-400" />
+                  <p className="font-bold text-slate-700">
+                    No saved versions yet
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Save a named version from the builder to create a restore point.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historyItems.map((version, index) => {
+                    const isLatest = index === 0;
+                    const isPreviewing =
+                      activeHistoryPreview === version.id;
+
+                    return (
+                      <div
+                        key={version.id}
+                        className={`rounded-2xl border p-4 transition ${
+                          isPreviewing
+                            ? "border-blue-300 bg-blue-50/50"
+                            : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-black text-slate-900">
+                                {version.version_name ||
+                                  `Version ${version.version_number}`}
+                              </h3>
+
+                              {isLatest && (
+                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+                                  Latest
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              {new Date(
+                                version.created_at,
+                              ).toLocaleString("en-IN")}
+                            </p>
+                          </div>
+
+                          <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">
+                            v{version.version_number}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              previewHistoryVersion(version)
+                            }
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Preview
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isRestoringVersion}
+                            onClick={() =>
+                              restoreHistoryVersion(version)
+                            }
+                            className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isRestoringVersion ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            Restore
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
     </main>
   );
 }
@@ -2908,5 +3817,7 @@ function PreviewSection({
         {children}
       </div>
     </section>
+
+
   );
 }

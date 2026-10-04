@@ -1,120 +1,40 @@
 import { NextResponse } from "next/server";
-
 import { createClient } from "@/lib/supabase/server";
 
-function safeNext(
-  value: unknown,
-) {
-  if (
-    typeof value !== "string"
-  ) {
+function safeNext(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/dashboard";
   }
-
-  if (
-    !value.startsWith("/") ||
-    value.startsWith("//")
-  ) {
-    return "/dashboard";
-  }
-
   return value;
 }
 
-export async function POST(
-  request: Request,
-) {
-  try {
-    const supabase =
-      await createClient();
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const next = safeNext(url.searchParams.get("next"));
 
-    const formData =
-      await request.formData();
-
-    const next =
-      safeNext(
-        formData.get("next"),
-      );
-
-    const requestUrl =
-      new URL(request.url);
-
-    const callbackUrl =
-      new URL(
-        "/auth/callback",
-        requestUrl.origin,
-      );
-
-    callbackUrl.searchParams.set(
-      "next",
-      next,
+  if (!code) {
+    return NextResponse.redirect(
+      new URL(`/login?error=missing_auth_code&next=${encodeURIComponent(next)}`, url.origin),
     );
+  }
 
-    const {
-      data,
-      error,
-    } =
-      await supabase.auth.signInWithOAuth(
-        {
-          provider: "google",
-
-          options: {
-            redirectTo:
-              callbackUrl.toString(),
-          },
-        },
-      );
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-      console.error(
-        "[Auth] Google OAuth error:",
-        error,
-      );
-
+      console.error("[Auth] OAuth callback error:", error);
       return NextResponse.redirect(
-        new URL(
-          `/login?error=${encodeURIComponent(
-            "Unable to start Google sign-in.",
-          )}`,
-          requestUrl.origin,
-        ),
-        303,
+        new URL(`/login?error=authentication_failed&next=${encodeURIComponent(next)}`, url.origin),
       );
     }
 
-    if (!data.url) {
-      return NextResponse.redirect(
-        new URL(
-          `/login?error=${encodeURIComponent(
-            "Google sign-in URL was not generated.",
-          )}`,
-          requestUrl.origin,
-        ),
-        303,
-      );
-    }
-
-    /*
-     * 303 is intentional.
-     *
-     * Browser changes POST -> GET.
-     */
-    return NextResponse.redirect(
-      data.url,
-      303,
-    );
+    return NextResponse.redirect(new URL(next, url.origin));
   } catch (error) {
-    console.error(
-      "[Auth] Sign-in route error:",
-      error,
-    );
-
+    console.error("[Auth] OAuth callback exception:", error);
     return NextResponse.redirect(
-      new URL(
-        "/login?error=authentication_failed",
-        request.url,
-      ),
-      303,
+      new URL(`/login?error=authentication_failed&next=${encodeURIComponent(next)}`, url.origin),
     );
   }
 }

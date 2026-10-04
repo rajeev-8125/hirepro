@@ -13,7 +13,7 @@ const services = [
     color:
       "from-sky-50 via-blue-50 to-indigo-100 border-blue-100",
     iconColor: "from-blue-500 to-indigo-600",
-    href: "/dashboard/portfolio",
+    href: "/login?next=%2Fdashboard%2Fportfolio",
     features: ["AI-generated design", "Personal branding", "Public portfolio"],
   },
   {
@@ -25,7 +25,7 @@ const services = [
     color:
       "from-violet-50 via-purple-50 to-fuchsia-100 border-purple-100",
     iconColor: "from-purple-500 to-fuchsia-600",
-    href: "/dashboard/resume",
+    href: "/login?next=%2Fdashboard%2Fresume",
     features: ["AI content", "Professional layouts", "PDF export"],
   },
   {
@@ -37,7 +37,7 @@ const services = [
     color:
       "from-emerald-50 via-green-50 to-teal-100 border-emerald-100",
     iconColor: "from-emerald-500 to-teal-600",
-    href: "/dashboard/ats",
+    href: "/login?next=%2Fdashboard%2Fats",
     features: ["ATS score", "Keyword analysis", "Optimization"],
   },
 ];
@@ -155,7 +155,7 @@ export default function HomePage() {
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/dashboard"
+                href="/login?next=%2Fdashboard"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07152f] px-7 py-4 text-sm font-bold text-white shadow-xl shadow-slate-900/15 transition-all hover:-translate-y-1 hover:bg-[#102a57]"
               >
                 Start building
@@ -163,7 +163,7 @@ export default function HomePage() {
               </Link>
 
               <Link
-                href="/dashboard/ats"
+                href="/login?next=%2Fdashboard%2Fats"
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 text-sm font-bold text-slate-800 shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:bg-blue-50"
               >
                 Check your ATS score
@@ -412,7 +412,7 @@ export default function HomePage() {
               </p>
 
               <Link
-                href="/dashboard/ats"
+                href="/login?next=%2Fdashboard%2Fats"
                 className="mt-7 inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition hover:-translate-y-0.5 hover:bg-purple-700"
               >
                 Analyze my resume
@@ -598,7 +598,7 @@ export default function HomePage() {
               </p>
 
               <Link
-                href="/dashboard"
+                href="/login?next=%2Fdashboard"
                 className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#07152f] px-8 py-4 text-sm font-bold text-white shadow-xl transition hover:-translate-y-1 hover:bg-[#102a57]"
               >
                 Enter HirePro

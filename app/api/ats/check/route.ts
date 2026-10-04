@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateATSResult } from "@/lib/ai/ats-generator";
+import { generateATSResult } from "@/lib/ai/ats-analyzer";
 import {
   extractText,
   getDocumentProxy,

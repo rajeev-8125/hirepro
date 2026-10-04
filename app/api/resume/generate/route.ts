@@ -1,889 +1,481 @@
 import { NextResponse } from "next/server";
-
 import { createClient } from "@/lib/supabase/server";
-
 import { generateResume } from "@/lib/ai/resume-generator";
-import { generateResumeDesign } from "@/lib/ai/resume-design-generator";
-
 import {
   ResumeSchema,
   type ResumeData,
 } from "@/lib/ai/resume-schema";
-
 import {
   ResumeDesignSchema,
   type ResumeDesign,
 } from "@/lib/ai/resume-design-schema";
+import {
+  getAiTemplate,
+  getTemplateDefinition,
+  getTemplateDesign,
+} from "@/lib/resume/template-library";
+import {
+  getDefaultCustomDesign,
+  mergeDesign,
+} from "@/lib/resume/design-utils";
+import type { ResumeTemplateId } from "@/lib/resume/template-types";
 
 export const runtime = "nodejs";
 
-type ResumeTemplate =
-  | "ats"
-  | "professional"
-  | "modern"
-  | "executive";
-
-type GenerateBody = {
-  userInformation?: string;
-  template?: ResumeTemplate;
-  resumeDesignDescription?: string;
-  profilePhoto?: string | null;
-  profilePhotoName?: string | null;
-  profilePhotoType?: string | null;
-};
-
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 
-function getTemplate(
-  value: unknown,
-): ResumeTemplate {
-  if (
-    value === "ats" ||
-    value === "professional" ||
-    value === "modern" ||
-    value === "executive"
-  ) {
-    return value;
-  }
+const TEMPLATE_IDS: ResumeTemplateId[] = [
+  "blue-01",
+  "blue-02",
+  "blue-03",
+  "blue-04",
+  "student",
+  "infographic-01",
+  "infographic-02",
+];
 
-  return "professional";
+function isTemplateId(value: unknown): value is ResumeTemplateId {
+  return typeof value === "string" && TEMPLATE_IDS.includes(value as ResumeTemplateId);
 }
 
-function getTemplateInstruction(
-  template: ResumeTemplate,
-): string {
-  switch (template) {
-    case "ats":
-      return `
-ATS-FIRST STRUCTURE
-
-- Single column
-- No sidebar
-- No tables
-- No graphics
-- No decorative icons
-- No progress bars
-- Conventional section headings
-- Excellent text extraction
-- Strong recruiter readability
-- No profile photo
-`;
-
-    case "modern":
-      return `
-MODERN PROFESSIONAL STRUCTURE
-
-- Still use a clean single-column document
-- Modern but restrained typography
-- Strong visual hierarchy
-- Subtle accent color
-- Excellent whitespace
-- Optional profile photo
-- ATS-readable text structure
-`;
-
-    case "executive":
-      return `
-EXECUTIVE STRUCTURE
-
-- Single-column premium resume
-- Strong name/header hierarchy
-- Conservative professional colors
-- Elegant spacing
-- Strong leadership presentation
-- Optional profile photo
-- No unnecessary decoration
-`;
-
-    default:
-      return `
-PROFESSIONAL STRUCTURE
-
-- Single-column professional resume
-- Strong recruiter hierarchy
-- Clean typography
-- Subtle accent color
-- Balanced spacing
-- Optional profile photo
-- ATS-readable
-`;
-  }
-}
-
-function forceSafeStructure(
-  design: ResumeDesign,
-  template: ResumeTemplate,
-): ResumeDesign {
-  const safe = {
-    ...design,
-
-    layout: "single-column" as const,
-
-    sidebar: {
-      enabled: false,
-      sections: [],
-    },
-
-    visual: {
-      ...design.visual,
-
-      borderStyle:
-        design.visual.borderStyle ===
-        "strong"
-          ? "subtle"
-          : design.visual.borderStyle,
-
-      cardStyle: "none" as const,
-
-      accentStyle:
-        design.visual.accentStyle ===
-        "background"
-          ? "line"
-          : design.visual.accentStyle,
-    },
-
-    ats: {
-      ...design.ats,
-
-      safe: true,
-
-      tablesUsed: false,
-
-      graphicsUsed: false,
-
-      recommendedForATS:
-        template === "ats"
-          ? true
-          : design.ats
-              .recommendedForATS,
-    },
-
-    sections: {
-      ...design.sections,
-
-      order: [
-        "summary",
-        "skills",
-        "experience",
-        "projects",
-        "education",
-        "certifications",
-        "achievements",
-        "languages",
-      ],
-
-      emphasis: [
-        "experience",
-        "skills",
-        "projects",
-      ],
-    },
-  };
-
-  return ResumeDesignSchema.parse(
-    safe,
-  );
-}
-
-function decodeBase64DataUrl(
-  value: string,
-): Buffer {
-  const commaIndex =
-    value.indexOf(",");
-
-  const base64 =
-    commaIndex >= 0
-      ? value.slice(
-          commaIndex + 1,
-        )
-      : value;
-
+function decodeDataUrl(value: string) {
+  const comma = value.indexOf(",");
   return Buffer.from(
-    base64,
+    comma >= 0 ? value.slice(comma + 1) : value,
     "base64",
   );
 }
 
-function getPhotoExtension(
-  mimeType: string,
-): string {
-  switch (mimeType) {
-    case "image/png":
-      return "png";
-
-    case "image/webp":
-      return "webp";
-
-    case "image/jpeg":
-    case "image/jpg":
-    default:
-      return "jpg";
-  }
+function extensionFor(mime: string) {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
 }
 
-function safeName(
-  value: string,
-): string {
+function safeName(value: string) {
   return (
     value
       .trim()
-      .replace(
-        /[^a-zA-Z0-9]+/g,
-        "-",
-      )
-      .replace(
-        /^-+|-+$/g,
-        "",
-      ) || "Resume"
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "Resume"
   );
 }
 
+async function getUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return { supabase, user: null };
+  }
+
+  return { supabase, user };
+}
+
 /* ============================================================
-   GET — LOAD LATEST RESUME
-============================================================ */
+   GET — LOAD LATEST SAVED RESUME
+   ============================================================ */
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase =
-      await createClient();
+    const { supabase, user } = await getUser();
 
-    const {
-      data: { user },
-      error: authError,
-    } =
-      await supabase.auth.getUser();
-
-    if (
-      authError ||
-      !user
-    ) {
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Unauthorized. Please sign in.",
+          error: "Unauthorized. Please sign in.",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
-    const {
-      data: resumeRecord,
-      error,
-    } = await supabase
+    const url = new URL(request.url);
+    const requestedResumeId = url.searchParams.get("id");
+
+    let resumeQuery = supabase
       .from("resumes")
       .select(
-        `
-          id,
-          title,
-          resume_data,
-          design_config,
-          template,
-          profile_image_path,
-          updated_at
-        `,
+        "id,title,resume_data,design_config,template,profile_image_path,updated_at",
       )
-      .eq(
-        "user_id",
-        user.id,
-      )
-      .order(
-        "updated_at",
-        {
-          ascending: false,
-        },
-      )
-      .limit(1)
-      .maybeSingle();
+      .eq("user_id", user.id);
+
+    if (requestedResumeId) {
+      resumeQuery = resumeQuery.eq("id", requestedResumeId);
+    } else {
+      resumeQuery = resumeQuery
+        .order("updated_at", { ascending: false })
+        .limit(1);
+    }
+
+    const { data: record, error } =
+      await resumeQuery.maybeSingle();
 
     if (error) {
-      console.error(
-        "Latest resume query error:",
-        error,
-      );
-
+      console.error("[Resume] latest query:", error);
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Failed to load your latest resume.",
+          error: "Failed to load your saved resume.",
         },
-        {
-          status: 500,
-        },
+        { status: 500 },
       );
     }
 
-    if (!resumeRecord) {
+    if (!record) {
       return NextResponse.json({
         success: true,
         resume: null,
         design: null,
         template: null,
         profileImageUrl: null,
+        resumeId: null,
+        updatedAt: null,
       });
     }
 
-    const resumeValidation =
-      ResumeSchema.safeParse(
-        resumeRecord.resume_data,
-      );
+    const resumeResult = ResumeSchema.safeParse(record.resume_data);
+    const designResult = ResumeDesignSchema.safeParse(record.design_config);
 
-    const designValidation =
-      ResumeDesignSchema.safeParse(
-        resumeRecord.design_config,
-      );
+    if (!resumeResult.success || !designResult.success) {
+      console.error("[Resume] saved data validation failed", {
+        resume: resumeResult.success
+          ? null
+          : resumeResult.error.flatten(),
+        design: designResult.success
+          ? null
+          : designResult.error.flatten(),
+      });
 
-    if (
-      !resumeValidation.success ||
-      !designValidation.success
-    ) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Saved resume data is invalid.",
+          error: "Your saved resume data is invalid.",
         },
-        {
-          status: 500,
-        },
+        { status: 500 },
       );
     }
 
-    let profileImageUrl:
-      | string
-      | null = null;
+    let profileImageUrl: string | null = null;
 
-    if (
-      resumeRecord.profile_image_path
-    ) {
-      const {
-        data: signed,
-      } = await supabase.storage
+    if (record.profile_image_path) {
+      const { data } = await supabase.storage
         .from("profile-images")
-        .createSignedUrl(
-          resumeRecord.profile_image_path,
-          60 * 60,
-        );
+        .createSignedUrl(record.profile_image_path, 60 * 60);
 
-      profileImageUrl =
-        signed?.signedUrl ??
-        null;
+      profileImageUrl = data?.signedUrl ?? null;
     }
+
+    const savedDesign = designResult.data;
+    const designTemplateId =
+      typeof savedDesign.custom?.templateId === "string" &&
+      isTemplateId(savedDesign.custom.templateId)
+        ? savedDesign.custom.templateId
+        : null;
 
     return NextResponse.json({
       success: true,
-
-      resume:
-        resumeValidation.data,
-
-      design:
-        designValidation.data,
-
-      template:
-        resumeRecord.template,
-
+      resume: resumeResult.data,
+      design: savedDesign,
+      template: designTemplateId ?? record.template ?? null,
       profileImageUrl,
+      resumeId: record.id,
+      updatedAt: record.updated_at,
     });
   } catch (error) {
-    console.error(
-      "Latest resume error:",
-      error,
-    );
+    console.error("[Resume] latest error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to load resume.",
+        error: "Failed to load your resume.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }
 
 /* ============================================================
-   POST — GENERATE + SAVE RESUME
-============================================================ */
+   POST — AI ENHANCE + SAVE
 
-export async function POST(
-  request: Request,
-) {
+   Important architecture rule:
+
+   AI controls CONTENT.
+   User/template controls DESIGN.
+
+   The selected PDF template therefore remains authoritative.
+   AI must never replace the user's selected layout.
+   ============================================================ */
+
+export async function POST(request: Request) {
   try {
-    const supabase =
-      await createClient();
+    const { supabase, user } = await getUser();
 
-    /* --------------------------------------------------------
-       AUTH
-    -------------------------------------------------------- */
-
-    const {
-      data: { user },
-      error: authError,
-    } =
-      await supabase.auth.getUser();
-
-    if (
-      authError ||
-      !user
-    ) {
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Unauthorized. Please sign in.",
+          error: "Unauthorized. Please sign in.",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
 
-    /* --------------------------------------------------------
-       BODY
-    -------------------------------------------------------- */
-
-    let body: GenerateBody;
+    let body: {
+      userInformation?: string;
+      templateId?: string;
+      resumeDesignDescription?: string;
+      profilePhoto?: string | null;
+      profilePhotoName?: string | null;
+      profilePhotoType?: string | null;
+      customDesign?: ResumeDesign["custom"];
+    };
 
     try {
-      body =
-        (await request.json()) as GenerateBody;
+      body = (await request.json()) as typeof body;
     } catch {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Invalid request body.",
+          error: "Invalid request body.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const userInformation =
-      body.userInformation?.trim();
+    const userInformation = body.userInformation?.trim();
 
     if (!userInformation) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Resume information is required.",
+          error: "Resume information is required.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const template =
-      getTemplate(body.template);
+    const templateId: ResumeTemplateId = isTemplateId(body.templateId)
+      ? body.templateId
+      : "blue-01";
 
-    const personalDesignInstruction =
-      body.resumeDesignDescription?.trim() ||
-      "Clean, professional, recruiter-friendly resume with excellent readability.";
+    const definition = getTemplateDefinition(templateId);
+    const aiTemplate = getAiTemplate(templateId);
 
-    /* --------------------------------------------------------
-       AI CONTENT
-    -------------------------------------------------------- */
+    /* ----------------------------------------------------------
+       AI CONTENT ENHANCEMENT
+       ---------------------------------------------------------- */
 
-    const resumeRaw =
-      await generateResume(
-        userInformation,
-        `
-Create a high-quality professional resume.
+    const resumeRaw = await generateResume(
+      userInformation,
+      `
+You are HirePro's resume content enhancement engine.
 
-The output must preserve the user's factual information.
+Create a polished, factual, recruiter-ready resume from the user's supplied information.
 
-Use this structure:
+Selected template:
+${definition.name}
 
-1. Personal information
-2. Professional summary
-3. Skills
-4. Experience
-5. Projects
-6. Education
-7. Certifications
-8. Achievements
-9. Languages
+Template category:
+${definition.category}
 
-Do not invent experience, employers, dates,
-technologies, certifications or achievements.
+Rules:
+- Preserve the user's factual information.
+- Never invent employers, dates, degrees, technologies, certifications, achievements, metrics or responsibilities.
+- Improve grammar, clarity, action verbs and professional phrasing.
+- Make bullets concise and achievement-oriented when the supplied evidence supports it.
+- Preserve projects, education, certifications and relevant sections.
+- Do not create unsupported keywords merely to increase ATS score.
+- Keep the result compatible with the existing ResumeData schema.
+- The visual template is controlled by HirePro and MUST NOT be changed by the AI.
+- Do not return layout instructions.
 
-Keep wording concise and professional.
+User's design note is only context for writing tone:
+${body.resumeDesignDescription?.trim() || "Professional, concise and recruiter-friendly."}
+      `.trim(),
+    );
 
-User design preference:
-${personalDesignInstruction}
-        `.trim(),
-      );
+    const resumeResult = ResumeSchema.safeParse(resumeRaw);
 
-    const resumeValidation =
-      ResumeSchema.safeParse(
-        resumeRaw,
-      );
-
-    if (
-      !resumeValidation.success
-    ) {
+    if (!resumeResult.success) {
       console.error(
-        "Generated resume validation error:",
-        resumeValidation.error.flatten(),
+        "[Resume] AI resume validation:",
+        resumeResult.error.flatten(),
       );
 
       return NextResponse.json(
         {
           success: false,
           error:
-            "The AI generated an invalid resume structure.",
+            "The AI returned invalid resume data. Please try again.",
         },
-        {
-          status: 502,
-        },
+        { status: 502 },
       );
     }
 
-    const resume: ResumeData =
-      resumeValidation.data;
+    const resume: ResumeData = resumeResult.data;
 
-    /* --------------------------------------------------------
-       AI DESIGN
-    -------------------------------------------------------- */
+    /* ----------------------------------------------------------
+       TEMPLATE DESIGN
+       ---------------------------------------------------------- */
 
-    const designPrompt = `
-You are HirePro's professional resume design engine.
+    const baseDesign = getTemplateDesign(templateId);
+    const defaults = getDefaultCustomDesign(templateId);
 
-Create a polished recruiter-quality resume design.
+    const mergedDesign = mergeDesign(baseDesign, {
+      ...defaults,
+      ...(body.customDesign ?? {}),
+      templateId,
+    });
 
-${getTemplateInstruction(template)}
+    /*
+     * These structural properties are locked to the selected template.
+     * Typography, colors and spacing can still be controlled by Styling.
+     */
+    const finalDesign = ResumeDesignSchema.parse({
+      ...mergedDesign,
+      layout: baseDesign.layout,
+      style: baseDesign.style,
+      sidebar: baseDesign.sidebar,
+      ats: baseDesign.ats,
+      custom: {
+        ...mergedDesign.custom,
+        templateId,
+      },
+    });
 
-REFERENCE STRUCTURE:
+    /* ----------------------------------------------------------
+       SAVE RESUME
+       ---------------------------------------------------------- */
 
-The final resume should visually resemble a premium
-Careerflow-style professional resume:
+    const title = resume.personal.name?.trim()
+      ? `${safeName(resume.personal.name)} Resume`
+      : "My Resume";
 
-- candidate name at the top
-- target role directly beneath the name
-- compact contact row
-- strong horizontal section hierarchy
-- SUMMARY
-- SKILLS
-- EXPERIENCE
-- PROJECTS
-- EDUCATION
-- CERTIFICATIONS
-- ACHIEVEMENTS
-- LANGUAGES
-
-The document must look intentional and professionally
-designed, not like a raw AI-generated document.
-
-IMPORTANT:
-
-Do NOT use:
-- tables
-- complicated grids
-- decorative graphics
-- progress bars
-- skill percentages
-- excessive icons
-
-The PDF renderer will enforce a single-column
-ATS-readable structure.
-
-User's design instructions:
-
-${personalDesignInstruction}
-
-Return only a valid design object.
-    `.trim();
-
-    const generatedDesign =
-      await generateResumeDesign(
-        designPrompt,
-      );
-
-    const designValidation =
-      ResumeDesignSchema.safeParse(
-        generatedDesign,
-      );
-
-    if (
-      !designValidation.success
-    ) {
-      console.error(
-        "Generated design validation error:",
-        designValidation.error.flatten(),
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The AI generated an invalid resume design.",
-        },
-        {
-          status: 502,
-        },
-      );
-    }
-
-    const design =
-      forceSafeStructure(
-        designValidation.data,
-        template,
-      );
-
-    /* --------------------------------------------------------
-       CREATE RESUME RECORD
-    -------------------------------------------------------- */
-
-    const title =
-      resume.personal.name
-        ? `${resume.personal.name} Resume`
-        : "My Resume";
-
-    const {
-      data: savedResume,
-      error: resumeError,
-    } = await supabase
+    const { data: savedResume, error: saveError } = await supabase
       .from("resumes")
       .insert({
         user_id: user.id,
-
         title,
-
-        source_type:
-          "ai_generated",
-
-        resume_data:
-          resume,
-
-        design_config:
-          design,
-
-        template,
-
+        source_type: "ai_generated",
+        resume_data: resume,
+        design_config: finalDesign,
+        // Keep the DB-compatible AI family in the existing template column.
+        // The exact selected template ID is stored in design_config.custom.templateId.
+        template: aiTemplate,
         is_primary: true,
       })
-      .select(
-        `
-          id,
-          title,
-          template,
-          resume_data,
-          design_config,
-          profile_image_path
-        `,
-      )
+      .select("id,title,template,profile_image_path")
       .single();
 
-    if (
-      resumeError ||
-      !savedResume
-    ) {
-      console.error(
-        "Resume insert error:",
-        resumeError,
-      );
+    if (saveError || !savedResume) {
+      console.error("[Resume] save error:", saveError);
 
       return NextResponse.json(
         {
           success: false,
           error:
-            resumeError?.message ||
+            saveError?.message ||
             "Failed to save the generated resume.",
         },
-        {
-          status: 500,
-        },
+        { status: 500 },
       );
     }
 
-    /* --------------------------------------------------------
-       SAVE VERSION
-    -------------------------------------------------------- */
+    /* ----------------------------------------------------------
+       VERSION
+       ---------------------------------------------------------- */
 
-    const {
-      error: versionError,
-    } = await supabase
+    const { error: versionError } = await supabase
       .from("resume_versions")
       .insert({
-        resume_id:
-          savedResume.id,
-
+        resume_id: savedResume.id,
         version_number: 1,
-
-        version_name:
-          "AI Generated",
-
-        resume_data:
-          resume,
-
-        design_config:
-          design,
-
-        template,
+        version_name: "AI Enhanced",
+        resume_data: resume,
+        design_config: finalDesign,
+        template: aiTemplate,
       });
 
     if (versionError) {
-      console.error(
-        "Resume version insert error:",
-        versionError,
-      );
-
-      // We intentionally do not delete the resume.
-      // The main resume record is already valid and usable.
+      console.warn("[Resume] version save warning:", versionError);
     }
 
-    /* --------------------------------------------------------
+    /* ----------------------------------------------------------
        PROFILE PHOTO
-    -------------------------------------------------------- */
+       ---------------------------------------------------------- */
 
-    let profilePhotoPath:
-      | string
-      | null = null;
+    let profileImagePath: string | null = null;
+    let profileImageUrl: string | null = null;
 
-    if (
-      template !== "ats" &&
-      body.profilePhoto &&
-      body.profilePhotoType
-    ) {
+    if (body.profilePhoto && body.profilePhotoType) {
       try {
-        const photoBuffer =
-          decodeBase64DataUrl(
-            body.profilePhoto,
-          );
+        const photo = decodeDataUrl(body.profilePhoto);
 
-        if (
-          photoBuffer.length >
-          MAX_PHOTO_SIZE
-        ) {
+        if (photo.length > MAX_PHOTO_SIZE) {
           throw new Error(
             "Profile photo must be smaller than 5 MB.",
           );
         }
 
-        const extension =
-          getPhotoExtension(
+        profileImagePath =
+          `${user.id}/${savedResume.id}/profile.${extensionFor(
             body.profilePhotoType,
-          );
+          )}`;
 
-        profilePhotoPath =
-          `${user.id}/${savedResume.id}/profile.${extension}`;
-
-        const {
-          error: uploadError,
-        } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("profile-images")
-          .upload(
-            profilePhotoPath,
-            photoBuffer,
-            {
-              contentType:
-                body.profilePhotoType,
-              upsert: true,
-            },
-          );
+          .upload(profileImagePath, photo, {
+            contentType: body.profilePhotoType,
+            upsert: true,
+          });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
-        const {
-          error:
-            photoPathError,
-        } = await supabase
+        const { error: pathError } = await supabase
           .from("resumes")
-          .update({
-            profile_image_path:
-              profilePhotoPath,
-          })
-          .eq(
-            "id",
-            savedResume.id,
-          )
-          .eq(
-            "user_id",
-            user.id,
-          );
+          .update({ profile_image_path: profileImagePath })
+          .eq("id", savedResume.id)
+          .eq("user_id", user.id);
 
-        if (photoPathError) {
-          console.error(
-            "Profile image path update error:",
-            photoPathError,
+        if (pathError) {
+          console.warn(
+            "[Resume] profile image path update warning:",
+            pathError,
           );
         }
+
+        const { data: signed } = await supabase.storage
+          .from("profile-images")
+          .createSignedUrl(profileImagePath, 60 * 60);
+
+        profileImageUrl = signed?.signedUrl ?? null;
       } catch (photoError) {
-        console.error(
-          "Profile photo error:",
+        console.warn(
+          "[Resume] profile photo upload skipped:",
           photoError,
         );
-
-        profilePhotoPath =
-          null;
+        profileImagePath = null;
       }
     }
 
-    /* --------------------------------------------------------
-       SIGNED PHOTO URL
-    -------------------------------------------------------- */
-
-    let profileImageUrl:
-      | string
-      | null = null;
-
-    if (profilePhotoPath) {
-      const {
-        data: signed,
-      } = await supabase.storage
-        .from("profile-images")
-        .createSignedUrl(
-          profilePhotoPath,
-          60 * 60,
-        );
-
-      profileImageUrl =
-        signed?.signedUrl ??
-        null;
-    }
-
-    /* --------------------------------------------------------
-       RESPONSE
-    -------------------------------------------------------- */
-
     return NextResponse.json({
       success: true,
-
       resume,
-
-      design,
-
-      resumeId:
-        savedResume.id,
-
-      template,
-
-      profileImagePath:
-        profilePhotoPath,
-
+      design: finalDesign,
+      resumeId: savedResume.id,
+      template: templateId,
+      aiTemplate,
+      profileImagePath,
       profileImageUrl,
-
       saved: true,
-
       versionNumber: 1,
     });
   } catch (error) {
-    console.error(
-      "Resume generation error:",
-      error,
-    );
+    console.error("[Resume] generation error:", error);
 
     return NextResponse.json(
       {
@@ -893,9 +485,232 @@ Return only a valid design object.
             ? error.message
             : "Failed to generate resume.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }
+
+/* ============================================================
+   PATCH — PERSISTENT EDITING
+
+   This endpoint NEVER calls AI. It only persists the current
+   editor state for the authenticated user.
+   ============================================================ */
+
+export async function PATCH(request: Request) {
+  try {
+    const { supabase, user } = await getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized. Please sign in." },
+        { status: 401 },
+      );
+    }
+
+    const body = (await request.json()) as {
+      resumeId?: string | null;
+      resume?: unknown;
+      design?: unknown;
+      templateId?: string;
+      createVersion?: boolean;
+      versionName?: string;
+    };
+
+    const resumeResult = ResumeSchema.safeParse(body.resume);
+    if (!resumeResult.success) {
+      return NextResponse.json(
+        { success: false, error: "Invalid resume data." },
+        { status: 400 },
+      );
+    }
+
+    const templateId: ResumeTemplateId = isTemplateId(body.templateId)
+      ? body.templateId
+      : "blue-02";
+
+    const baseDesign = getTemplateDesign(templateId);
+    const defaults = getDefaultCustomDesign(templateId);
+    const suppliedDesign =
+      body.design && typeof body.design === "object"
+        ? (body.design as ResumeDesign)
+        : null;
+    const suppliedCustom = suppliedDesign?.custom ?? {};
+
+    const finalDesign = ResumeDesignSchema.parse({
+      ...mergeDesign(baseDesign, {
+        ...defaults,
+        ...suppliedCustom,
+        templateId,
+      }),
+      layout: baseDesign.layout,
+      style: baseDesign.style,
+      sidebar: baseDesign.sidebar,
+      ats: baseDesign.ats,
+      custom: {
+        ...defaults,
+        ...suppliedCustom,
+        templateId,
+      },
+    });
+
+    const resume = resumeResult.data;
+    const title = resume.personal.name?.trim()
+      ? `${safeName(resume.personal.name)} Resume`
+      : "My Resume";
+    const aiTemplate = getAiTemplate(templateId);
+
+    let resumeId =
+      typeof body.resumeId === "string" && body.resumeId.trim()
+        ? body.resumeId
+        : null;
+
+    if (resumeId) {
+      const { data: existing, error } = await supabase
+        .from("resumes")
+        .select("id")
+        .eq("id", resumeId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error || !existing) resumeId = null;
+    }
+
+    if (!resumeId) {
+      const { data: latest } = await supabase
+        .from("resumes")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      resumeId = latest?.id ?? null;
+    }
+
+    if (!resumeId) {
+      const { data: created, error } = await supabase
+        .from("resumes")
+        .insert({
+          user_id: user.id,
+          title,
+          source_type: "manual_edit",
+          resume_data: resume,
+          design_config: finalDesign,
+          template: aiTemplate,
+          is_primary: true,
+        })
+        .select("id,title,updated_at")
+        .single();
+
+      if (error || !created) {
+        console.error("[Resume PATCH] create:", error);
+        return NextResponse.json(
+          { success: false, error: error?.message || "Failed to save your resume." },
+          { status: 500 },
+        );
+      }
+
+      resumeId = created.id;
+
+      await supabase.from("resume_versions").insert({
+        resume_id: resumeId,
+        version_number: 1,
+        version_name: "First saved edit",
+        resume_data: resume,
+        design_config: finalDesign,
+        template: aiTemplate,
+      });
+
+      return NextResponse.json({
+        success: true,
+        resumeId,
+        resume,
+        design: finalDesign,
+        template: templateId,
+        updatedAt: created.updated_at,
+        versionNumber: 1,
+      });
+    }
+
+    let nextVersion: number | null = null;
+
+    if (body.createVersion === true) {
+      const { data: latestVersion } = await supabase
+        .from("resume_versions")
+        .select("version_number")
+        .eq("resume_id", resumeId)
+        .order("version_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      nextVersion =
+        Number(latestVersion?.version_number ?? 0) + 1;
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("resumes")
+      .update({
+        title,
+        resume_data: resume,
+        design_config: finalDesign,
+        template: aiTemplate,
+        source_type: "manual_edit",
+      })
+      .eq("id", resumeId)
+      .eq("user_id", user.id)
+      .select("id,title,updated_at")
+      .single();
+
+    if (updateError || !updated) {
+      console.error("[Resume PATCH] update:", updateError);
+      return NextResponse.json(
+        { success: false, error: updateError?.message || "Failed to save your resume." },
+        { status: 500 },
+      );
+    }
+
+    if (body.createVersion === true && nextVersion !== null) {
+      const { error: versionError } = await supabase
+        .from("resume_versions")
+        .insert({
+          resume_id: resumeId,
+          version_number: nextVersion,
+          version_name:
+            body.versionName?.trim() ||
+            `Version ${nextVersion}`,
+          resume_data: resume,
+          design_config: finalDesign,
+          template: aiTemplate,
+        });
+
+      if (versionError) {
+        console.warn(
+          "[Resume PATCH] version save warning:",
+          versionError,
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      resumeId,
+      resume,
+      design: finalDesign,
+      template: templateId,
+      updatedAt: updated.updated_at,
+      versionNumber: nextVersion,
+      versionCreated: body.createVersion === true,
+    });
+  } catch (error) {
+    console.error("[Resume PATCH] error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to save your resume.",
+      },
+      { status: 500 },
+    );
+  }
+}
+

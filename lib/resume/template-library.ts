@@ -5,26 +5,19 @@ import type {
   ResumeTemplateId,
 } from "./template-types";
 
-/* ============================================================
-   BASE AI DESIGNS
-
-   These are the internal design systems used by the resume
-   builder. Individual PDF templates override the accent color,
-   while the user can further customize typography, spacing,
-   colors, etc. from the Styling section.
-   ============================================================ */
+/**
+ * HirePro template registry.
+ *
+ * The supplied PDF files are the structural references.
+ * The PNG files are the selector thumbnails.
+ * The React renderer reproduces the editable version of each template.
+ */
 
 const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
-  /* ----------------------------------------------------------
-     ATS
-     ---------------------------------------------------------- */
   ats: {
     layout: "single-column",
-
     density: "compact",
-
     style: "ats",
-
     colors: {
       primary: "#1D4ED8",
       secondary: "#1E40AF",
@@ -33,17 +26,14 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
       background: "#FFFFFF",
       border: "#CBD5E1",
     },
-
     typography: {
       headingFont: "Arial",
       bodyFont: "Arial",
       headingSize: "medium",
       bodySize: "small",
     },
-
     header: {
       alignment: "left",
-
       photo: {
         enabled: false,
         position: "right",
@@ -51,44 +41,28 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         size: "small",
       },
     },
-
     sections: {
       order: [
         "summary",
         "skills",
         "experience",
-        "education",
         "projects",
+        "education",
         "certifications",
         "achievements",
         "languages",
       ],
-
-      emphasis: [
-        "experience",
-        "skills",
-        "education",
-      ],
+      emphasis: ["experience", "skills", "education"],
     },
-
     sidebar: {
       enabled: false,
-
-      sections: [
-        "skills",
-        "education",
-        "certifications",
-        "languages",
-        "achievements",
-      ],
+      sections: [],
     },
-
     visual: {
       borderStyle: "subtle",
       cardStyle: "none",
       accentStyle: "line",
     },
-
     ats: {
       safe: true,
       tablesUsed: false,
@@ -97,16 +71,10 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
     },
   },
 
-  /* ----------------------------------------------------------
-     PROFESSIONAL
-     ---------------------------------------------------------- */
   professional: {
     layout: "two-column",
-
     density: "balanced",
-
     style: "professional",
-
     colors: {
       primary: "#2563EB",
       secondary: "#1D4ED8",
@@ -115,17 +83,14 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
       background: "#FFFFFF",
       border: "#D7DEE8",
     },
-
     typography: {
       headingFont: "Arial",
       bodyFont: "Arial",
       headingSize: "medium",
       bodySize: "medium",
     },
-
     header: {
       alignment: "left",
-
       photo: {
         enabled: false,
         position: "left",
@@ -133,7 +98,6 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         size: "medium",
       },
     },
-
     sections: {
       order: [
         "summary",
@@ -145,17 +109,10 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         "achievements",
         "languages",
       ],
-
-      emphasis: [
-        "summary",
-        "experience",
-        "skills",
-      ],
+      emphasis: ["summary", "experience", "skills"],
     },
-
     sidebar: {
       enabled: true,
-
       sections: [
         "skills",
         "education",
@@ -164,13 +121,11 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         "achievements",
       ],
     },
-
     visual: {
       borderStyle: "subtle",
       cardStyle: "flat",
       accentStyle: "line",
     },
-
     ats: {
       safe: true,
       tablesUsed: false,
@@ -179,16 +134,10 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
     },
   },
 
-  /* ----------------------------------------------------------
-     MODERN
-     ---------------------------------------------------------- */
   modern: {
     layout: "two-column",
-
     density: "balanced",
-
     style: "modern",
-
     colors: {
       primary: "#0F4C81",
       secondary: "#2563EB",
@@ -197,17 +146,14 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
       background: "#FFFFFF",
       border: "#CBD5E1",
     },
-
     typography: {
       headingFont: "Arial",
       bodyFont: "Arial",
       headingSize: "large",
       bodySize: "medium",
     },
-
     header: {
       alignment: "left",
-
       photo: {
         enabled: false,
         position: "left",
@@ -215,7 +161,6 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         size: "medium",
       },
     },
-
     sections: {
       order: [
         "summary",
@@ -227,32 +172,17 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         "achievements",
         "languages",
       ],
-
-      emphasis: [
-        "summary",
-        "experience",
-        "projects",
-        "skills",
-      ],
+      emphasis: ["summary", "experience", "projects", "skills"],
     },
-
     sidebar: {
       enabled: true,
-
-      sections: [
-        "skills",
-        "education",
-        "languages",
-        "certifications",
-      ],
+      sections: ["skills", "education", "languages", "certifications"],
     },
-
     visual: {
       borderStyle: "subtle",
       cardStyle: "soft",
       accentStyle: "background",
     },
-
     ats: {
       safe: true,
       tablesUsed: false,
@@ -261,16 +191,10 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
     },
   },
 
-  /* ----------------------------------------------------------
-     EXECUTIVE
-     ---------------------------------------------------------- */
   executive: {
     layout: "single-column",
-
     density: "balanced",
-
     style: "executive",
-
     colors: {
       primary: "#111827",
       secondary: "#374151",
@@ -279,17 +203,14 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
       background: "#FFFFFF",
       border: "#D1D5DB",
     },
-
     typography: {
       headingFont: "Georgia",
       bodyFont: "Arial",
       headingSize: "large",
       bodySize: "medium",
     },
-
     header: {
       alignment: "center",
-
       photo: {
         enabled: false,
         position: "center",
@@ -297,7 +218,6 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         size: "medium",
       },
     },
-
     sections: {
       order: [
         "summary",
@@ -309,32 +229,17 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
         "achievements",
         "languages",
       ],
-
-      emphasis: [
-        "summary",
-        "experience",
-        "education",
-      ],
+      emphasis: ["summary", "experience", "education"],
     },
-
     sidebar: {
       enabled: false,
-
-      sections: [
-        "skills",
-        "education",
-        "certifications",
-        "languages",
-        "achievements",
-      ],
+      sections: [],
     },
-
     visual: {
       borderStyle: "strong",
       cardStyle: "none",
       accentStyle: "line",
     },
-
     ats: {
       safe: true,
       tablesUsed: false,
@@ -344,154 +249,122 @@ const TEMPLATE_DESIGNS: Record<ResumeAiTemplate, ResumeDesign> = {
   },
 };
 
-/* ============================================================
-   RESUME PDF TEMPLATES
-
-   These correspond to the PDF templates you placed inside:
-
-   public/resume-templates/
-
-   Each template has:
-   - PDF reference
-   - preview image
-   - category
-   - AI design family
-   - accent color
-   - layout
-   - photo support
-   ============================================================ */
-
 export const RESUME_TEMPLATES: ResumeTemplateDefinition[] = [
   {
     id: "blue-01",
     name: "Blue Corporate ATS",
     shortName: "Blue ATS 01",
     description:
-      "Clean white-and-blue corporate resume designed for strong ATS readability.",
+      "Clean white-and-blue corporate resume with strong ATS readability and compact content density.",
     category: "ats",
     aiTemplate: "ats",
     referencePdf: "/resume-templates/blue-01.pdf",
     previewImage: "/resume-templates/blue-01.png",
-    accent: "#1D4ED8",
+    accent: "#2F9DDA",
     background: "#FFFFFF",
     layout: "single",
-    photo: false,
+    photo: true,
   },
-
   {
     id: "blue-02",
     name: "Blue Corporate Executive",
     shortName: "Blue Executive",
     description:
-      "Professional corporate layout with a refined hierarchy and strong visual structure.",
+      "Navy-sidebar executive resume with a strong identity area, contact details and clear hierarchy.",
     category: "professional",
     aiTemplate: "professional",
     referencePdf: "/resume-templates/blue-02.pdf",
     previewImage: "/resume-templates/blue-02.png",
-    accent: "#2563EB",
+    accent: "#D4A017",
     background: "#FFFFFF",
     layout: "split",
-    photo: false,
+    photo: true,
   },
-
   {
     id: "blue-03",
     name: "Blue Marketing",
     shortName: "Blue Marketing",
     description:
-      "Professional blue layout emphasizing skills, experience and education.",
+      "Blue two-column professional layout designed for marketing, business and communication profiles.",
     category: "professional",
     aiTemplate: "professional",
     referencePdf: "/resume-templates/blue-03.pdf",
     previewImage: "/resume-templates/blue-03.png",
-    accent: "#2563EB",
+    accent: "#2F5B9E",
     background: "#FFFFFF",
     layout: "sidebar",
-    photo: false,
+    photo: true,
   },
-
   {
     id: "blue-04",
     name: "Blue Skills Focus",
     shortName: "Blue Skills",
     description:
-      "Modern blue resume layout emphasizing technical skills and professional experience.",
+      "Blue visual resume with a strong sidebar, skill presentation and professional experience hierarchy.",
     category: "professional",
     aiTemplate: "modern",
     referencePdf: "/resume-templates/blue-04.pdf",
     previewImage: "/resume-templates/blue-04.png",
-    accent: "#0F4C81",
+    accent: "#315A9B",
     background: "#FFFFFF",
     layout: "sidebar",
-    photo: false,
+    photo: true,
   },
-
   {
     id: "student",
     name: "Student CV",
     shortName: "Student",
     description:
-      "Simple and structured resume template for students and early-career candidates.",
+      "Friendly student and early-career layout with a colored identity panel and structured sections.",
     category: "student",
     aiTemplate: "professional",
     referencePdf: "/resume-templates/student.pdf",
     previewImage: "/resume-templates/student.png",
-    accent: "#111827",
+    accent: "#6E9E9C",
     background: "#FFFFFF",
     layout: "sidebar",
-    photo: false,
+    photo: true,
   },
-
   {
     id: "infographic-01",
     name: "Infographic Black & White",
     shortName: "Infographic 01",
     description:
-      "Black-and-white infographic-inspired professional resume.",
+      "Editorial black-and-white layout with structured section bands and a strong professional hierarchy.",
     category: "creative",
     aiTemplate: "modern",
     referencePdf: "/resume-templates/infographic-01.pdf",
     previewImage: "/resume-templates/infographic-01.png",
-    accent: "#111111",
+    accent: "#3F4852",
     background: "#FFFFFF",
     layout: "split",
     photo: false,
   },
-
   {
     id: "infographic-02",
     name: "Infographic Marketing",
     shortName: "Infographic 02",
     description:
-      "Bold monochrome marketing-style infographic resume.",
+      "Clean infographic marketing resume with section bars, dense information blocks and strong typography.",
     category: "creative",
     aiTemplate: "modern",
     referencePdf: "/resume-templates/infographic-02.pdf",
     previewImage: "/resume-templates/infographic-02.png",
-    accent: "#000000",
+    accent: "#64748B",
     background: "#FFFFFF",
     layout: "split",
     photo: false,
   },
 ];
 
-/* ============================================================
-   GET TEMPLATE DEFINITION
-   ============================================================ */
-
 export function getTemplateDefinition(
   id: ResumeTemplateId | string | null | undefined,
 ): ResumeTemplateDefinition {
-  const found = RESUME_TEMPLATES.find(
-    (template) => template.id === id,
+  return (
+    RESUME_TEMPLATES.find((template) => template.id === id) ??
+    RESUME_TEMPLATES[0]
   );
-
-  return found ?? RESUME_TEMPLATES[0];
 }
-
-/* ============================================================
-   GET AI TEMPLATE FAMILY
-   ============================================================ */
 
 export function getAiTemplate(
   id: ResumeTemplateId | string | null | undefined,
@@ -499,87 +372,46 @@ export function getAiTemplate(
   return getTemplateDefinition(id).aiTemplate;
 }
 
-/* ============================================================
-   GET TEMPLATE DESIGN
-   ============================================================ */
-
 export function getTemplateDesign(
   id: ResumeTemplateId | string | null | undefined,
 ): ResumeDesign {
   const definition = getTemplateDefinition(id);
-
-  /*
-   * Important:
-   * We always have a valid fallback here.
-   *
-   * This prevents:
-   *
-   * Cannot read properties of undefined (reading 'colors')
-   */
-
   const base =
     TEMPLATE_DESIGNS[definition.aiTemplate] ??
     TEMPLATE_DESIGNS.professional;
 
   return {
     ...base,
-
     colors: {
       ...base.colors,
-
       primary: definition.accent,
-
       secondary: definition.accent,
-
       background: definition.background,
     },
-
     custom: {
       ...(base.custom ?? {}),
-
       templateId: definition.id,
-
       primaryColor: definition.accent,
-
       secondaryColor: definition.accent,
-
       backgroundColor: definition.background,
     },
   };
 }
 
-/* ============================================================
-   GET ALL TEMPLATES BY CATEGORY
-   ============================================================ */
-
 export function getTemplatesByCategory(
   category: ResumeTemplateDefinition["category"],
-): ResumeTemplateDefinition[] {
-  return RESUME_TEMPLATES.filter(
-    (template) => template.category === category,
-  );
+) {
+  return RESUME_TEMPLATES.filter((template) => template.category === category);
 }
 
-/* ============================================================
-   FIND TEMPLATE BY AI FAMILY
-   ============================================================ */
-
-export function getTemplatesByAiTemplate(
-  aiTemplate: ResumeAiTemplate,
-): ResumeTemplateDefinition[] {
+export function getTemplatesByAiTemplate(aiTemplate: ResumeAiTemplate) {
   return RESUME_TEMPLATES.filter(
     (template) => template.aiTemplate === aiTemplate,
   );
 }
 
-/* ============================================================
-   CHECK TEMPLATE EXISTS
-   ============================================================ */
-
 export function isValidResumeTemplate(
   id: string | null | undefined,
 ): id is ResumeTemplateId {
-  return RESUME_TEMPLATES.some(
-    (template) => template.id === id,
-  );
+  return RESUME_TEMPLATES.some((template) => template.id === id);
 }

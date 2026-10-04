@@ -18,16 +18,16 @@ export default async function LoginPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    redirect("/dashboard");
-  }
-
   const params = await searchParams;
 
   const nextPath =
-    params.next && params.next.startsWith("/")
+    params.next && params.next.startsWith("/") && !params.next.startsWith("//")
       ? params.next
       : "/dashboard";
+
+  if (user) {
+    redirect(nextPath);
+  }
 
   const errorMessage = params.error;
 

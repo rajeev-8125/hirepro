@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateATSResult } from "@/lib/ai/ats-generator";
+import { generateATSResult } from "@/lib/ai/ats-analyzer";
 import { ResumeSchema } from "@/lib/ai/resume-schema";
 import { resumeDataToText } from "@/lib/ats/resume-data-to-text";
 

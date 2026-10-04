@@ -27,6 +27,7 @@ export type ResumeTemplateDefinition = {
   category: ResumeTemplateCategory;
   aiTemplate: ResumeAiTemplate;
   referencePdf: string;
+  previewImage: string;
   accent: string;
   background: string;
   layout: "single" | "split" | "sidebar";
