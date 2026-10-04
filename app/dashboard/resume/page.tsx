@@ -30,18 +30,18 @@ import {
   Palette,
   SlidersHorizontal,
   Save,
-  Link2,
   Upload,
   History,
   Eye,
   MoreHorizontal,
 } from "lucide-react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import type { ResumeData } from "@/lib/ai/resume-schema";
 import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
 import LiveResumePreview from "@/components/resume/LiveResumePreview";
+import AIResumeCoach from "@/components/resume/AIResumeCoach";
 import {
   RESUME_TEMPLATES,
   getAiTemplate,
@@ -734,8 +734,61 @@ function hasResumeContent(data: ResumeData | null | undefined) {
   );
 }
 
+function getResumeReadiness(data: ResumeData) {
+  const missing: string[] = [];
+  let score = 0;
+  const personal = data.personal ?? {};
+
+  if (personal.name?.trim()) score += 10; else missing.push("Full name");
+  if (personal.email?.trim()) score += 8; else missing.push("Email");
+  if (personal.phone?.trim()) score += 5; else missing.push("Phone");
+  if (personal.location?.trim()) score += 2;
+  if (data.professionalSummary?.trim()) score += 15; else missing.push("Professional summary");
+
+  const skillCount = (data.skills ?? []).reduce((total, group) => total + (group.items ?? []).filter(Boolean).length, 0);
+  if (skillCount >= 6) score += 15;
+  else if (skillCount >= 3) score += 10;
+  else if (skillCount > 0) score += 5;
+  else missing.push("Technical / professional skills");
+
+  const experienceCount = (data.experience ?? []).filter((item) => item.company?.trim() || item.role?.trim() || item.responsibilities?.some(Boolean)).length;
+  if (experienceCount >= 1) score += 20;
+  else if ((data.projects ?? []).some((item) => item.name?.trim() || item.description?.trim())) score += 20;
+  else missing.push("Experience or projects");
+
+  if ((data.education ?? []).some((item) => item.institution?.trim() || item.degree?.trim() || item.field?.trim())) score += 10;
+  else missing.push("Education");
+
+  const projectCount = (data.projects ?? []).filter((item) => item.name?.trim() || item.description?.trim()).length;
+  if (projectCount >= 2) score += 10;
+  else if (projectCount === 1) score += 6;
+  else if (experienceCount >= 1) score += 4;
+  else missing.push("Projects");
+
+  if ((data.certifications ?? []).some((item) => item.name?.trim()) || (data.achievements ?? []).some(Boolean) || (data.languages ?? []).some(Boolean)) score += 5;
+  else missing.push("Certifications, achievements or languages");
+
+  const links = [personal.linkedin, personal.github, personal.website].filter((value) => value?.trim()).length;
+  if (links >= 2) score += 5;
+  else if (links === 1) score += 3;
+  else missing.push("Professional links");
+
+  const finalScore = Math.min(100, Math.max(0, score));
+  let label = "Getting started";
+  if (finalScore >= 90) label = "Excellent";
+  else if (finalScore >= 75) label = "Strong";
+  else if (finalScore >= 55) label = "Good progress";
+
+  return { score: finalScore, label, missing: missing.slice(0, 3) };
+}
+
 export default function ResumeBuilderPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const requestedResumeId = searchParams.get("resumeId");
+  const isNewResumeMode = searchParams.get("new") === "1";
+  const isResumeStartChooser = !requestedResumeId && !isNewResumeMode;
 
   const [resume, setResume] =
     useState<ResumeData>(DEMO_RESUME);
@@ -788,18 +841,6 @@ export default function ResumeBuilderPage() {
     useState(true);
 
   const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [isLinkedInOpen, setIsLinkedInOpen] =
-    useState(false);
-
-  const [linkedinUrl, setLinkedinUrl] =
-    useState("");
-
-  const [linkedinText, setLinkedinText] =
-    useState("");
-
-  const [isImportingLinkedIn, setIsImportingLinkedIn] =
     useState(false);
 
   const [template, setTemplate] =
@@ -1114,7 +1155,7 @@ export default function ResumeBuilderPage() {
      ============================================================ */
 
   useEffect(() => {
-    if (isCheckingAuth || !currentUserId) return;
+    if (isCheckingAuth || !currentUserId || isResumeStartChooser) return;
 
     let cancelled = false;
 
@@ -1125,8 +1166,30 @@ export default function ResumeBuilderPage() {
       setIsSamplePreview(true);
 
       try {
+        if (isNewResumeMode) {
+          const firstTemplate: TemplateType = "blue-02";
+          setTemplate(firstTemplate);
+          setResume(getTemplateDemoResume(firstTemplate));
+          setDesign({
+            ...getTemplateDesign(firstTemplate),
+            custom: getDefaultCustomDesign(firstTemplate),
+          });
+          setDesignDescription("");
+          setProfilePhoto(null);
+          setProfilePhotoFile(null);
+          setResumeId(null);
+          setHasSavedResume(false);
+          setIsSamplePreview(true);
+          setIsHydrated(true);
+          return;
+        }
+
+        const loadUrl = requestedResumeId
+          ? `/api/resume/generate?id=${encodeURIComponent(requestedResumeId)}`
+          : "/api/resume/generate";
+
         const response = await fetch(
-          "/api/resume/generate",
+          loadUrl,
           {
             method: "GET",
             cache: "no-store",
@@ -1175,68 +1238,25 @@ export default function ResumeBuilderPage() {
           return;
         }
 
-        /* No saved resume for THIS account. */
-        const storageKey = `hirepro-resume-draft-v4:${currentUserId}`;
-        let loadedDraft = false;
-
-        try {
-          const raw = window.localStorage.getItem(storageKey);
-
-          if (raw) {
-            const draft = JSON.parse(raw);
-            if (draft?.resume && hasResumeContent(draft.resume)) {
-              const draftTemplate = isTemplateId(draft.template)
-                ? draft.template
-                : "blue-02";
-
-              setResume(normalizeResume(draft.resume));
-              setTemplate(draftTemplate);
-              setDesign(
-                draft.design ?? {
-                  ...getTemplateDesign(draftTemplate),
-                  custom: getDefaultCustomDesign(draftTemplate),
-                },
-              );
-              setDesignDescription(
-                typeof draft.designDescription === "string"
-                  ? draft.designDescription
-                  : "",
-              );
-              setProfilePhoto(
-                typeof draft.profilePhoto === "string"
-                  ? draft.profilePhoto
-                  : null,
-              );
-              setIsSamplePreview(false);
-              loadedDraft = true;
-            }
+        /* Edit mode is intentionally resume-ID based.
+         * Never fall back to another resume belonging to this user.
+         * If the requested resume does not exist, send the user back to
+         * Resume Editing instead of opening a different resume.
+         */
+        if (!data?.resume || !hasResumeContent(data.resume) || !data.resumeId) {
+          if (!cancelled) {
+            setError("That saved resume could not be found. Please choose a resume from Resume Editing.");
+            setIsHydrated(true);
           }
-        } catch {
-          // Ignore malformed user-scoped local draft.
+          return;
         }
-
-        if (!loadedDraft) {
-          const firstTemplate: TemplateType = "blue-02";
-          setTemplate(firstTemplate);
-          setResume(getTemplateDemoResume(firstTemplate));
-          setDesign({
-            ...getTemplateDesign(firstTemplate),
-            custom: getDefaultCustomDesign(firstTemplate),
-          });
-          setDesignDescription("");
-          setProfilePhoto(null);
-          setProfilePhotoFile(null);
-          setIsSamplePreview(true);
-        }
-      } catch {
+      } catch (loadError) {
         if (!cancelled) {
-          setTemplate("blue-02");
-          setResume(getTemplateDemoResume("blue-02"));
-          setDesign({
-            ...getTemplateDesign("blue-02"),
-            custom: getDefaultCustomDesign("blue-02"),
-          });
-          setIsSamplePreview(true);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load the selected resume.",
+          );
         }
       } finally {
         if (!cancelled) setIsHydrated(true);
@@ -1248,7 +1268,13 @@ export default function ResumeBuilderPage() {
     return () => {
       cancelled = true;
     };
-  }, [isCheckingAuth, currentUserId]);
+  }, [
+    isCheckingAuth,
+    currentUserId,
+    isResumeStartChooser,
+    isNewResumeMode,
+    requestedResumeId,
+  ]);
 
   /* ============================================================
      USER-SCOPED LOCAL RECOVERY DRAFT
@@ -1266,8 +1292,9 @@ export default function ResumeBuilderPage() {
 
     const timer = window.setTimeout(() => {
       try {
+        const draftKey = `hirepro-resume-draft-v5:${currentUserId}:${resumeId ?? "new"}`;
         window.localStorage.setItem(
-          `hirepro-resume-draft-v4:${currentUserId}`,
+          draftKey,
           JSON.stringify({
             resume,
             design,
@@ -1340,6 +1367,15 @@ export default function ResumeBuilderPage() {
         if (response.ok && data?.resumeId) {
           setResumeId(data.resumeId);
           setHasSavedResume(true);
+
+          // Once a brand-new resume is first saved, bind the editor URL
+          // to that exact resume. Refreshing the page will therefore
+          // continue this resume instead of loading another saved resume.
+          if (isNewResumeMode && !requestedResumeId) {
+            router.replace(
+              `/dashboard/resume?resumeId=${encodeURIComponent(data.resumeId)}`,
+            );
+          }
         } else if (response.status === 401) {
           router.replace(
             `/login?next=${encodeURIComponent("/dashboard/resume")}`,
@@ -1362,6 +1398,8 @@ export default function ResumeBuilderPage() {
     isCheckingAuth,
     isHydrated,
     isSamplePreview,
+    isNewResumeMode,
+    requestedResumeId,
     router,
   ]);
 
@@ -1870,7 +1908,40 @@ export default function ResumeBuilderPage() {
      RESET
   ============================================================ */
 
-  function resetResume() {
+  async function resetResume() {
+    const resumeToDelete = resumeId;
+
+    if (resumeToDelete) {
+      const confirmed = window.confirm(
+        "Reset this resume? This will remove the saved resume and its history from HirePro. Your resume will return to the selected template sample.",
+      );
+
+      if (!confirmed) return;
+
+      try {
+        const response = await fetch(
+          `/api/resume/manage?id=${encodeURIComponent(resumeToDelete)}`,
+          {
+            method: "DELETE",
+            credentials: "include",
+          },
+        );
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Failed to reset the saved resume.");
+        }
+      } catch (resetError) {
+        setError(
+          resetError instanceof Error
+            ? resetError.message
+            : "Failed to reset the saved resume.",
+        );
+        return;
+      }
+    }
+
     setTemplate("blue-02");
     setResume(getTemplateDemoResume("blue-02"));
     setIsSamplePreview(true);
@@ -1892,19 +1963,22 @@ export default function ResumeBuilderPage() {
     setProfilePhoto(null);
     setProfilePhotoFile(null);
     setDesignDescription("");
-    setMessage(null);
+    setMessage("Resume reset. You are starting from a clean template.");
     setError(null);
 
     try {
       if (currentUserId) {
-        window.localStorage.removeItem(`hirepro-resume-draft-v4:${currentUserId}`);
+        Object.keys(window.localStorage)
+          .filter((key) => key.startsWith(`hirepro-resume-draft-v5:${currentUserId}:`))
+          .forEach((key) => window.localStorage.removeItem(key));
       }
     } catch {}
 
     if (photoInputRef.current) {
-      photoInputRef.current.value =
-        "";
+      photoInputRef.current.value = "";
     }
+
+    router.replace("/dashboard/resume?new=1");
   }
 
   /* ============================================================
@@ -2005,6 +2079,66 @@ export default function ResumeBuilderPage() {
   }
 
   /* ============================================================
+     START SCREEN — choose NEW or RESUME EDITING
+  ============================================================ */
+
+  if (isResumeStartChooser) {
+    return (
+      <main className="min-h-screen bg-[#f6f8fc] px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 text-center">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-600">HirePro Resume Studio</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">What would you like to do?</h1>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+              Start a completely new resume, or continue editing one of your saved resumes exactly where you left off.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/resume?new=1")}
+              className="group rounded-3xl border border-blue-100 bg-white p-7 text-left shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition group-hover:scale-105">
+                <Plus className="h-7 w-7" />
+              </div>
+              <h2 className="mt-6 text-2xl font-black">Create New Resume</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Start from the beginning with a clean template sample. Your previous resumes will not be loaded or changed.
+              </p>
+              <span className="mt-6 inline-flex rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white group-hover:bg-blue-600">
+                Start New Resume →
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/resume/saved")}
+              className="group rounded-3xl border border-slate-200 bg-white p-7 text-left shadow-sm transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-xl"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 transition group-hover:scale-105">
+                <FileText className="h-7 w-7" />
+              </div>
+              <h2 className="mt-6 text-2xl font-black">Resume Editing</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Open your saved resumes, continue exactly where you stopped, duplicate a version, or delete a resume you no longer need.
+              </p>
+              <span className="mt-6 inline-flex rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 group-hover:border-blue-200 group-hover:text-blue-700">
+                Open Resume Editing →
+              </span>
+            </button>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-center text-xs font-semibold text-slate-500 shadow-sm">
+            Your saved resumes are always separated from a new resume. Creating a new resume never loads an older resume automatically.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* ============================================================
      UI
   ============================================================ */
 
@@ -2022,6 +2156,16 @@ export default function ResumeBuilderPage() {
             <h1 className="text-xl font-black tracking-tight sm:text-2xl">
               Resume Builder
             </h1>
+          </div>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+              <span className={`h-2 w-2 rounded-full ${isSaving ? "animate-pulse bg-amber-400" : "bg-emerald-500"}`} />
+              {isSaving ? "Saving changes..." : "All changes saved"}
+            </div>
+            <div className="text-xs font-semibold text-slate-400">
+              {isSamplePreview ? "Template preview" : `Resume ${resumeId ? "saved" : "draft"}`}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -2055,6 +2199,21 @@ export default function ResumeBuilderPage() {
         </div>
       </header>
 
+      <div className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setActiveTab("information")} className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition ${activeTab === "information" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}>
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${activeTab === "information" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>1</span>
+              <span><span className="block text-sm font-black">Information</span><span className="hidden text-[11px] font-semibold sm:block">Build your content</span></span>
+            </button>
+            <button type="button" onClick={() => setActiveTab("styling")} className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition ${activeTab === "styling" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}>
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${activeTab === "styling" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>2</span>
+              <span><span className="block text-sm font-black">Styling</span><span className="hidden text-[11px] font-semibold sm:block">Make it look professional</span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         {/* EDITOR */}
 
@@ -2062,7 +2221,7 @@ export default function ResumeBuilderPage() {
           {/* HERO */}
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+            <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
               <div>
                 <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -2097,6 +2256,27 @@ export default function ResumeBuilderPage() {
                   : "Generate with AI"}
               </button>
             </div>
+
+            {!isSamplePreview && (() => {
+              const readiness = getResumeReadiness(resume);
+              return (
+                <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                        <div className="text-center"><div className="text-lg font-black text-slate-900">{readiness.score}%</div><div className="text-[8px] font-black uppercase tracking-wide text-slate-400">Ready</div></div>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2"><p className="text-sm font-black text-slate-900">Resume readiness</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${readiness.score >= 75 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{readiness.label}</span></div>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">This measures content completeness only. It does not replace the ATS analysis.</p>
+                      </div>
+                    </div>
+                    {readiness.missing.length > 0 && (<div className="min-w-0 sm:max-w-sm"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Suggested next</p><div className="mt-2 flex flex-wrap gap-2">{readiness.missing.map((item) => <span key={item} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">+ {item}</span>)}</div></div>)}
+                  </div>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${readiness.score}%` }} /></div>
+                </div>
+              );
+            })()}
           </div>
 
           {message && (
@@ -2150,23 +2330,6 @@ export default function ResumeBuilderPage() {
               toggleSection("personal")
             }
           >
-            <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-black text-slate-900">Import your information</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Start from your LinkedIn profile instead of entering every section manually.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsLinkedInOpen(true)}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0A66C2] px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-[#084f96]"
-              >
-                <Link2 className="h-4 w-4" />
-                Import from LinkedIn
-              </button>
-            </div>
-
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Full name"
@@ -2343,6 +2506,15 @@ export default function ResumeBuilderPage() {
               }
               rows={7}
               placeholder="Describe your professional background, strongest skills, domain knowledge and career direction."
+            />
+
+            <AIResumeCoach
+              mode="summary"
+              content={resume.professionalSummary}
+              context="Professional summary for a job application. Preserve the candidate's actual background, skills and career direction."
+              onApply={(value) =>
+                updateResume("professionalSummary", value)
+              }
             />
           </SectionCard>
 
@@ -2647,6 +2819,23 @@ export default function ResumeBuilderPage() {
                         }}
                         rows={6}
                         placeholder="One bullet per line."
+                      />
+
+                      <AIResumeCoach
+                        mode="bullets"
+                        content={item.responsibilities.join("\n")}
+                        context={`Experience: ${item.role || "Role"} at ${item.company || "Company"}. Preserve all supplied facts, dates, technologies, metrics and responsibilities.`}
+                        onApply={(value) => {
+                          const next = [...resume.experience];
+                          next[index] = {
+                            ...next[index],
+                            responsibilities: value
+                              .split("\n")
+                              .map((x) => x.trim())
+                              .filter(Boolean),
+                          };
+                          updateResume("experience", next);
+                        }}
                       />
                     </div>
                   </div>
@@ -2965,6 +3154,20 @@ export default function ResumeBuilderPage() {
                         placeholder="Explain what you built and what problem it solves."
                       />
 
+                      <AIResumeCoach
+                        mode="project"
+                        content={item.description}
+                        context={`Project: ${item.name || "Project"}. Technologies supplied by the user: ${item.technologies.join(", ") || "none"}. Preserve only the user's factual claims.`}
+                        onApply={(value) => {
+                          const next = [...resume.projects];
+                          next[index] = {
+                            ...next[index],
+                            description: value,
+                          };
+                          updateResume("projects", next);
+                        }}
+                      />
+
                       <Input
                         label="Technologies"
                         value={
@@ -3227,6 +3430,24 @@ export default function ResumeBuilderPage() {
               rows={5}
               placeholder="One achievement per line."
             />
+
+            {resume.achievements.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {resume.achievements.map((achievement, index) => (
+                  <AIResumeCoach
+                    key={`${index}-${achievement}`}
+                    mode="achievement"
+                    content={achievement}
+                    context="Achievement or award supplied by the candidate. Preserve every factual claim and number."
+                    onApply={(value) => {
+                      const next = [...resume.achievements];
+                      next[index] = value;
+                      updateResume("achievements", next);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </SectionCard>
 
           {/* LANGUAGES */}
@@ -3410,130 +3631,6 @@ export default function ResumeBuilderPage() {
             )}
           </section>
           </>
-          )}
-
-          {isLinkedInOpen && (
-            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-              <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-                <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0A66C2]">HirePro Import</p>
-                    <h2 className="mt-1 text-xl font-black text-slate-900">Import from LinkedIn</h2>
-                    <p className="mt-1 text-sm text-slate-500">Use your profile URL or paste your LinkedIn profile text.</p>
-                  </div>
-                  <button type="button" onClick={() => setIsLinkedInOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-5 p-6">
-                  <Input
-                    label="LinkedIn profile URL"
-                    value={linkedinUrl}
-                    onChange={setLinkedinUrl}
-                    placeholder="https://www.linkedin.com/in/your-profile"
-                  />
-
-                  <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-slate-400">
-                    <span className="h-px flex-1 bg-slate-200" />
-                    OR PASTE PROFILE TEXT
-                    <span className="h-px flex-1 bg-slate-200" />
-                  </div>
-
-                  <TextArea
-                    label="LinkedIn profile information"
-                    value={linkedinText}
-                    onChange={setLinkedinText}
-                    rows={9}
-                    placeholder="Copy the About, Experience, Education, Skills and other relevant information from your LinkedIn profile and paste it here."
-                  />
-
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
-                    LinkedIn can block automated access to public profiles. If the profile URL cannot be read, paste the profile text here and HirePro will structure it for you.
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setIsLinkedInOpen(false)}
-                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isImportingLinkedIn || (!linkedinUrl.trim() && !linkedinText.trim())}
-                      onClick={async () => {
-                        setIsImportingLinkedIn(true);
-                        setError(null);
-                        setMessage(null);
-
-                        try {
-                          const response = await fetch("/api/resume/linkedin", {
-                            method: "POST",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              linkedinUrl: linkedinUrl.trim(),
-                              profileText: linkedinText.trim(),
-                              templateId: template,
-                            }),
-                          });
-
-                          const data = await response.json().catch(() => null);
-
-                          if (!response.ok) {
-                            if (response.status === 401) {
-                              router.replace(`/login?next=${encodeURIComponent("/dashboard/resume")}`);
-                              return;
-                            }
-                            throw new Error(data?.error || "LinkedIn import failed.");
-                          }
-
-                          if (!data?.resume) {
-                            throw new Error("LinkedIn information could not be converted into resume data.");
-                          }
-
-                          setResume(normalizeResume(data.resume));
-                          setIsSamplePreview(false);
-                          setHasSavedResume(true);
-                          setResumeId(data.resumeId ?? null);
-
-                          if (data.template && isTemplateId(data.template)) {
-                            setTemplate(data.template);
-                          }
-
-                          if (data.design) {
-                            const importedTemplate = data.template && isTemplateId(data.template) ? data.template : template;
-                            setDesign({
-                              ...data.design,
-                              custom: {
-                                ...getDefaultCustomDesign(importedTemplate),
-                                ...((data.design as ResumeDesign & { custom?: object }).custom ?? {}),
-                              },
-                            });
-                          }
-
-                          setMessage("LinkedIn information imported successfully. Review and edit your resume before generating the final version.");
-                          setLinkedinUrl("");
-                          setLinkedinText("");
-                          setIsLinkedInOpen(false);
-                          setOpenSection("personal");
-                        } catch (err) {
-                          setError(err instanceof Error ? err.message : "LinkedIn import failed.");
-                        } finally {
-                          setIsImportingLinkedIn(false);
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#0A66C2] px-5 py-2.5 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isImportingLinkedIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {isImportingLinkedIn ? "Importing..." : "Import Profile"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
 
           {/* MOBILE ACTION */}

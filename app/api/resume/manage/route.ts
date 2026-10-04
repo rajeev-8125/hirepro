@@ -47,7 +47,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("resumes")
       .select(
-        "id,title,template,source_type,is_primary,updated_at,created_at,profile_image_path",
+        "id,title,template,source_type,is_primary,updated_at,created_at,profile_image_path,design_config",
       )
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false });
@@ -64,9 +64,32 @@ export async function GET() {
       );
     }
 
+    const resumes = (data ?? []).map((resume) => {
+      const design =
+        resume.design_config &&
+        typeof resume.design_config === "object"
+          ? (resume.design_config as { custom?: { templateId?: unknown } })
+          : null;
+
+      const selectedTemplate =
+        typeof design?.custom?.templateId === "string"
+          ? design.custom.templateId
+          : resume.template;
+
+      return {
+        id: resume.id,
+        title: resume.title,
+        template: selectedTemplate,
+        source_type: resume.source_type,
+        is_primary: resume.is_primary,
+        updated_at: resume.updated_at,
+        created_at: resume.created_at,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      resumes: data ?? [],
+      resumes,
     });
   } catch (error) {
     console.error("[Resume Manage GET] unexpected", error);

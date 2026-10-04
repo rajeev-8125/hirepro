@@ -576,17 +576,11 @@ export async function PATCH(request: Request) {
       if (error || !existing) resumeId = null;
     }
 
-    if (!resumeId) {
-      const { data: latest } = await supabase
-        .from("resumes")
-        .select("id")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      resumeId = latest?.id ?? null;
-    }
+    /*
+     * IMPORTANT: a missing/null resumeId means "create a new resume".
+     * Never fall back to the user's latest resume. That old behaviour
+     * caused Create New Resume to reopen/overwrite the previous resume.
+     */
 
     if (!resumeId) {
       const { data: created, error } = await supabase

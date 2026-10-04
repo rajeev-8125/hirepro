@@ -60,7 +60,6 @@ function sourceName(source: string) {
   const names: Record<string, string> = {
     ai_generated: "AI generated",
     manual_edit: "Manual",
-    linkedin_import: "LinkedIn import",
     duplicate: "Duplicate",
     restored_version: "Restored",
   };
@@ -263,13 +262,11 @@ export default function SavedResumesPage() {
             </div>
 
             <h1 className="text-3xl font-black tracking-tight text-slate-950">
-              My Resumes
+              Resume Editing
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Manage your resumes, continue
-              editing, duplicate a version, or
-              remove an old resume.
+              Continue exactly where you stopped, manage your saved resumes, duplicate a version, or delete an old resume. Creating a new resume is always kept separate.
             </p>
           </div>
 
@@ -474,16 +471,12 @@ export default function SavedResumesPage() {
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-[1fr_auto_auto] gap-2">
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() =>
-                            continueEditing(
-                              resume.id,
-                            )
-                          }
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-blue-600 disabled:opacity-60"
+                          onClick={() => continueEditing(resume.id)}
+                          className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white hover:bg-blue-600 disabled:opacity-60"
                         >
                           {busy ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -497,15 +490,27 @@ export default function SavedResumesPage() {
                           type="button"
                           onClick={() =>
                             router.push(
-                              `/dashboard/resume?resumeId=${encodeURIComponent(
-                                resume.id,
-                              )}#history`,
+                              `/dashboard/resume?resumeId=${encodeURIComponent(resume.id)}#history`,
                             )
                           }
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 text-slate-600 hover:bg-slate-50"
                           title="Open resume history"
                         >
                           <History className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => deleteResume(resume)}
+                          className="inline-flex items-center justify-center rounded-xl border border-red-200 px-3 text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          title="Delete resume"
+                        >
+                          {busy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
