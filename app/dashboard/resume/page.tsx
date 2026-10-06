@@ -1189,14 +1189,11 @@ export default function ResumeBuilderPage() {
           ? `/api/resume/generate?id=${encodeURIComponent(requestedResumeId)}`
           : "/api/resume/generate";
 
-        const response = await fetch(
-          loadUrl,
-          {
-            method: "GET",
-            cache: "no-store",
-            credentials: "include",
-          },
-        );
+        const response = await fetch(loadUrl, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
 
         const data = response.ok
           ? await response.json()
@@ -1204,24 +1201,135 @@ export default function ResumeBuilderPage() {
 
         if (cancelled) return;
 
-        if (data?.resume && hasResumeContent(data.resume)) {
-          const loadedResume = normalizeResume(data.resume);
-          const loadedTemplate = isTemplateId(data.template)
-            ? data.template
-            : "blue-02";
+        /*
+         * A local draft is an emergency recovery copy. It is intentionally
+         * user-scoped and resume-scoped so one account can never see another
+         * account's draft.
+         */
+        const readLocalDraft = (draftResumeId: string | null) => {
+          try {
+            const key = `hirepro-resume-draft-v5:${currentUserId}:${draftResumeId ?? "new"}`;
+            const raw = window.localStorage.getItem(key);
+            if (!raw) return null;
 
-          setResume(loadedResume);
-          setResumeId(data.resumeId ?? null);
+            const parsed = JSON.parse(raw) as {
+              resume?: unknown;
+              design?: ResumeDesign | null;
+              template?: unknown;
+              designDescription?: unknown;
+              profilePhoto?: string | null;
+              resumeId?: string | null;
+              savedAt?: string;
+            };
+
+            if (!parsed.resume || !hasResumeContent(parsed.resume)) {
+              return null;
+            }
+
+            const savedAtMs = parsed.savedAt
+              ? Date.parse(parsed.savedAt)
+              : 0;
+
+            return {
+              resume: normalizeResume(parsed.resume),
+              design: parsed.design ?? null,
+              template: isTemplateId(parsed.template)
+                ? parsed.template
+                : null,
+              designDescription:
+                typeof parsed.designDescription === "string"
+                  ? parsed.designDescription
+                  : "",
+              profilePhoto: parsed.profilePhoto ?? null,
+              resumeId: parsed.resumeId ?? draftResumeId,
+              savedAtMs: Number.isFinite(savedAtMs) ? savedAtMs : 0,
+            };
+          } catch {
+            return null;
+          }
+        };
+
+        const serverResume =
+          data?.resume && hasResumeContent(data.resume) && data.resumeId
+            ? {
+                resume: normalizeResume(data.resume),
+                design: data.design ?? null,
+                template: isTemplateId(data.template)
+                  ? data.template
+                  : "blue-02" as TemplateType,
+                profilePhoto: data.profileImageUrl ?? null,
+                resumeId: data.resumeId as string,
+                updatedAtMs: data.updatedAt
+                  ? Date.parse(data.updatedAt)
+                  : 0,
+              }
+            : null;
+
+        /*
+         * For an exact resumeId, only that resume is eligible.
+         * For the normal editor, the latest server resume is considered.
+         * A newer local draft wins over the server copy, which is what makes
+         * Continue Editing resilient to a refresh/network interruption.
+         */
+        if (serverResume) {
+          const localDraft = readLocalDraft(serverResume.resumeId);
+
+          if (
+            localDraft &&
+            localDraft.resumeId === serverResume.resumeId &&
+            localDraft.savedAtMs > serverResume.updatedAtMs
+          ) {
+            const loadedTemplate =
+              localDraft.template ?? serverResume.template;
+
+            setResume(localDraft.resume);
+            setResumeId(serverResume.resumeId);
+            setHasSavedResume(true);
+            setIsSamplePreview(false);
+            setTemplate(loadedTemplate);
+            setDesignDescription(localDraft.designDescription);
+            setProfilePhoto(
+              localDraft.profilePhoto ?? serverResume.profilePhoto,
+            );
+
+            if (localDraft.design) {
+              setDesign({
+                ...getTemplateDesign(loadedTemplate),
+                ...localDraft.design,
+                custom: {
+                  ...getDefaultCustomDesign(loadedTemplate),
+                  ...((localDraft.design as ResumeDesign & { custom?: object })
+                    .custom ?? {}),
+                },
+              });
+            } else {
+              setDesign({
+                ...getTemplateDesign(loadedTemplate),
+                custom: getDefaultCustomDesign(loadedTemplate),
+              });
+            }
+
+            setMessage("Recovered your latest local changes.");
+            setIsHydrated(true);
+            return;
+          }
+
+          const loadedTemplate = serverResume.template;
+
+          setResume(serverResume.resume);
+          setResumeId(serverResume.resumeId);
           setHasSavedResume(true);
           setIsSamplePreview(false);
           setTemplate(loadedTemplate);
 
-          if (data.design) {
+          if (serverResume.design) {
             setDesign({
-              ...data.design,
+              ...getTemplateDesign(loadedTemplate),
+              ...serverResume.design,
               custom: {
                 ...getDefaultCustomDesign(loadedTemplate),
-                ...((data.design as ResumeDesign & { custom?: object }).custom ?? {}),
+                ...((serverResume.design as ResumeDesign & { custom?: object })
+                  .custom ?? {}),
               },
             });
           } else {
@@ -1231,26 +1339,88 @@ export default function ResumeBuilderPage() {
             });
           }
 
-          if (data.profileImageUrl) {
-            setProfilePhoto(data.profileImageUrl);
+          if (serverResume.profilePhoto) {
+            setProfilePhoto(serverResume.profilePhoto);
           }
 
           setIsHydrated(true);
           return;
         }
 
-        /* Edit mode is intentionally resume-ID based.
-         * Never fall back to another resume belonging to this user.
-         * If the requested resume does not exist, send the user back to
-         * Resume Editing instead of opening a different resume.
+        /*
+         * No saved server resume exists. In a brand-new editor we may still
+         * have a local emergency draft. Restore it only when it belongs to
+         * this authenticated user and is not an explicit `?new=1` flow.
          */
-        if (!data?.resume || !hasResumeContent(data.resume) || !data.resumeId) {
-          if (!cancelled) {
-            setError("That saved resume could not be found. Please choose a resume from Resume Editing.");
+        if (!requestedResumeId && !isNewResumeMode) {
+          const localDraft = readLocalDraft(null);
+
+          if (localDraft) {
+            const loadedTemplate =
+              localDraft.template ?? "blue-02";
+
+            setResume(localDraft.resume);
+            setResumeId(localDraft.resumeId);
+            setHasSavedResume(Boolean(localDraft.resumeId));
+            setIsSamplePreview(false);
+            setTemplate(loadedTemplate);
+            setDesignDescription(localDraft.designDescription);
+            setProfilePhoto(localDraft.profilePhoto);
+
+            if (localDraft.design) {
+              setDesign({
+                ...getTemplateDesign(loadedTemplate),
+                ...localDraft.design,
+                custom: {
+                  ...getDefaultCustomDesign(loadedTemplate),
+                  ...((localDraft.design as ResumeDesign & { custom?: object })
+                    .custom ?? {}),
+                },
+              });
+            } else {
+              setDesign({
+                ...getTemplateDesign(loadedTemplate),
+                custom: getDefaultCustomDesign(loadedTemplate),
+              });
+            }
+
+            setMessage("Recovered your saved local draft.");
             setIsHydrated(true);
+            return;
           }
+        }
+
+        /*
+         * Explicit ?resumeId=... is strict: never silently open another
+         * resume. This prevents the cross-resume/cross-account behavior that
+         * caused the earlier Continue Editing problem.
+         */
+        if (requestedResumeId) {
+          setError(
+            "That saved resume could not be found. Please choose a resume from Resume Editing.",
+          );
+          setIsHydrated(true);
           return;
         }
+
+        /*
+         * Normal editor with no saved resume: start from the selected/default
+         * template sample. The sample is only preview content and is never
+         * autosaved until the user actually edits it.
+         */
+        const firstTemplate: TemplateType = "blue-02";
+        setTemplate(firstTemplate);
+        setResume(getTemplateDemoResume(firstTemplate));
+        setDesign({
+          ...getTemplateDesign(firstTemplate),
+          custom: getDefaultCustomDesign(firstTemplate),
+        });
+        setDesignDescription("");
+        setProfilePhoto(null);
+        setProfilePhotoFile(null);
+        setResumeId(null);
+        setHasSavedResume(false);
+        setIsSamplePreview(true);
       } catch (loadError) {
         if (!cancelled) {
           setError(
@@ -3620,7 +3790,8 @@ export default function ResumeBuilderPage() {
         <aside className="hidden lg:block">
   <div className="sticky top-24">
     <ResumePreviewStudio
-      resume={resume ?? getTemplateDemoResume(template)}
+      resume={resume}
+      sampleResume={getTemplateDemoResume(template)}
       design={design}
       template={template}
       profilePhoto={profilePhoto}

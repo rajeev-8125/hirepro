@@ -622,12 +622,24 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const { data: ownedResume } = await supabase
+    const { data: ownedResume, error: ownershipError } = await supabase
       .from("resumes")
-      .select("id")
+      .select("id,profile_image_path")
       .eq("id", resumeId)
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (ownershipError) {
+      console.error("[Resume delete] ownership:", ownershipError);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to verify resume ownership.",
+        },
+        { status: 500 },
+      );
+    }
 
     if (!ownedResume) {
       return NextResponse.json(
@@ -684,6 +696,29 @@ export async function DELETE(request: Request) {
         },
         { status: 500 },
       );
+    }
+
+    if (ownedResume.profile_image_path) {
+      const { data: otherResumeUsingPhoto } = await supabase
+        .from("resumes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("profile_image_path", ownedResume.profile_image_path)
+        .limit(1)
+        .maybeSingle();
+
+      if (!otherResumeUsingPhoto) {
+        const { error: storageError } = await supabase.storage
+          .from("profile-images")
+          .remove([ownedResume.profile_image_path]);
+
+        if (storageError) {
+          console.warn(
+            "[Resume delete] profile image cleanup warning:",
+            storageError,
+          );
+        }
+      }
     }
 
     return NextResponse.json({

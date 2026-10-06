@@ -13,29 +13,27 @@ import {
 import type { ResumeData } from "@/lib/ai/resume-schema";
 import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
 import LiveResumePreview from "@/components/resume/LiveResumePreview";
+import { getTemplateDesign } from "@/lib/resume/template-library";
 import {
-  getTemplateDefinition,
-} from "@/lib/resume/template-library";
+  getDefaultCustomDesign,
+  mergeDesign,
+} from "@/lib/resume/design-utils";
 import type { ResumeTemplateId } from "@/lib/resume/template-types";
 
 type ResumePreviewStudioProps = {
   resume?: ResumeData | null;
-  design: ResumeDesign | null;
+  sampleResume?: ResumeData | null;
+  design?: ResumeDesign | null;
   template: ResumeTemplateId;
   profilePhoto?: string | null;
   isSamplePreview?: boolean;
   isSaving?: boolean;
 };
 
-const DEFAULT_RESUME: ResumeData = {
+const EMPTY_RESUME: ResumeData = {
   personal: {
-    name: "",
-    email: "",
-    phone: "",
-    location: "",
-    linkedin: "",
-    github: "",
-    website: "",
+    name: "", email: "", phone: "", location: "",
+    linkedin: "", github: "", website: "",
   },
   professionalSummary: "",
   skills: [],
@@ -48,45 +46,39 @@ const DEFAULT_RESUME: ResumeData = {
   additionalSections: [],
 };
 
-const ZOOM_LEVELS = [50, 60, 70, 80, 90, 100, 110, 120];
-
-function getTemplateSample(template: ResumeTemplateId): ResumeData {
-  const definition = getTemplateDefinition(template) as
-    | {
-        sampleResume?: ResumeData;
-        demoResume?: ResumeData;
-      }
-    | undefined;
-
-  if (definition?.sampleResume) {
-    return definition.sampleResume;
-  }
-
-  if (definition?.demoResume) {
-    return definition.demoResume;
-  }
-
-  return DEFAULT_RESUME;
-}
-
 function isUsableResume(value?: ResumeData | null): value is ResumeData {
   if (!value) return false;
-
   return Boolean(
-    value.personal ||
-      value.professionalSummary ||
-      value.skills?.length ||
-      value.experience?.length ||
-      value.education?.length ||
-      value.projects?.length ||
-      value.certifications?.length ||
-      value.achievements?.length ||
-      value.languages?.length,
+    value.personal?.name?.trim() ||
+    value.personal?.email?.trim() ||
+    value.professionalSummary?.trim() ||
+    value.skills?.some((g) => g.category?.trim() || g.items?.some((x) => x?.trim())) ||
+    value.experience?.some((x) => x.company?.trim() || x.role?.trim() || x.responsibilities?.some((y) => y?.trim())) ||
+    value.education?.some((x) => x.institution?.trim() || x.degree?.trim() || x.field?.trim()) ||
+    value.projects?.some((x) => x.name?.trim() || x.description?.trim()) ||
+    value.certifications?.some((x) => x.name?.trim() || x.issuer?.trim()) ||
+    value.achievements?.some((x) => x?.trim()) ||
+    value.languages?.some((x) => x?.trim()) ||
+    value.additionalSections?.some((x) => x.title?.trim() || x.items?.some((y) => y?.trim()))
   );
 }
 
+function getEffectiveDesign(template: ResumeTemplateId, design?: ResumeDesign | null): ResumeDesign {
+  const base = getTemplateDesign(template);
+  const defaults = getDefaultCustomDesign(template);
+  if (!design) return mergeDesign(base, defaults);
+  const savedCustom = (design as ResumeDesign & { custom?: object }).custom ?? {};
+  return mergeDesign(
+    { ...base, ...design, colors: { ...base.colors, ...(design.colors ?? {}) }, typography: { ...base.typography, ...(design.typography ?? {}) }, header: { ...base.header, ...(design.header ?? {}) }, sections: { ...base.sections, ...(design.sections ?? {}) }, sidebar: { ...base.sidebar, ...(design.sidebar ?? {}) }, visual: { ...base.visual, ...(design.visual ?? {}) }, ats: { ...base.ats, ...(design.ats ?? {}) } },
+    { ...defaults, ...(savedCustom as Partial<ReturnType<typeof getDefaultCustomDesign>>) },
+  );
+}
+
+const ZOOM_LEVELS = [50, 60, 70, 80, 90, 100, 110, 120];
+
 export default function ResumePreviewStudio({
   resume,
+  sampleResume,
   design,
   template,
   profilePhoto,
@@ -102,8 +94,14 @@ export default function ResumePreviewStudio({
       return resume;
     }
 
-    return getTemplateSample(template);
-  }, [resume, template]);
+    if (isUsableResume(sampleResume)) return sampleResume;
+    return EMPTY_RESUME;
+  }, [resume, sampleResume]);
+
+  const effectiveDesign = useMemo(
+    () => getEffectiveDesign(template, design),
+    [template, design],
+  );
 
   const zoom = ZOOM_LEVELS[zoomIndex];
 
@@ -179,7 +177,7 @@ export default function ResumePreviewStudio({
         >
           <LiveResumePreview
             resume={effectiveResume}
-            design={design ?? ({} as ResumeDesign)}
+            design={effectiveDesign}
             template={template}
             profilePhoto={profilePhoto}
           />
