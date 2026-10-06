@@ -1280,11 +1280,36 @@ export default function LiveResumePreview({
   template,
   profilePhoto,
 }: {
-  resume: ResumeData;
+  resume?: ResumeData | null;
   design: ResumeDesign;
   template: ResumeTemplateId;
   profilePhoto?: string | null;
 }) {
+  // The builder can briefly render the preview before the resume state has
+  // finished loading/initializing. Always pass a complete ResumeData object
+  // to the individual template renderers so they never crash on properties
+  // such as professionalSummary.
+  const safeResume: ResumeData = resume ?? {
+    personal: {
+      name: "",
+      email: "",
+      phone: "",
+      location: "",
+      linkedin: "",
+      github: "",
+      website: "",
+    },
+    professionalSummary: "",
+    skills: [],
+    experience: [],
+    education: [],
+    projects: [],
+    certifications: [],
+    achievements: [],
+    languages: [],
+    additionalSections: [],
+  };
+
   const definition = getTemplateDefinition(template);
   const custom = getCustomDesign(design);
 
@@ -1300,7 +1325,7 @@ export default function LiveResumePreview({
     case "blue-01":
       content = (
         <Blue01
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />
@@ -1310,7 +1335,7 @@ export default function LiveResumePreview({
     case "blue-02":
       content = (
         <Blue02
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />
@@ -1320,7 +1345,7 @@ export default function LiveResumePreview({
     case "blue-03":
       content = (
         <Blue03
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />
@@ -1330,7 +1355,7 @@ export default function LiveResumePreview({
     case "blue-04":
       content = (
         <Blue04
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />
@@ -1340,7 +1365,7 @@ export default function LiveResumePreview({
     case "student":
       content = (
         <StudentTemplate
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />
@@ -1351,7 +1376,7 @@ export default function LiveResumePreview({
     case "infographic-02":
       content = (
         <InfographicTemplate
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
         />
       );
@@ -1360,7 +1385,7 @@ export default function LiveResumePreview({
     default:
       content = (
         <Blue02
-          resume={resume}
+          resume={safeResume}
           custom={effectiveCustom}
           profilePhoto={profilePhoto}
         />

@@ -35,12 +35,13 @@ import {
   Eye,
   MoreHorizontal,
 } from "lucide-react";
-
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { ResumeData } from "@/lib/ai/resume-schema";
 import type { ResumeDesign } from "@/lib/ai/resume-design-schema";
 import LiveResumePreview from "@/components/resume/LiveResumePreview";
+import TemplateGallery from "@/components/resume/TemplateGallery";
+import ResumePreviewStudio from "@/components/resume/ResumePreviewStudio";
 import AIResumeCoach from "@/components/resume/AIResumeCoach";
 import {
   RESUME_TEMPLATES,
@@ -3509,66 +3510,13 @@ export default function ResumeBuilderPage() {
               </div>
             </div>
 
-            <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {RESUME_TEMPLATES.map((item) => {
-                const selected = template === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => selectTemplate(item.id)}
-                    className={`group overflow-hidden rounded-2xl border text-left transition ${
-                      selected
-                        ? "border-blue-600 ring-2 ring-blue-100"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="relative h-[390px] overflow-hidden bg-slate-100 p-3">
-                      <div className="flex h-full items-start justify-center overflow-hidden rounded-xl bg-slate-200 shadow-inner">
-                        <img
-                          src={item.previewImage}
-                          alt={`${item.name} resume template preview`}
-                          loading="lazy"
-                          className="h-auto min-h-full w-full object-contain object-top bg-white transition duration-300 group-hover:scale-[1.015]"
-                          onError={(event) => {
-                            const image = event.currentTarget;
-                            image.style.display = "none";
-                            const fallback = image.parentElement?.querySelector(
-                              `[data-template-fallback=\"${item.id}\"]`,
-                            ) as HTMLElement | null;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                        <div
-                          data-template-fallback={item.id}
-                          className="absolute inset-3 hidden flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center"
-                        >
-                          <LayoutTemplate className="mb-3 h-9 w-9 text-slate-300" />
-                          <p className="text-sm font-black text-slate-700">{item.name}</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">Template preview unavailable in this deployment. Commit the PNG from public/resume-templates to Git.</p>
-                        </div>
-                      </div>
-                      {selected && (
-                        <span className="absolute right-5 top-5 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-black text-white shadow-lg">
-                          <Check className="h-3 w-3" /> Selected
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-slate-900">{item.name}</p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-500">{item.category}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-500">{item.layout}</span>
-                      </div>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">{item.description}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
+            <div className="mb-6">
+  <TemplateGallery
+    templates={RESUME_TEMPLATES}
+    selectedId={template}
+    onSelect={selectTemplate}
+  />
+</div>
             {design && (
               <div className="space-y-5 border-t border-slate-100 pt-5">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -3670,33 +3618,17 @@ export default function ResumeBuilderPage() {
         {/* PREVIEW */}
 
         <aside className="hidden lg:block">
-          <div className="sticky top-24 space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3 px-2">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Live preview</p>
-                  <h2 className="text-sm font-black">{getTemplateDefinition(template).name}</h2>
-                  <p className="mt-1 text-[10px] font-semibold text-slate-400">
-                    {isSamplePreview ? "Template sample — replace with your information" : "Your resume — edits update live"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
-                  <SlidersHorizontal className="h-3 w-3" /> Live
-                </div>
-              </div>
-              <div className="max-h-[calc(100vh-155px)] overflow-auto rounded-xl bg-slate-200 p-3">
-                {design && (
-                  <LiveResumePreview
-                    resume={resume}
-                    design={design}
-                    template={template}
-                    profilePhoto={profilePhoto}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
+  <div className="sticky top-24">
+    <ResumePreviewStudio
+      resume={resume ?? getTemplateDemoResume(template)}
+      design={design}
+      template={template}
+      profilePhoto={profilePhoto}
+      isSamplePreview={isSamplePreview}
+      isSaving={isSaving}
+    />
+  </div>
+</aside>
       </div>
       {isHistoryOpen && (
         <div className="fixed inset-0 z-[100] flex justify-end bg-slate-950/30 backdrop-blur-[2px]">
